@@ -37,7 +37,7 @@ export async function extractTextFromImage(
     return {
       text: result.data.text.trim(),
       confidence: result.data.confidence,
-      language: result.data.language || language,
+      language: (result.data as any).language || language,
       words,
     };
   } catch (error) {

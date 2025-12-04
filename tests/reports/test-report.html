@@ -45,7 +45,7 @@
   <div class="container">
     <div class="header">
       <h1>HRM Integration Test Report</h1>
-      <p class="timestamp">Generated: 2025-12-04T06:52:26.455Z</p>
+      <p class="timestamp">Generated: 2025-12-04T07:50:30.080Z</p>
     </div>
 
     <div class="overall-status success">
@@ -55,11 +55,11 @@
     <div class="summary">
       <div class="stat-card total">
         <h3>Total Tests</h3>
-        <div class="value">57</div>
+        <div class="value">261</div>
       </div>
       <div class="stat-card passed">
         <h3>Passed</h3>
-        <div class="value">57</div>
+        <div class="value">261</div>
       </div>
       <div class="stat-card failed">
         <h3>Failed</h3>
@@ -76,7 +76,7 @@
     
       <div class="suite">
         <div class="suite-header">
-          <h2>attendance.test.ts</h2>
+          <h2>ai-chatbot.test.ts</h2>
           <span class="suite-status passed">PASSED</span>
         </div>
         <div class="test-list">
@@ -84,7 +84,225 @@
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Attendance Service Integration Tests Check-in/Check-out POST /api/attendance/check-in - Employee Check-in should record employee check-in</span>
+                <span>AI Chatbot Service Integration Tests Chat Conversations POST /api/chatbot/chat - Send Message should send a message to chatbot</span>
+              </div>
+              <span class="test-duration">16ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI Chatbot Service Integration Tests Chat Conversations GET /api/chatbot/conversations/:sessionId - Get Conversation should return conversation history</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI Chatbot Service Integration Tests Chat Conversations POST /api/chatbot/conversations/:sessionId/feedback/:messageId - Submit Feedback should submit feedback on response</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI Chatbot Service Integration Tests Chat Conversations POST /api/chatbot/conversations/:sessionId/escalate - Escalate Conversation should escalate to human agent</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI Chatbot Service Integration Tests Knowledge Base POST /api/chatbot/knowledge - Create Article should create a knowledge article</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI Chatbot Service Integration Tests Knowledge Base GET /api/chatbot/knowledge - List Articles should return knowledge articles</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI Chatbot Service Integration Tests Intent Management POST /api/chatbot/intents - Create Intent should create a chatbot intent</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI Chatbot Service Integration Tests Intent Management GET /api/chatbot/intents - List Intents should return chatbot intents</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI Chatbot Service Integration Tests Analytics GET /api/chatbot/analytics - Get Chatbot Analytics should return chatbot analytics</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>recruitment.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Recruitment Service Integration Tests Job Postings POST /api/recruitment/jobs - Create Job Posting should create a new job posting</span>
+              </div>
+              <span class="test-duration">13ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Recruitment Service Integration Tests Job Postings GET /api/recruitment/jobs - List Job Postings should return list of job postings</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Recruitment Service Integration Tests Job Postings POST /api/recruitment/jobs/:id/publish - Publish Job should publish a job posting</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Recruitment Service Integration Tests Candidates POST /api/recruitment/candidates - Create Candidate should create a new candidate</span>
+              </div>
+              <span class="test-duration">24ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Recruitment Service Integration Tests Candidates GET /api/recruitment/candidates - List Candidates should return list of candidates</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Recruitment Service Integration Tests Applications POST /api/recruitment/applications - Submit Application should submit a job application</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Recruitment Service Integration Tests Applications GET /api/recruitment/applications - List Applications should return list of applications</span>
+              </div>
+              <span class="test-duration">10ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Recruitment Service Integration Tests Applications POST /api/recruitment/applications/:id/stage - Update Stage should update application stage</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Recruitment Service Integration Tests Interviews POST /api/recruitment/interviews - Schedule Interview should schedule an interview</span>
+              </div>
+              <span class="test-duration">15ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Recruitment Service Integration Tests Interviews GET /api/recruitment/interviews - List Interviews should return list of interviews</span>
+              </div>
+              <span class="test-duration">8ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Recruitment Service Integration Tests Offers POST /api/recruitment/offers - Create Offer should create a job offer</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>localization.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Localization Service Integration Tests Languages GET /api/localization/languages - List Languages should return list of supported languages</span>
+              </div>
+              <span class="test-duration">49ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Localization Service Integration Tests Languages POST /api/localization/languages - Add Language should add a new language</span>
+              </div>
+              <span class="test-duration">23ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Localization Service Integration Tests Languages POST /api/localization/languages/seed - Seed Languages should seed default languages</span>
               </div>
               <span class="test-duration">9ms</span>
             </div>
@@ -93,25 +311,25 @@
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Attendance Service Integration Tests Check-in/Check-out POST /api/attendance/check-out - Employee Check-out should record employee check-out</span>
+                <span>Localization Service Integration Tests Translations GET /api/localization/translations - Get All Translations should return all translations</span>
               </div>
-              <span class="test-duration">2ms</span>
+              <span class="test-duration">8ms</span>
             </div>
             
           
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should return list of attendance records</span>
+                <span>Localization Service Integration Tests Translations GET /api/localization/translations/:languageCode/:namespace - Get Namespace Translations should return translations by namespace</span>
               </div>
-              <span class="test-duration">82ms</span>
+              <span class="test-duration">8ms</span>
             </div>
             
           
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should filter attendance by date range</span>
+                <span>Localization Service Integration Tests Translations POST /api/localization/translations - Upsert Translation should upsert a translation</span>
               </div>
               <span class="test-duration">6ms</span>
             </div>
@@ -120,16 +338,25 @@
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should filter attendance by employee</span>
+                <span>Localization Service Integration Tests Translations POST /api/localization/translations/bulk - Bulk Upsert Translations should bulk upsert translations</span>
               </div>
-              <span class="test-duration">1ms</span>
+              <span class="test-duration">4ms</span>
             </div>
             
           
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Attendance Service Integration Tests Attendance Records GET /api/attendance/summary - Get Attendance Summary should return attendance summary</span>
+                <span>Localization Service Integration Tests Currencies GET /api/localization/currencies - List Currencies should return list of currencies</span>
+              </div>
+              <span class="test-duration">7ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Localization Service Integration Tests Currencies POST /api/localization/currencies - Add Currency should add a new currency</span>
               </div>
               <span class="test-duration">5ms</span>
             </div>
@@ -138,18 +365,36 @@
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Attendance Service Integration Tests Attendance Records GET /api/attendance/daily-status - Get Daily Status should return daily attendance status</span>
+                <span>Localization Service Integration Tests Currencies POST /api/localization/currencies/seed - Seed Currencies should seed default currencies</span>
               </div>
-              <span class="test-duration">6ms</span>
+              <span class="test-duration">4ms</span>
             </div>
             
           
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Attendance Service Integration Tests Bulk Operations POST /api/attendance/bulk - Bulk Mark Attendance should mark attendance for multiple employees</span>
+                <span>Localization Service Integration Tests Currencies GET /api/localization/currencies/convert - Convert Currency should convert between currencies</span>
               </div>
-              <span class="test-duration">1ms</span>
+              <span class="test-duration">14ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Localization Service Integration Tests Tenant Localization GET /api/localization/tenant - Get Tenant Localization should return tenant localization settings</span>
+              </div>
+              <span class="test-duration">7ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Localization Service Integration Tests Tenant Localization PUT /api/localization/tenant - Update Tenant Localization should update tenant localization settings</span>
+              </div>
+              <span class="test-duration">8ms</span>
             </div>
             
           
@@ -158,7 +403,7 @@
     
       <div class="suite">
         <div class="suite-header">
-          <h2>employee.test.ts</h2>
+          <h2>benefits.test.ts</h2>
           <span class="suite-status passed">PASSED</span>
         </div>
         <div class="test-list">
@@ -166,16 +411,43 @@
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Employee Service Integration Tests Department Management POST /api/employees/departments - Create Department should create a new department</span>
+                <span>Benefits Service Integration Tests Benefit Plans POST /api/benefits/plans - Create Benefit Plan should create a new benefit plan</span>
               </div>
-              <span class="test-duration">88ms</span>
+              <span class="test-duration">13ms</span>
             </div>
             
           
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Employee Service Integration Tests Department Management GET /api/employees/departments - List Departments should return list of departments</span>
+                <span>Benefits Service Integration Tests Benefit Plans GET /api/benefits/plans - List Benefit Plans should return list of benefit plans</span>
+              </div>
+              <span class="test-duration">13ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Benefits Service Integration Tests Enrollments POST /api/benefits/enrollments - Enroll in Benefits should enroll employee in benefit plan</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Benefits Service Integration Tests Enrollments GET /api/benefits/enrollments/:employeeId - Get Employee Enrollments should return employee benefit enrollments</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Benefits Service Integration Tests Claims POST /api/benefits/claims - Submit Claim should submit a benefit claim</span>
               </div>
               <span class="test-duration">20ms</span>
             </div>
@@ -184,281 +456,27 @@
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Employee Service Integration Tests Employee Management POST /api/employees - Create Employee should create a new employee</span>
+                <span>Benefits Service Integration Tests Claims GET /api/benefits/claims - List Claims should return list of benefit claims</span>
               </div>
-              <span class="test-duration">3ms</span>
+              <span class="test-duration">25ms</span>
             </div>
             
           
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Employee Service Integration Tests Employee Management GET /api/employees - List Employees should return paginated list of employees</span>
+                <span>Benefits Service Integration Tests Wellness Programs GET /api/benefits/wellness - List Wellness Programs should return list of wellness programs</span>
               </div>
-              <span class="test-duration">4ms</span>
+              <span class="test-duration">13ms</span>
             </div>
             
           
             <div class="test-item">
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
-                <span>Employee Service Integration Tests Employee Management GET /api/employees - List Employees should filter employees by department</span>
+                <span>Benefits Service Integration Tests Wellness Programs POST /api/benefits/wellness/activities - Log Activity should log a wellness activity</span>
               </div>
-              <span class="test-duration">1ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Employee Service Integration Tests Employee Management GET /api/employees/:id - Get Employee by ID should return employee details</span>
-              </div>
-              <span class="test-duration">1ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Employee Service Integration Tests Employee Management GET /api/employees/:id - Get Employee by ID should return 404 for non-existent employee</span>
-              </div>
-              <span class="test-duration">3ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Employee Service Integration Tests Employee Management PUT /api/employees/:id - Update Employee should update employee details</span>
-              </div>
-              <span class="test-duration">1ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Employee Service Integration Tests Dashboard Statistics GET /api/employees/dashboard/stats - Get Dashboard Stats should return dashboard statistics</span>
-              </div>
-              <span class="test-duration">3ms</span>
-            </div>
-            
-          
-        </div>
-      </div>
-    
-      <div class="suite">
-        <div class="suite-header">
-          <h2>health.test.ts</h2>
-          <span class="suite-status passed">PASSED</span>
-        </div>
-        <div class="test-list">
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests Service Availability API Gateway should be healthy</span>
-              </div>
-              <span class="test-duration">113ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests Service Availability Auth Service should be healthy</span>
-              </div>
-              <span class="test-duration">5ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests Service Availability Employee Service should be healthy</span>
-              </div>
-              <span class="test-duration">4ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests Service Availability Leave Service should be healthy</span>
-              </div>
-              <span class="test-duration">4ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests Service Availability Attendance Service should be healthy</span>
-              </div>
-              <span class="test-duration">6ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests Service Availability Payroll Service should be healthy</span>
-              </div>
-              <span class="test-duration">6ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests Service Availability Tenant Service should be healthy</span>
-              </div>
-              <span class="test-duration">4ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests Service Availability Notification Service should be healthy</span>
-              </div>
-              <span class="test-duration">3ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests API Gateway Routing should route to auth service</span>
-              </div>
-              <span class="test-duration">3ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests API Gateway Routing should route to employee service</span>
-              </div>
-              <span class="test-duration">3ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests Database Connectivity should have MongoDB connection</span>
-              </div>
-              <span class="test-duration">3ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests Response Format should return JSON responses</span>
-              </div>
-              <span class="test-duration">3ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Service Health Check Tests Response Format should include CORS headers</span>
-              </div>
-              <span class="test-duration">4ms</span>
-            </div>
-            
-          
-        </div>
-      </div>
-    
-      <div class="suite">
-        <div class="suite-header">
-          <h2>leave.test.ts</h2>
-          <span class="suite-status passed">PASSED</span>
-        </div>
-        <div class="test-list">
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Leave Service Integration Tests Leave Types Management GET /api/leaves/types - List Leave Types should return list of leave types</span>
-              </div>
-              <span class="test-duration">105ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Leave Service Integration Tests Leave Types Management POST /api/leaves/types - Create Leave Type should create a new leave type</span>
-              </div>
-              <span class="test-duration">6ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Leave Service Integration Tests Leave Requests POST /api/leaves - Create Leave Request should create a new leave request</span>
-              </div>
-              <span class="test-duration">1ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Leave Service Integration Tests Leave Requests GET /api/leaves - List Leave Requests should return list of leave requests</span>
-              </div>
-              <span class="test-duration">4ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Leave Service Integration Tests Leave Requests GET /api/leaves - List Leave Requests should filter leaves by status</span>
-              </div>
-              <span class="test-duration">3ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Leave Service Integration Tests Leave Requests PATCH /api/leaves/:id/approve - Approve Leave should approve a leave request</span>
-              </div>
-              <span class="test-duration">2ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Leave Service Integration Tests Holidays GET /api/leaves/holidays - List Holidays should return list of holidays</span>
-              </div>
-              <span class="test-duration">4ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Leave Service Integration Tests Holidays POST /api/leaves/holidays - Create Holiday should create a new holiday</span>
-              </div>
-              <span class="test-duration">3ms</span>
-            </div>
-            
-          
-            <div class="test-item">
-              <div class="test-name">
-                <span class="test-icon passed">✓</span>
-                <span>Leave Service Integration Tests Leave Balance GET /api/leaves/balance/:employeeId - Get Leave Balance should return employee leave balance</span>
-              </div>
-              <span class="test-duration">1ms</span>
+              <span class="test-duration">16ms</span>
             </div>
             
           
@@ -477,7 +495,7 @@
                 <span class="test-icon passed">✓</span>
                 <span>Payroll Service Integration Tests Salary Structure Management POST /api/payroll/structures - Create Salary Structure should create a new salary structure</span>
               </div>
-              <span class="test-duration">109ms</span>
+              <span class="test-duration">78ms</span>
             </div>
             
           
@@ -486,7 +504,7 @@
                 <span class="test-icon passed">✓</span>
                 <span>Payroll Service Integration Tests Salary Structure Management GET /api/payroll/structures - List Salary Structures should return list of salary structures</span>
               </div>
-              <span class="test-duration">6ms</span>
+              <span class="test-duration">5ms</span>
             </div>
             
           
@@ -495,7 +513,7 @@
                 <span class="test-icon passed">✓</span>
                 <span>Payroll Service Integration Tests Employee Salary Assignment POST /api/payroll/employee-salary - Assign Salary should assign salary structure to employee</span>
               </div>
-              <span class="test-duration">2ms</span>
+              <span class="test-duration">1ms</span>
             </div>
             
           
@@ -504,7 +522,7 @@
                 <span class="test-icon passed">✓</span>
                 <span>Payroll Service Integration Tests Employee Salary Assignment GET /api/payroll/employee-salary/:employeeId - Get Employee Salary should return employee salary details</span>
               </div>
-              <span class="test-duration">2ms</span>
+              <span class="test-duration">0ms</span>
             </div>
             
           
@@ -513,7 +531,7 @@
                 <span class="test-icon passed">✓</span>
                 <span>Payroll Service Integration Tests Payroll Generation POST /api/payroll/generate - Generate Payroll should generate payroll for an employee</span>
               </div>
-              <span class="test-duration">1ms</span>
+              <span class="test-duration">0ms</span>
             </div>
             
           
@@ -531,7 +549,7 @@
                 <span class="test-icon passed">✓</span>
                 <span>Payroll Service Integration Tests Payroll Records GET /api/payroll - List Payrolls should return list of payroll records</span>
               </div>
-              <span class="test-duration">3ms</span>
+              <span class="test-duration">2ms</span>
             </div>
             
           
@@ -558,7 +576,7 @@
                 <span class="test-icon passed">✓</span>
                 <span>Payroll Service Integration Tests Payroll Processing PATCH /api/payroll/:id/process - Process Payroll should process a payroll record</span>
               </div>
-              <span class="test-duration">0ms</span>
+              <span class="test-duration">1ms</span>
             </div>
             
           
@@ -566,6 +584,1805 @@
               <div class="test-name">
                 <span class="test-icon passed">✓</span>
                 <span>Payroll Service Integration Tests Payroll Processing PATCH /api/payroll/:id/pay - Mark as Paid should mark payroll as paid</span>
+              </div>
+              <span class="test-duration">1ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>document.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Document Service Integration Tests Document Management GET /api/documents - List Documents should return list of documents</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Document Service Integration Tests Document Management GET /api/documents/expiring - Get Expiring Documents should return expiring documents</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Document Service Integration Tests Document Management POST /api/documents/:id/share - Share Document should share a document</span>
+              </div>
+              <span class="test-duration">10ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Document Service Integration Tests Document Management POST /api/documents/:id/sign - Sign Document should request document signature</span>
+              </div>
+              <span class="test-duration">15ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Document Service Integration Tests Document Management GET /api/documents/:id/audit - Get Audit Trail should return document audit trail</span>
+              </div>
+              <span class="test-duration">28ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Document Service Integration Tests Document Templates POST /api/documents/templates - Create Template should create a document template</span>
+              </div>
+              <span class="test-duration">22ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Document Service Integration Tests Document Templates GET /api/documents/templates - List Templates should return list of templates</span>
+              </div>
+              <span class="test-duration">7ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Document Service Integration Tests Document Templates GET /api/documents/templates/:id - Get Template should return template details</span>
+              </div>
+              <span class="test-duration">11ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>grievance.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Grievance Service Integration Tests Grievance Management POST /api/grievances - Submit Grievance should submit a new grievance</span>
+              </div>
+              <span class="test-duration">13ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Grievance Service Integration Tests Grievance Management GET /api/grievances - List Grievances should return list of grievances</span>
+              </div>
+              <span class="test-duration">12ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Grievance Service Integration Tests Grievance Management GET /api/grievances/:id - Get Grievance Details should return grievance details</span>
+              </div>
+              <span class="test-duration">25ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Grievance Service Integration Tests Grievance Actions POST /api/grievances/:id/assign - Assign Grievance should assign grievance to handler</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Grievance Service Integration Tests Grievance Actions POST /api/grievances/:id/escalate - Escalate Grievance should escalate grievance</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Grievance Service Integration Tests Grievance Actions POST /api/grievances/:id/evidence - Add Evidence should add evidence to grievance</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Grievance Service Integration Tests Investigation POST /api/grievances/:id/investigation/start - Start Investigation should start grievance investigation</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Grievance Service Integration Tests Investigation POST /api/grievances/:id/investigation/findings - Submit Findings should submit investigation findings</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Grievance Service Integration Tests Resolution POST /api/grievances/:id/resolve - Resolve Grievance should resolve grievance</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Grievance Service Integration Tests Resolution POST /api/grievances/:id/close - Close Grievance should close grievance</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Grievance Service Integration Tests Statistics GET /api/grievances/stats - Get Grievance Statistics should return grievance statistics</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>health.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests Service Availability API Gateway should be healthy</span>
+              </div>
+              <span class="test-duration">67ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests Service Availability Auth Service should be healthy</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests Service Availability Employee Service should be healthy</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests Service Availability Leave Service should be healthy</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests Service Availability Attendance Service should be healthy</span>
+              </div>
+              <span class="test-duration">10ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests Service Availability Payroll Service should be healthy</span>
+              </div>
+              <span class="test-duration">16ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests Service Availability Tenant Service should be healthy</span>
+              </div>
+              <span class="test-duration">18ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests Service Availability Notification Service should be healthy</span>
+              </div>
+              <span class="test-duration">28ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests API Gateway Routing should route to auth service</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests API Gateway Routing should route to employee service</span>
+              </div>
+              <span class="test-duration">14ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests Database Connectivity should have MongoDB connection</span>
+              </div>
+              <span class="test-duration">12ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests Response Format should return JSON responses</span>
+              </div>
+              <span class="test-duration">28ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Service Health Check Tests Response Format should include CORS headers</span>
+              </div>
+              <span class="test-duration">23ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>expense.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Expense Service Integration Tests Expense Categories POST /api/expenses/categories - Create Category should create an expense category</span>
+              </div>
+              <span class="test-duration">13ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Expense Service Integration Tests Expense Categories GET /api/expenses/categories - List Categories should return list of expense categories</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Expense Service Integration Tests Expenses POST /api/expenses - Create Expense should create a new expense</span>
+              </div>
+              <span class="test-duration">9ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Expense Service Integration Tests Expenses GET /api/expenses - List Expenses should return list of expenses</span>
+              </div>
+              <span class="test-duration">28ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Expense Service Integration Tests Expense Reports POST /api/expenses/reports - Create Report should create an expense report</span>
+              </div>
+              <span class="test-duration">14ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Expense Service Integration Tests Expense Reports GET /api/expenses/reports - List Reports should return list of expense reports</span>
+              </div>
+              <span class="test-duration">42ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Expense Service Integration Tests Expense Reports POST /api/expenses/reports/:id/submit - Submit Report should submit expense report for approval</span>
+              </div>
+              <span class="test-duration">12ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Expense Service Integration Tests Travel Requests POST /api/expenses/travel-requests - Create Travel Request should create a travel request</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Expense Service Integration Tests Travel Requests GET /api/expenses/travel-requests - List Travel Requests should return list of travel requests</span>
+              </div>
+              <span class="test-duration">13ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>analytics.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests KPI Management POST /api/analytics/kpis - Create KPI should create a new KPI</span>
+              </div>
+              <span class="test-duration">25ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests KPI Management GET /api/analytics/kpis - List KPIs should return list of KPIs</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests KPI Management GET /api/analytics/kpis/defaults - Get Default KPIs should return default KPIs</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests Dashboard Management POST /api/analytics/dashboards - Create Dashboard should create a new dashboard</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests Dashboard Management GET /api/analytics/dashboards - List Dashboards should return list of dashboards</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests Snapshots GET /api/analytics/snapshots - List Snapshots should return list of analytics snapshots</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests Snapshots GET /api/analytics/snapshots/latest - Get Latest Snapshot should return latest analytics snapshot</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests Predictions GET /api/analytics/predictions - Get Predictions should return predictions</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests Predictions GET /api/analytics/predictions/high-risk - Get High Risk Employees should return high risk employees</span>
+              </div>
+              <span class="test-duration">11ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests Trends & Comparisons GET /api/analytics/trends - Get Trend Analysis should return trend analysis</span>
+              </div>
+              <span class="test-duration">12ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests Trends & Comparisons GET /api/analytics/comparison/departments - Get Department Comparison should return department comparison</span>
+              </div>
+              <span class="test-duration">8ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Analytics Service Integration Tests Trends & Comparisons GET /api/analytics/executive-summary - Get Executive Summary should return executive summary</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>compliance.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Compliance Service Integration Tests Policy Management POST /api/compliance/policies - Create Policy should create a new compliance policy</span>
+              </div>
+              <span class="test-duration">15ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Compliance Service Integration Tests Policy Management GET /api/compliance/policies - List Policies should return list of policies</span>
+              </div>
+              <span class="test-duration">12ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Compliance Service Integration Tests Policy Management POST /api/compliance/policies/:id/publish - Publish Policy should publish a policy</span>
+              </div>
+              <span class="test-duration">10ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Compliance Service Integration Tests Policy Management POST /api/compliance/policies/:id/acknowledge - Acknowledge Policy should acknowledge a policy</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Compliance Service Integration Tests Compliance Training POST /api/compliance/trainings - Create Training should create a compliance training</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Compliance Service Integration Tests Compliance Training GET /api/compliance/trainings - List Trainings should return list of trainings</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Compliance Service Integration Tests Work Permits POST /api/compliance/work-permits - Create Work Permit should create a work permit record</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Compliance Service Integration Tests Work Permits GET /api/compliance/work-permits - List Work Permits should return list of work permits</span>
+              </div>
+              <span class="test-duration">11ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Compliance Service Integration Tests Work Permits POST /api/compliance/work-permits/:id/renew - Renew Work Permit should renew a work permit</span>
+              </div>
+              <span class="test-duration">17ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Compliance Service Integration Tests Statistics GET /api/compliance/stats - Get Compliance Statistics should return compliance statistics</span>
+              </div>
+              <span class="test-duration">23ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>asset.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Asset Service Integration Tests Asset Management POST /api/assets - Create Asset should create a new asset</span>
+              </div>
+              <span class="test-duration">13ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Asset Service Integration Tests Asset Management GET /api/assets - List Assets should return list of assets</span>
+              </div>
+              <span class="test-duration">13ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Asset Service Integration Tests Asset Management GET /api/assets/:id - Get Asset Details should return asset details</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Asset Service Integration Tests Asset Management POST /api/assets/:id/assign - Assign Asset should assign asset to employee</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Asset Service Integration Tests Asset Management POST /api/assets/:id/return - Return Asset should mark asset as returned</span>
+              </div>
+              <span class="test-duration">11ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Asset Service Integration Tests Asset Requests POST /api/assets/requests - Create Request should create an asset request</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Asset Service Integration Tests Asset Requests GET /api/assets/requests - List Requests should return list of asset requests</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Asset Service Integration Tests Asset Requests POST /api/assets/requests/:id/approve - Approve Request should approve an asset request</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Asset Service Integration Tests Asset Maintenance POST /api/assets/:id/maintenance - Log Maintenance should log asset maintenance</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Asset Service Integration Tests Asset Maintenance GET /api/assets/:id/history - Get Asset History should return asset history</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>chat.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Chat Service Integration Tests Chat Room Management POST /api/chat/rooms - Create Chat Room should create a new chat room</span>
+              </div>
+              <span class="test-duration">14ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Chat Service Integration Tests Chat Room Management GET /api/chat/rooms - List Chat Rooms should return list of chat rooms</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Chat Service Integration Tests Chat Room Management GET /api/chat/rooms/:id - Get Chat Room should return chat room details</span>
+              </div>
+              <span class="test-duration">13ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Chat Service Integration Tests Chat Room Management POST /api/chat/rooms/:id/participants - Add Participants should add participants to room</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Chat Service Integration Tests Messages POST /api/chat/rooms/:id/messages - Send Message should send a message</span>
+              </div>
+              <span class="test-duration">17ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Chat Service Integration Tests Messages GET /api/chat/rooms/:id/messages - Get Messages should return room messages</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Chat Service Integration Tests Messages PUT /api/chat/messages/:id - Edit Message should edit a message</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Chat Service Integration Tests Messages POST /api/chat/messages/:id/reactions - Add Reaction should add reaction to message</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Chat Service Integration Tests Messages POST /api/chat/messages/:id/pin - Pin Message should toggle pin message</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Chat Service Integration Tests Search GET /api/chat/search - Search Messages should search messages</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>ai-ml.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI/ML Service Integration Tests Resume Analysis GET /api/ai/resume/:analysisId - Get Resume Analysis should return resume analysis results</span>
+              </div>
+              <span class="test-duration">14ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI/ML Service Integration Tests Resume Analysis POST /api/ai/resume/:analysisId/match-jobs - Match Resume to Jobs should match resume to available jobs</span>
+              </div>
+              <span class="test-duration">36ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI/ML Service Integration Tests Predictions - Attrition POST /api/ai/predictions/attrition/:employeeId - Get Attrition Prediction should predict employee attrition risk</span>
+              </div>
+              <span class="test-duration">20ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI/ML Service Integration Tests Predictions - Attrition POST /api/ai/predictions/attrition/batch - Batch Attrition Predictions should predict attrition for multiple employees</span>
+              </div>
+              <span class="test-duration">21ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI/ML Service Integration Tests Predictions - Performance POST /api/ai/predictions/performance/:employeeId - Get Performance Prediction should predict employee performance</span>
+              </div>
+              <span class="test-duration">35ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI/ML Service Integration Tests Predictions - Salary POST /api/ai/predictions/salary - Get Salary Prediction should predict salary recommendation</span>
+              </div>
+              <span class="test-duration">16ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI/ML Service Integration Tests Skill Matching POST /api/ai/skills/match-candidates - Match Candidates should match candidates to job requirements</span>
+              </div>
+              <span class="test-duration">39ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI/ML Service Integration Tests Skill Matching POST /api/ai/skills/gap-analysis - Analyze Skill Gaps should analyze team skill gaps</span>
+              </div>
+              <span class="test-duration">16ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI/ML Service Integration Tests Skill Matching POST /api/ai/skills/learning-path - Get Learning Path should generate learning path</span>
+              </div>
+              <span class="test-duration">29ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI/ML Service Integration Tests Sentiment Analysis POST /api/ai/sentiment/analyze - Analyze Sentiment should analyze feedback sentiment</span>
+              </div>
+              <span class="test-duration">9ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>AI/ML Service Integration Tests ML Models GET /api/ai/models - List ML Models should return list of ML models</span>
+              </div>
+              <span class="test-duration">12ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>onboarding.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Onboarding Service Integration Tests Workflow Templates POST /api/onboarding/templates - Create Template should create an onboarding workflow template</span>
+              </div>
+              <span class="test-duration">43ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Onboarding Service Integration Tests Workflow Templates GET /api/onboarding/templates - List Templates should return list of workflow templates</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Onboarding Service Integration Tests Onboarding Workflows POST /api/onboarding/workflows - Start Onboarding should start an onboarding workflow for employee</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Onboarding Service Integration Tests Onboarding Workflows GET /api/onboarding/workflows - List Workflows should return list of active onboarding workflows</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Onboarding Service Integration Tests Onboarding Workflows GET /api/onboarding/workflows/:id/progress - Get Progress should return onboarding progress</span>
+              </div>
+              <span class="test-duration">38ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Onboarding Service Integration Tests Onboarding Tasks POST /api/onboarding/tasks/:id/complete - Complete Task should complete an onboarding task</span>
+              </div>
+              <span class="test-duration">10ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Onboarding Service Integration Tests Offboarding POST /api/onboarding/offboarding - Start Offboarding should start an offboarding workflow</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Onboarding Service Integration Tests Offboarding GET /api/onboarding/offboarding/:id/checklist - Get Checklist should return offboarding checklist</span>
+              </div>
+              <span class="test-duration">9ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>workforce.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Workforce Service Integration Tests Position Management POST /api/workforce/positions - Create Position should create a new position</span>
+              </div>
+              <span class="test-duration">49ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Workforce Service Integration Tests Position Management GET /api/workforce/positions - List Positions should return list of positions</span>
+              </div>
+              <span class="test-duration">11ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Workforce Service Integration Tests Position Management PATCH /api/workforce/positions/:id/headcount - Update Headcount should update position headcount</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Workforce Service Integration Tests Headcount Planning POST /api/workforce/headcount-plans - Create Headcount Plan should create a headcount plan</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Workforce Service Integration Tests Headcount Planning GET /api/workforce/headcount-plans - List Headcount Plans should return list of headcount plans</span>
+              </div>
+              <span class="test-duration">18ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Workforce Service Integration Tests Headcount Planning POST /api/workforce/headcount-plans/:id/submit - Submit Plan should submit headcount plan for approval</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Workforce Service Integration Tests Succession Planning POST /api/workforce/succession-plans - Create Succession Plan should create a succession plan</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Workforce Service Integration Tests Succession Planning GET /api/workforce/succession-plans - List Succession Plans should return list of succession plans</span>
+              </div>
+              <span class="test-duration">15ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Workforce Service Integration Tests Succession Planning POST /api/workforce/succession-plans/:id/successors - Add Successor should add a successor candidate</span>
+              </div>
+              <span class="test-duration">13ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Workforce Service Integration Tests Analytics GET /api/workforce/analytics - Get Workforce Analytics should return workforce analytics</span>
+              </div>
+              <span class="test-duration">7ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Workforce Service Integration Tests Analytics GET /api/workforce/org-chart - Get Org Chart should return organization chart</span>
+              </div>
+              <span class="test-duration">7ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>integration-service.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests Webhooks POST /api/integrations/webhooks - Create Webhook should create a new webhook</span>
+              </div>
+              <span class="test-duration">17ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests Webhooks GET /api/integrations/webhooks - List Webhooks should return list of webhooks</span>
+              </div>
+              <span class="test-duration">18ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests Webhooks GET /api/integrations/webhooks/events - Get Available Events should return available webhook events</span>
+              </div>
+              <span class="test-duration">11ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests Webhooks POST /api/integrations/webhooks/:id/test - Test Webhook should test webhook delivery</span>
+              </div>
+              <span class="test-duration">23ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests API Keys POST /api/integrations/api-keys - Create API Key should create a new API key</span>
+              </div>
+              <span class="test-duration">10ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests API Keys GET /api/integrations/api-keys - List API Keys should return list of API keys</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests Third-party Integrations POST /api/integrations/integrations - Create Integration should create a new integration</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests Third-party Integrations GET /api/integrations/integrations - List Integrations should return list of integrations</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests Third-party Integrations POST /api/integrations/integrations/:id/test - Test Integration should test integration connection</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests SSO Configuration POST /api/integrations/sso - Create SSO Config should create SSO configuration</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests SSO Configuration GET /api/integrations/sso - List SSO Configs should return list of SSO configurations</span>
+              </div>
+              <span class="test-duration">7ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests SSO Configuration GET /api/integrations/sso/metadata - Get SSO Metadata should return SSO metadata</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Integration Service Tests Calendar Sync POST /api/integrations/calendar/connect - Connect Calendar should connect calendar integration</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>reports.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Standard Reports GET /api/reports/standard/employees - Employee Report should return employee report</span>
+              </div>
+              <span class="test-duration">43ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Standard Reports GET /api/reports/standard/attendance - Attendance Report should return attendance report</span>
+              </div>
+              <span class="test-duration">25ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Standard Reports GET /api/reports/standard/leaves - Leave Report should return leave report</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Standard Reports GET /api/reports/standard/payroll - Payroll Report should return payroll report</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Standard Reports GET /api/reports/standard/recruitment - Recruitment Report should return recruitment report</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Standard Reports GET /api/reports/standard/performance - Performance Report should return performance report</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Standard Reports GET /api/reports/standard/training - Training Report should return training report</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Custom Reports POST /api/reports/custom - Create Custom Report should create a custom report</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Custom Reports GET /api/reports/custom - List Custom Reports should return list of custom reports</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Custom Reports POST /api/reports/custom/:id/execute - Execute Report should execute a custom report</span>
+              </div>
+              <span class="test-duration">22ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Custom Reports GET /api/reports/executions - Get Report Executions should return report execution history</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Dashboards POST /api/reports/dashboards - Create Dashboard should create a dashboard</span>
+              </div>
+              <span class="test-duration">7ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Dashboards GET /api/reports/dashboards - List Dashboards should return list of dashboards</span>
+              </div>
+              <span class="test-duration">10ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Dashboards POST /api/reports/dashboards/:id/widgets - Add Widget should add a widget to dashboard</span>
+              </div>
+              <span class="test-duration">11ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Dashboards POST /api/reports/dashboards/:id/set-default - Set Default Dashboard should set dashboard as default</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Dashboards POST /api/reports/dashboards/:id/duplicate - Duplicate Dashboard should duplicate a dashboard</span>
+              </div>
+              <span class="test-duration">8ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Reports Service Integration Tests Dashboards POST /api/reports/dashboards/:id/share - Share Dashboard should share a dashboard</span>
+              </div>
+              <span class="test-duration">15ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>engagement.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests Surveys POST /api/engagement/surveys - Create Survey should create a new survey</span>
+              </div>
+              <span class="test-duration">34ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests Surveys GET /api/engagement/surveys - List Surveys should return list of surveys</span>
+              </div>
+              <span class="test-duration">14ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests Surveys POST /api/engagement/surveys/:id/publish - Publish Survey should publish a survey</span>
+              </div>
+              <span class="test-duration">21ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests Surveys POST /api/engagement/surveys/:id/responses - Submit Response should submit survey response</span>
+              </div>
+              <span class="test-duration">5ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests 360 Feedback POST /api/engagement/feedback-cycles - Create Feedback Cycle should create a 360 feedback cycle</span>
+              </div>
+              <span class="test-duration">21ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests 360 Feedback GET /api/engagement/feedback-cycles - List Feedback Cycles should return list of feedback cycles</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests Recognition POST /api/engagement/recognitions - Create Recognition should create a recognition</span>
+              </div>
+              <span class="test-duration">8ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests Recognition GET /api/engagement/recognitions - List Recognitions should return list of recognitions</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests Recognition GET /api/engagement/leaderboard - Get Leaderboard should return recognition leaderboard</span>
+              </div>
+              <span class="test-duration">9ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests Goals/OKRs POST /api/engagement/goals - Create Goal should create a goal</span>
+              </div>
+              <span class="test-duration">7ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests Goals/OKRs GET /api/engagement/goals - List Goals should return list of goals</span>
+              </div>
+              <span class="test-duration">7ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests Goals/OKRs GET /api/engagement/goals/tree - Get Goal Tree should return goal hierarchy tree</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Engagement Service Integration Tests Goals/OKRs POST /api/engagement/goals/:id/check-ins - Add Check-in should add a goal check-in</span>
+              </div>
+              <span class="test-duration">11ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>notification.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Notification Service Integration Tests Notification Management GET /api/notifications - List Notifications should return list of notifications</span>
+              </div>
+              <span class="test-duration">7ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Notification Service Integration Tests Notification Management POST /api/notifications - Create Notification should create a new notification</span>
+              </div>
+              <span class="test-duration">13ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Notification Service Integration Tests Notification Management PATCH /api/notifications/:id/read - Mark as Read should mark notification as read</span>
+              </div>
+              <span class="test-duration">0ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Notification Service Integration Tests Notification Management POST /api/notifications/mark-all-read - Mark All as Read should mark all notifications as read</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Notification Service Integration Tests Notification Management GET /api/notifications/unread-count - Get Unread Count should return unread notification count</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Notification Service Integration Tests Email Templates GET /api/notifications/templates - List Templates should return list of email templates</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Notification Service Integration Tests Email Templates POST /api/notifications/templates - Create Template should create a new email template</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>employee.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Employee Service Integration Tests Department Management POST /api/employees/departments - Create Department should create a new department</span>
+              </div>
+              <span class="test-duration">45ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Employee Service Integration Tests Department Management GET /api/employees/departments - List Departments should return list of departments</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Employee Service Integration Tests Employee Management POST /api/employees - Create Employee should create a new employee</span>
+              </div>
+              <span class="test-duration">12ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Employee Service Integration Tests Employee Management GET /api/employees - List Employees should return paginated list of employees</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Employee Service Integration Tests Employee Management GET /api/employees - List Employees should filter employees by department</span>
+              </div>
+              <span class="test-duration">1ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Employee Service Integration Tests Employee Management GET /api/employees/:id - Get Employee by ID should return employee details</span>
+              </div>
+              <span class="test-duration">2ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Employee Service Integration Tests Employee Management GET /api/employees/:id - Get Employee by ID should return 404 for non-existent employee</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Employee Service Integration Tests Employee Management PUT /api/employees/:id - Update Employee should update employee details</span>
+              </div>
+              <span class="test-duration">1ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Employee Service Integration Tests Dashboard Statistics GET /api/employees/dashboard/stats - Get Dashboard Stats should return dashboard statistics</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>leave.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Leave Service Integration Tests Leave Types Management GET /api/leaves/types - List Leave Types should return list of leave types</span>
+              </div>
+              <span class="test-duration">43ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Leave Service Integration Tests Leave Types Management POST /api/leaves/types - Create Leave Type should create a new leave type</span>
+              </div>
+              <span class="test-duration">6ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Leave Service Integration Tests Leave Requests POST /api/leaves - Create Leave Request should create a new leave request</span>
+              </div>
+              <span class="test-duration">1ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Leave Service Integration Tests Leave Requests GET /api/leaves - List Leave Requests should return list of leave requests</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Leave Service Integration Tests Leave Requests GET /api/leaves - List Leave Requests should filter leaves by status</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Leave Service Integration Tests Leave Requests PATCH /api/leaves/:id/approve - Approve Leave should approve a leave request</span>
+              </div>
+              <span class="test-duration">0ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Leave Service Integration Tests Holidays GET /api/leaves/holidays - List Holidays should return list of holidays</span>
+              </div>
+              <span class="test-duration">2ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Leave Service Integration Tests Holidays POST /api/leaves/holidays - Create Holiday should create a new holiday</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Leave Service Integration Tests Leave Balance GET /api/leaves/balance/:employeeId - Get Leave Balance should return employee leave balance</span>
               </div>
               <span class="test-duration">1ms</span>
             </div>
@@ -595,7 +2412,7 @@
                 <span class="test-icon passed">✓</span>
                 <span>Authentication Service Integration Tests POST /api/auth/register - Tenant Registration should reject duplicate email registration</span>
               </div>
-              <span class="test-duration">2ms</span>
+              <span class="test-duration">12ms</span>
             </div>
             
           
@@ -613,7 +2430,7 @@
                 <span class="test-icon passed">✓</span>
                 <span>Authentication Service Integration Tests POST /api/auth/login - User Login should reject invalid credentials</span>
               </div>
-              <span class="test-duration">2ms</span>
+              <span class="test-duration">3ms</span>
             </div>
             
           
@@ -631,7 +2448,7 @@
                 <span class="test-icon passed">✓</span>
                 <span>Authentication Service Integration Tests GET /api/auth/me - Get Current User should reject unauthorized request</span>
               </div>
-              <span class="test-duration">2ms</span>
+              <span class="test-duration">3ms</span>
             </div>
             
           
@@ -641,6 +2458,225 @@
                 <span>Authentication Service Integration Tests POST /api/auth/refresh - Token Refresh should refresh access token</span>
               </div>
               <span class="test-duration">1ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>tenant.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Tenant Service Integration Tests GET /api/tenants - List Tenants should return list of tenants (admin only)</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Tenant Service Integration Tests GET /api/tenants/:id - Get Tenant Details should return tenant details</span>
+              </div>
+              <span class="test-duration">1ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Tenant Service Integration Tests PUT /api/tenants/:id - Update Tenant should update tenant settings</span>
+              </div>
+              <span class="test-duration">1ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Tenant Service Integration Tests POST /api/tenants/:id/subscription - Update Subscription should update tenant subscription</span>
+              </div>
+              <span class="test-duration">1ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Tenant Service Integration Tests GET /api/tenants/:id/stats - Get Tenant Statistics should return tenant statistics</span>
+              </div>
+              <span class="test-duration">0ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>attendance.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Attendance Service Integration Tests Check-in/Check-out POST /api/attendance/check-in - Employee Check-in should record employee check-in</span>
+              </div>
+              <span class="test-duration">2ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Attendance Service Integration Tests Check-in/Check-out POST /api/attendance/check-out - Employee Check-out should record employee check-out</span>
+              </div>
+              <span class="test-duration">1ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should return list of attendance records</span>
+              </div>
+              <span class="test-duration">38ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should filter attendance by date range</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should filter attendance by employee</span>
+              </div>
+              <span class="test-duration">1ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Attendance Service Integration Tests Attendance Records GET /api/attendance/summary - Get Attendance Summary should return attendance summary</span>
+              </div>
+              <span class="test-duration">2ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Attendance Service Integration Tests Attendance Records GET /api/attendance/daily-status - Get Daily Status should return daily attendance status</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Attendance Service Integration Tests Bulk Operations POST /api/attendance/bulk - Bulk Mark Attendance should mark attendance for multiple employees</span>
+              </div>
+              <span class="test-duration">0ms</span>
+            </div>
+            
+          
+        </div>
+      </div>
+    
+      <div class="suite">
+        <div class="suite-header">
+          <h2>timesheet.test.ts</h2>
+          <span class="suite-status passed">PASSED</span>
+        </div>
+        <div class="test-list">
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Timesheet Service Integration Tests Projects POST /api/timesheets/projects - Create Project should create a new project</span>
+              </div>
+              <span class="test-duration">4ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Timesheet Service Integration Tests Projects GET /api/timesheets/projects - List Projects should return list of projects</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Timesheet Service Integration Tests Timesheets POST /api/timesheets - Create Timesheet should create a new timesheet</span>
+              </div>
+              <span class="test-duration">2ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Timesheet Service Integration Tests Timesheets GET /api/timesheets - List Timesheets should return list of timesheets</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Timesheet Service Integration Tests Time Entries POST /api/timesheets/:id/entries - Add Time Entry should add a time entry</span>
+              </div>
+              <span class="test-duration">2ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Timesheet Service Integration Tests Time Entries GET /api/timesheets/:id/entries - List Time Entries should return list of time entries</span>
+              </div>
+              <span class="test-duration">3ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Timesheet Service Integration Tests Timesheet Actions POST /api/timesheets/:id/submit - Submit Timesheet should submit timesheet for approval</span>
+              </div>
+              <span class="test-duration">2ms</span>
+            </div>
+            
+          
+            <div class="test-item">
+              <div class="test-name">
+                <span class="test-icon passed">✓</span>
+                <span>Timesheet Service Integration Tests Timesheet Actions POST /api/timesheets/:id/approve - Approve Timesheet should approve timesheet</span>
+              </div>
+              <span class="test-duration">3ms</span>
             </div>
             
           

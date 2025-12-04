@@ -140,7 +140,7 @@ export function calculateCess(taxWithSurcharge: number, cessRate: number): numbe
 }
 
 export async function getTaxConfiguration(tenantId: string, countryCode: string): Promise<ITaxConfiguration | null> {
-  return TaxConfiguration.findOne({ tenantId, countryCode, isActive: true }).lean();
+  return TaxConfiguration.findOne({ tenantId, countryCode, isActive: true }).lean() as unknown as ITaxConfiguration | null;
 }
 
 export async function createDefaultTaxConfiguration(tenantId: string, countryCode: string): Promise<ITaxConfiguration> {

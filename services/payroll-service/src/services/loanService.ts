@@ -331,7 +331,7 @@ export async function getEmployeeLoans(
   const query: any = { tenantId, employeeId };
   if (status) query.status = status;
 
-  return Loan.find(query).sort({ appliedAt: -1 }).lean();
+  return Loan.find(query).sort({ appliedAt: -1 }).lean() as any;
 }
 
 export async function getActiveLoansForDeduction(
@@ -357,7 +357,7 @@ export async function getActiveLoansForDeduction(
 }
 
 export async function getLoanDetails(loanId: string): Promise<ILoan | null> {
-  return Loan.findById(loanId).lean();
+  return Loan.findById(loanId).lean() as any;
 }
 
 export async function foreCloseLoan(
@@ -407,7 +407,7 @@ export async function foreCloseLoan(
 export async function getPendingLoanApprovals(tenantId: string): Promise<ILoan[]> {
   return Loan.find({ tenantId, status: 'pending_approval' })
     .sort({ appliedAt: -1 })
-    .lean();
+    .lean() as any;
 }
 
 export async function getLoanSummary(tenantId: string): Promise<{

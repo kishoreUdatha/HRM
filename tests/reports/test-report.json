@@ -1,277 +1,289 @@
 {
   "summary": {
-    "total": 57,
-    "passed": 57,
+    "total": 261,
+    "passed": 261,
     "failed": 0,
     "pending": 0,
     "duration": 0
   },
   "testSuites": {
-    "total": 6,
-    "passed": 6,
+    "total": 26,
+    "passed": 26,
     "failed": 0
   },
   "success": true,
-  "timestamp": "2025-12-04T06:52:26.455Z",
+  "timestamp": "2025-12-04T07:50:30.080Z",
   "details": [
     {
-      "name": "attendance.test.ts",
+      "name": "ai-chatbot.test.ts",
       "status": "passed",
       "duration": 0,
       "tests": [
         {
-          "name": "Attendance Service Integration Tests Check-in/Check-out POST /api/attendance/check-in - Employee Check-in should record employee check-in",
+          "name": "AI Chatbot Service Integration Tests Chat Conversations POST /api/chatbot/chat - Send Message should send a message to chatbot",
+          "status": "passed",
+          "duration": 16,
+          "failureMessages": []
+        },
+        {
+          "name": "AI Chatbot Service Integration Tests Chat Conversations GET /api/chatbot/conversations/:sessionId - Get Conversation should return conversation history",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "AI Chatbot Service Integration Tests Chat Conversations POST /api/chatbot/conversations/:sessionId/feedback/:messageId - Submit Feedback should submit feedback on response",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "AI Chatbot Service Integration Tests Chat Conversations POST /api/chatbot/conversations/:sessionId/escalate - Escalate Conversation should escalate to human agent",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "AI Chatbot Service Integration Tests Knowledge Base POST /api/chatbot/knowledge - Create Article should create a knowledge article",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "AI Chatbot Service Integration Tests Knowledge Base GET /api/chatbot/knowledge - List Articles should return knowledge articles",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "AI Chatbot Service Integration Tests Intent Management POST /api/chatbot/intents - Create Intent should create a chatbot intent",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "AI Chatbot Service Integration Tests Intent Management GET /api/chatbot/intents - List Intents should return chatbot intents",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "AI Chatbot Service Integration Tests Analytics GET /api/chatbot/analytics - Get Chatbot Analytics should return chatbot analytics",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "recruitment.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Recruitment Service Integration Tests Job Postings POST /api/recruitment/jobs - Create Job Posting should create a new job posting",
+          "status": "passed",
+          "duration": 13,
+          "failureMessages": []
+        },
+        {
+          "name": "Recruitment Service Integration Tests Job Postings GET /api/recruitment/jobs - List Job Postings should return list of job postings",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Recruitment Service Integration Tests Job Postings POST /api/recruitment/jobs/:id/publish - Publish Job should publish a job posting",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Recruitment Service Integration Tests Candidates POST /api/recruitment/candidates - Create Candidate should create a new candidate",
+          "status": "passed",
+          "duration": 24,
+          "failureMessages": []
+        },
+        {
+          "name": "Recruitment Service Integration Tests Candidates GET /api/recruitment/candidates - List Candidates should return list of candidates",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Recruitment Service Integration Tests Applications POST /api/recruitment/applications - Submit Application should submit a job application",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Recruitment Service Integration Tests Applications GET /api/recruitment/applications - List Applications should return list of applications",
+          "status": "passed",
+          "duration": 10,
+          "failureMessages": []
+        },
+        {
+          "name": "Recruitment Service Integration Tests Applications POST /api/recruitment/applications/:id/stage - Update Stage should update application stage",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Recruitment Service Integration Tests Interviews POST /api/recruitment/interviews - Schedule Interview should schedule an interview",
+          "status": "passed",
+          "duration": 15,
+          "failureMessages": []
+        },
+        {
+          "name": "Recruitment Service Integration Tests Interviews GET /api/recruitment/interviews - List Interviews should return list of interviews",
+          "status": "passed",
+          "duration": 8,
+          "failureMessages": []
+        },
+        {
+          "name": "Recruitment Service Integration Tests Offers POST /api/recruitment/offers - Create Offer should create a job offer",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "localization.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Localization Service Integration Tests Languages GET /api/localization/languages - List Languages should return list of supported languages",
+          "status": "passed",
+          "duration": 49,
+          "failureMessages": []
+        },
+        {
+          "name": "Localization Service Integration Tests Languages POST /api/localization/languages - Add Language should add a new language",
+          "status": "passed",
+          "duration": 23,
+          "failureMessages": []
+        },
+        {
+          "name": "Localization Service Integration Tests Languages POST /api/localization/languages/seed - Seed Languages should seed default languages",
           "status": "passed",
           "duration": 9,
           "failureMessages": []
         },
         {
-          "name": "Attendance Service Integration Tests Check-in/Check-out POST /api/attendance/check-out - Employee Check-out should record employee check-out",
+          "name": "Localization Service Integration Tests Translations GET /api/localization/translations - Get All Translations should return all translations",
           "status": "passed",
-          "duration": 2,
+          "duration": 8,
           "failureMessages": []
         },
         {
-          "name": "Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should return list of attendance records",
+          "name": "Localization Service Integration Tests Translations GET /api/localization/translations/:languageCode/:namespace - Get Namespace Translations should return translations by namespace",
           "status": "passed",
-          "duration": 82,
+          "duration": 8,
           "failureMessages": []
         },
         {
-          "name": "Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should filter attendance by date range",
+          "name": "Localization Service Integration Tests Translations POST /api/localization/translations - Upsert Translation should upsert a translation",
           "status": "passed",
           "duration": 6,
           "failureMessages": []
         },
         {
-          "name": "Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should filter attendance by employee",
+          "name": "Localization Service Integration Tests Translations POST /api/localization/translations/bulk - Bulk Upsert Translations should bulk upsert translations",
           "status": "passed",
-          "duration": 1,
+          "duration": 4,
           "failureMessages": []
         },
         {
-          "name": "Attendance Service Integration Tests Attendance Records GET /api/attendance/summary - Get Attendance Summary should return attendance summary",
+          "name": "Localization Service Integration Tests Currencies GET /api/localization/currencies - List Currencies should return list of currencies",
+          "status": "passed",
+          "duration": 7,
+          "failureMessages": []
+        },
+        {
+          "name": "Localization Service Integration Tests Currencies POST /api/localization/currencies - Add Currency should add a new currency",
           "status": "passed",
           "duration": 5,
           "failureMessages": []
         },
         {
-          "name": "Attendance Service Integration Tests Attendance Records GET /api/attendance/daily-status - Get Daily Status should return daily attendance status",
+          "name": "Localization Service Integration Tests Currencies POST /api/localization/currencies/seed - Seed Currencies should seed default currencies",
           "status": "passed",
-          "duration": 6,
+          "duration": 4,
           "failureMessages": []
         },
         {
-          "name": "Attendance Service Integration Tests Bulk Operations POST /api/attendance/bulk - Bulk Mark Attendance should mark attendance for multiple employees",
+          "name": "Localization Service Integration Tests Currencies GET /api/localization/currencies/convert - Convert Currency should convert between currencies",
           "status": "passed",
-          "duration": 1,
+          "duration": 14,
+          "failureMessages": []
+        },
+        {
+          "name": "Localization Service Integration Tests Tenant Localization GET /api/localization/tenant - Get Tenant Localization should return tenant localization settings",
+          "status": "passed",
+          "duration": 7,
+          "failureMessages": []
+        },
+        {
+          "name": "Localization Service Integration Tests Tenant Localization PUT /api/localization/tenant - Update Tenant Localization should update tenant localization settings",
+          "status": "passed",
+          "duration": 8,
           "failureMessages": []
         }
       ]
     },
     {
-      "name": "employee.test.ts",
+      "name": "benefits.test.ts",
       "status": "passed",
       "duration": 0,
       "tests": [
         {
-          "name": "Employee Service Integration Tests Department Management POST /api/employees/departments - Create Department should create a new department",
+          "name": "Benefits Service Integration Tests Benefit Plans POST /api/benefits/plans - Create Benefit Plan should create a new benefit plan",
           "status": "passed",
-          "duration": 88,
+          "duration": 13,
           "failureMessages": []
         },
         {
-          "name": "Employee Service Integration Tests Department Management GET /api/employees/departments - List Departments should return list of departments",
+          "name": "Benefits Service Integration Tests Benefit Plans GET /api/benefits/plans - List Benefit Plans should return list of benefit plans",
+          "status": "passed",
+          "duration": 13,
+          "failureMessages": []
+        },
+        {
+          "name": "Benefits Service Integration Tests Enrollments POST /api/benefits/enrollments - Enroll in Benefits should enroll employee in benefit plan",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Benefits Service Integration Tests Enrollments GET /api/benefits/enrollments/:employeeId - Get Employee Enrollments should return employee benefit enrollments",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Benefits Service Integration Tests Claims POST /api/benefits/claims - Submit Claim should submit a benefit claim",
           "status": "passed",
           "duration": 20,
           "failureMessages": []
         },
         {
-          "name": "Employee Service Integration Tests Employee Management POST /api/employees - Create Employee should create a new employee",
+          "name": "Benefits Service Integration Tests Claims GET /api/benefits/claims - List Claims should return list of benefit claims",
           "status": "passed",
-          "duration": 3,
+          "duration": 25,
           "failureMessages": []
         },
         {
-          "name": "Employee Service Integration Tests Employee Management GET /api/employees - List Employees should return paginated list of employees",
+          "name": "Benefits Service Integration Tests Wellness Programs GET /api/benefits/wellness - List Wellness Programs should return list of wellness programs",
           "status": "passed",
-          "duration": 4,
+          "duration": 13,
           "failureMessages": []
         },
         {
-          "name": "Employee Service Integration Tests Employee Management GET /api/employees - List Employees should filter employees by department",
+          "name": "Benefits Service Integration Tests Wellness Programs POST /api/benefits/wellness/activities - Log Activity should log a wellness activity",
           "status": "passed",
-          "duration": 1,
-          "failureMessages": []
-        },
-        {
-          "name": "Employee Service Integration Tests Employee Management GET /api/employees/:id - Get Employee by ID should return employee details",
-          "status": "passed",
-          "duration": 1,
-          "failureMessages": []
-        },
-        {
-          "name": "Employee Service Integration Tests Employee Management GET /api/employees/:id - Get Employee by ID should return 404 for non-existent employee",
-          "status": "passed",
-          "duration": 3,
-          "failureMessages": []
-        },
-        {
-          "name": "Employee Service Integration Tests Employee Management PUT /api/employees/:id - Update Employee should update employee details",
-          "status": "passed",
-          "duration": 1,
-          "failureMessages": []
-        },
-        {
-          "name": "Employee Service Integration Tests Dashboard Statistics GET /api/employees/dashboard/stats - Get Dashboard Stats should return dashboard statistics",
-          "status": "passed",
-          "duration": 3,
-          "failureMessages": []
-        }
-      ]
-    },
-    {
-      "name": "health.test.ts",
-      "status": "passed",
-      "duration": 0,
-      "tests": [
-        {
-          "name": "Service Health Check Tests Service Availability API Gateway should be healthy",
-          "status": "passed",
-          "duration": 113,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests Service Availability Auth Service should be healthy",
-          "status": "passed",
-          "duration": 5,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests Service Availability Employee Service should be healthy",
-          "status": "passed",
-          "duration": 4,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests Service Availability Leave Service should be healthy",
-          "status": "passed",
-          "duration": 4,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests Service Availability Attendance Service should be healthy",
-          "status": "passed",
-          "duration": 6,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests Service Availability Payroll Service should be healthy",
-          "status": "passed",
-          "duration": 6,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests Service Availability Tenant Service should be healthy",
-          "status": "passed",
-          "duration": 4,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests Service Availability Notification Service should be healthy",
-          "status": "passed",
-          "duration": 3,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests API Gateway Routing should route to auth service",
-          "status": "passed",
-          "duration": 3,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests API Gateway Routing should route to employee service",
-          "status": "passed",
-          "duration": 3,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests Database Connectivity should have MongoDB connection",
-          "status": "passed",
-          "duration": 3,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests Response Format should return JSON responses",
-          "status": "passed",
-          "duration": 3,
-          "failureMessages": []
-        },
-        {
-          "name": "Service Health Check Tests Response Format should include CORS headers",
-          "status": "passed",
-          "duration": 4,
-          "failureMessages": []
-        }
-      ]
-    },
-    {
-      "name": "leave.test.ts",
-      "status": "passed",
-      "duration": 0,
-      "tests": [
-        {
-          "name": "Leave Service Integration Tests Leave Types Management GET /api/leaves/types - List Leave Types should return list of leave types",
-          "status": "passed",
-          "duration": 105,
-          "failureMessages": []
-        },
-        {
-          "name": "Leave Service Integration Tests Leave Types Management POST /api/leaves/types - Create Leave Type should create a new leave type",
-          "status": "passed",
-          "duration": 6,
-          "failureMessages": []
-        },
-        {
-          "name": "Leave Service Integration Tests Leave Requests POST /api/leaves - Create Leave Request should create a new leave request",
-          "status": "passed",
-          "duration": 1,
-          "failureMessages": []
-        },
-        {
-          "name": "Leave Service Integration Tests Leave Requests GET /api/leaves - List Leave Requests should return list of leave requests",
-          "status": "passed",
-          "duration": 4,
-          "failureMessages": []
-        },
-        {
-          "name": "Leave Service Integration Tests Leave Requests GET /api/leaves - List Leave Requests should filter leaves by status",
-          "status": "passed",
-          "duration": 3,
-          "failureMessages": []
-        },
-        {
-          "name": "Leave Service Integration Tests Leave Requests PATCH /api/leaves/:id/approve - Approve Leave should approve a leave request",
-          "status": "passed",
-          "duration": 2,
-          "failureMessages": []
-        },
-        {
-          "name": "Leave Service Integration Tests Holidays GET /api/leaves/holidays - List Holidays should return list of holidays",
-          "status": "passed",
-          "duration": 4,
-          "failureMessages": []
-        },
-        {
-          "name": "Leave Service Integration Tests Holidays POST /api/leaves/holidays - Create Holiday should create a new holiday",
-          "status": "passed",
-          "duration": 3,
-          "failureMessages": []
-        },
-        {
-          "name": "Leave Service Integration Tests Leave Balance GET /api/leaves/balance/:employeeId - Get Leave Balance should return employee leave balance",
-          "status": "passed",
-          "duration": 1,
+          "duration": 16,
           "failureMessages": []
         }
       ]
@@ -284,31 +296,31 @@
         {
           "name": "Payroll Service Integration Tests Salary Structure Management POST /api/payroll/structures - Create Salary Structure should create a new salary structure",
           "status": "passed",
-          "duration": 109,
+          "duration": 78,
           "failureMessages": []
         },
         {
           "name": "Payroll Service Integration Tests Salary Structure Management GET /api/payroll/structures - List Salary Structures should return list of salary structures",
           "status": "passed",
-          "duration": 6,
+          "duration": 5,
           "failureMessages": []
         },
         {
           "name": "Payroll Service Integration Tests Employee Salary Assignment POST /api/payroll/employee-salary - Assign Salary should assign salary structure to employee",
           "status": "passed",
-          "duration": 2,
+          "duration": 1,
           "failureMessages": []
         },
         {
           "name": "Payroll Service Integration Tests Employee Salary Assignment GET /api/payroll/employee-salary/:employeeId - Get Employee Salary should return employee salary details",
           "status": "passed",
-          "duration": 2,
+          "duration": 0,
           "failureMessages": []
         },
         {
           "name": "Payroll Service Integration Tests Payroll Generation POST /api/payroll/generate - Generate Payroll should generate payroll for an employee",
           "status": "passed",
-          "duration": 1,
+          "duration": 0,
           "failureMessages": []
         },
         {
@@ -320,7 +332,7 @@
         {
           "name": "Payroll Service Integration Tests Payroll Records GET /api/payroll - List Payrolls should return list of payroll records",
           "status": "passed",
-          "duration": 3,
+          "duration": 2,
           "failureMessages": []
         },
         {
@@ -338,11 +350,1216 @@
         {
           "name": "Payroll Service Integration Tests Payroll Processing PATCH /api/payroll/:id/process - Process Payroll should process a payroll record",
           "status": "passed",
-          "duration": 0,
+          "duration": 1,
           "failureMessages": []
         },
         {
           "name": "Payroll Service Integration Tests Payroll Processing PATCH /api/payroll/:id/pay - Mark as Paid should mark payroll as paid",
+          "status": "passed",
+          "duration": 1,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "document.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Document Service Integration Tests Document Management GET /api/documents - List Documents should return list of documents",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Document Service Integration Tests Document Management GET /api/documents/expiring - Get Expiring Documents should return expiring documents",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Document Service Integration Tests Document Management POST /api/documents/:id/share - Share Document should share a document",
+          "status": "passed",
+          "duration": 10,
+          "failureMessages": []
+        },
+        {
+          "name": "Document Service Integration Tests Document Management POST /api/documents/:id/sign - Sign Document should request document signature",
+          "status": "passed",
+          "duration": 15,
+          "failureMessages": []
+        },
+        {
+          "name": "Document Service Integration Tests Document Management GET /api/documents/:id/audit - Get Audit Trail should return document audit trail",
+          "status": "passed",
+          "duration": 28,
+          "failureMessages": []
+        },
+        {
+          "name": "Document Service Integration Tests Document Templates POST /api/documents/templates - Create Template should create a document template",
+          "status": "passed",
+          "duration": 22,
+          "failureMessages": []
+        },
+        {
+          "name": "Document Service Integration Tests Document Templates GET /api/documents/templates - List Templates should return list of templates",
+          "status": "passed",
+          "duration": 7,
+          "failureMessages": []
+        },
+        {
+          "name": "Document Service Integration Tests Document Templates GET /api/documents/templates/:id - Get Template should return template details",
+          "status": "passed",
+          "duration": 11,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "grievance.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Grievance Service Integration Tests Grievance Management POST /api/grievances - Submit Grievance should submit a new grievance",
+          "status": "passed",
+          "duration": 13,
+          "failureMessages": []
+        },
+        {
+          "name": "Grievance Service Integration Tests Grievance Management GET /api/grievances - List Grievances should return list of grievances",
+          "status": "passed",
+          "duration": 12,
+          "failureMessages": []
+        },
+        {
+          "name": "Grievance Service Integration Tests Grievance Management GET /api/grievances/:id - Get Grievance Details should return grievance details",
+          "status": "passed",
+          "duration": 25,
+          "failureMessages": []
+        },
+        {
+          "name": "Grievance Service Integration Tests Grievance Actions POST /api/grievances/:id/assign - Assign Grievance should assign grievance to handler",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Grievance Service Integration Tests Grievance Actions POST /api/grievances/:id/escalate - Escalate Grievance should escalate grievance",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Grievance Service Integration Tests Grievance Actions POST /api/grievances/:id/evidence - Add Evidence should add evidence to grievance",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Grievance Service Integration Tests Investigation POST /api/grievances/:id/investigation/start - Start Investigation should start grievance investigation",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Grievance Service Integration Tests Investigation POST /api/grievances/:id/investigation/findings - Submit Findings should submit investigation findings",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Grievance Service Integration Tests Resolution POST /api/grievances/:id/resolve - Resolve Grievance should resolve grievance",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Grievance Service Integration Tests Resolution POST /api/grievances/:id/close - Close Grievance should close grievance",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Grievance Service Integration Tests Statistics GET /api/grievances/stats - Get Grievance Statistics should return grievance statistics",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "health.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Service Health Check Tests Service Availability API Gateway should be healthy",
+          "status": "passed",
+          "duration": 67,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests Service Availability Auth Service should be healthy",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests Service Availability Employee Service should be healthy",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests Service Availability Leave Service should be healthy",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests Service Availability Attendance Service should be healthy",
+          "status": "passed",
+          "duration": 10,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests Service Availability Payroll Service should be healthy",
+          "status": "passed",
+          "duration": 16,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests Service Availability Tenant Service should be healthy",
+          "status": "passed",
+          "duration": 18,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests Service Availability Notification Service should be healthy",
+          "status": "passed",
+          "duration": 28,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests API Gateway Routing should route to auth service",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests API Gateway Routing should route to employee service",
+          "status": "passed",
+          "duration": 14,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests Database Connectivity should have MongoDB connection",
+          "status": "passed",
+          "duration": 12,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests Response Format should return JSON responses",
+          "status": "passed",
+          "duration": 28,
+          "failureMessages": []
+        },
+        {
+          "name": "Service Health Check Tests Response Format should include CORS headers",
+          "status": "passed",
+          "duration": 23,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "expense.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Expense Service Integration Tests Expense Categories POST /api/expenses/categories - Create Category should create an expense category",
+          "status": "passed",
+          "duration": 13,
+          "failureMessages": []
+        },
+        {
+          "name": "Expense Service Integration Tests Expense Categories GET /api/expenses/categories - List Categories should return list of expense categories",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Expense Service Integration Tests Expenses POST /api/expenses - Create Expense should create a new expense",
+          "status": "passed",
+          "duration": 9,
+          "failureMessages": []
+        },
+        {
+          "name": "Expense Service Integration Tests Expenses GET /api/expenses - List Expenses should return list of expenses",
+          "status": "passed",
+          "duration": 28,
+          "failureMessages": []
+        },
+        {
+          "name": "Expense Service Integration Tests Expense Reports POST /api/expenses/reports - Create Report should create an expense report",
+          "status": "passed",
+          "duration": 14,
+          "failureMessages": []
+        },
+        {
+          "name": "Expense Service Integration Tests Expense Reports GET /api/expenses/reports - List Reports should return list of expense reports",
+          "status": "passed",
+          "duration": 42,
+          "failureMessages": []
+        },
+        {
+          "name": "Expense Service Integration Tests Expense Reports POST /api/expenses/reports/:id/submit - Submit Report should submit expense report for approval",
+          "status": "passed",
+          "duration": 12,
+          "failureMessages": []
+        },
+        {
+          "name": "Expense Service Integration Tests Travel Requests POST /api/expenses/travel-requests - Create Travel Request should create a travel request",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Expense Service Integration Tests Travel Requests GET /api/expenses/travel-requests - List Travel Requests should return list of travel requests",
+          "status": "passed",
+          "duration": 13,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "analytics.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Analytics Service Integration Tests KPI Management POST /api/analytics/kpis - Create KPI should create a new KPI",
+          "status": "passed",
+          "duration": 25,
+          "failureMessages": []
+        },
+        {
+          "name": "Analytics Service Integration Tests KPI Management GET /api/analytics/kpis - List KPIs should return list of KPIs",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Analytics Service Integration Tests KPI Management GET /api/analytics/kpis/defaults - Get Default KPIs should return default KPIs",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Analytics Service Integration Tests Dashboard Management POST /api/analytics/dashboards - Create Dashboard should create a new dashboard",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Analytics Service Integration Tests Dashboard Management GET /api/analytics/dashboards - List Dashboards should return list of dashboards",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Analytics Service Integration Tests Snapshots GET /api/analytics/snapshots - List Snapshots should return list of analytics snapshots",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Analytics Service Integration Tests Snapshots GET /api/analytics/snapshots/latest - Get Latest Snapshot should return latest analytics snapshot",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Analytics Service Integration Tests Predictions GET /api/analytics/predictions - Get Predictions should return predictions",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Analytics Service Integration Tests Predictions GET /api/analytics/predictions/high-risk - Get High Risk Employees should return high risk employees",
+          "status": "passed",
+          "duration": 11,
+          "failureMessages": []
+        },
+        {
+          "name": "Analytics Service Integration Tests Trends & Comparisons GET /api/analytics/trends - Get Trend Analysis should return trend analysis",
+          "status": "passed",
+          "duration": 12,
+          "failureMessages": []
+        },
+        {
+          "name": "Analytics Service Integration Tests Trends & Comparisons GET /api/analytics/comparison/departments - Get Department Comparison should return department comparison",
+          "status": "passed",
+          "duration": 8,
+          "failureMessages": []
+        },
+        {
+          "name": "Analytics Service Integration Tests Trends & Comparisons GET /api/analytics/executive-summary - Get Executive Summary should return executive summary",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "compliance.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Compliance Service Integration Tests Policy Management POST /api/compliance/policies - Create Policy should create a new compliance policy",
+          "status": "passed",
+          "duration": 15,
+          "failureMessages": []
+        },
+        {
+          "name": "Compliance Service Integration Tests Policy Management GET /api/compliance/policies - List Policies should return list of policies",
+          "status": "passed",
+          "duration": 12,
+          "failureMessages": []
+        },
+        {
+          "name": "Compliance Service Integration Tests Policy Management POST /api/compliance/policies/:id/publish - Publish Policy should publish a policy",
+          "status": "passed",
+          "duration": 10,
+          "failureMessages": []
+        },
+        {
+          "name": "Compliance Service Integration Tests Policy Management POST /api/compliance/policies/:id/acknowledge - Acknowledge Policy should acknowledge a policy",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Compliance Service Integration Tests Compliance Training POST /api/compliance/trainings - Create Training should create a compliance training",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Compliance Service Integration Tests Compliance Training GET /api/compliance/trainings - List Trainings should return list of trainings",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Compliance Service Integration Tests Work Permits POST /api/compliance/work-permits - Create Work Permit should create a work permit record",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Compliance Service Integration Tests Work Permits GET /api/compliance/work-permits - List Work Permits should return list of work permits",
+          "status": "passed",
+          "duration": 11,
+          "failureMessages": []
+        },
+        {
+          "name": "Compliance Service Integration Tests Work Permits POST /api/compliance/work-permits/:id/renew - Renew Work Permit should renew a work permit",
+          "status": "passed",
+          "duration": 17,
+          "failureMessages": []
+        },
+        {
+          "name": "Compliance Service Integration Tests Statistics GET /api/compliance/stats - Get Compliance Statistics should return compliance statistics",
+          "status": "passed",
+          "duration": 23,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "asset.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Asset Service Integration Tests Asset Management POST /api/assets - Create Asset should create a new asset",
+          "status": "passed",
+          "duration": 13,
+          "failureMessages": []
+        },
+        {
+          "name": "Asset Service Integration Tests Asset Management GET /api/assets - List Assets should return list of assets",
+          "status": "passed",
+          "duration": 13,
+          "failureMessages": []
+        },
+        {
+          "name": "Asset Service Integration Tests Asset Management GET /api/assets/:id - Get Asset Details should return asset details",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Asset Service Integration Tests Asset Management POST /api/assets/:id/assign - Assign Asset should assign asset to employee",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Asset Service Integration Tests Asset Management POST /api/assets/:id/return - Return Asset should mark asset as returned",
+          "status": "passed",
+          "duration": 11,
+          "failureMessages": []
+        },
+        {
+          "name": "Asset Service Integration Tests Asset Requests POST /api/assets/requests - Create Request should create an asset request",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Asset Service Integration Tests Asset Requests GET /api/assets/requests - List Requests should return list of asset requests",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Asset Service Integration Tests Asset Requests POST /api/assets/requests/:id/approve - Approve Request should approve an asset request",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Asset Service Integration Tests Asset Maintenance POST /api/assets/:id/maintenance - Log Maintenance should log asset maintenance",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Asset Service Integration Tests Asset Maintenance GET /api/assets/:id/history - Get Asset History should return asset history",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "chat.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Chat Service Integration Tests Chat Room Management POST /api/chat/rooms - Create Chat Room should create a new chat room",
+          "status": "passed",
+          "duration": 14,
+          "failureMessages": []
+        },
+        {
+          "name": "Chat Service Integration Tests Chat Room Management GET /api/chat/rooms - List Chat Rooms should return list of chat rooms",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Chat Service Integration Tests Chat Room Management GET /api/chat/rooms/:id - Get Chat Room should return chat room details",
+          "status": "passed",
+          "duration": 13,
+          "failureMessages": []
+        },
+        {
+          "name": "Chat Service Integration Tests Chat Room Management POST /api/chat/rooms/:id/participants - Add Participants should add participants to room",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Chat Service Integration Tests Messages POST /api/chat/rooms/:id/messages - Send Message should send a message",
+          "status": "passed",
+          "duration": 17,
+          "failureMessages": []
+        },
+        {
+          "name": "Chat Service Integration Tests Messages GET /api/chat/rooms/:id/messages - Get Messages should return room messages",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Chat Service Integration Tests Messages PUT /api/chat/messages/:id - Edit Message should edit a message",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Chat Service Integration Tests Messages POST /api/chat/messages/:id/reactions - Add Reaction should add reaction to message",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Chat Service Integration Tests Messages POST /api/chat/messages/:id/pin - Pin Message should toggle pin message",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Chat Service Integration Tests Search GET /api/chat/search - Search Messages should search messages",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "ai-ml.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "AI/ML Service Integration Tests Resume Analysis GET /api/ai/resume/:analysisId - Get Resume Analysis should return resume analysis results",
+          "status": "passed",
+          "duration": 14,
+          "failureMessages": []
+        },
+        {
+          "name": "AI/ML Service Integration Tests Resume Analysis POST /api/ai/resume/:analysisId/match-jobs - Match Resume to Jobs should match resume to available jobs",
+          "status": "passed",
+          "duration": 36,
+          "failureMessages": []
+        },
+        {
+          "name": "AI/ML Service Integration Tests Predictions - Attrition POST /api/ai/predictions/attrition/:employeeId - Get Attrition Prediction should predict employee attrition risk",
+          "status": "passed",
+          "duration": 20,
+          "failureMessages": []
+        },
+        {
+          "name": "AI/ML Service Integration Tests Predictions - Attrition POST /api/ai/predictions/attrition/batch - Batch Attrition Predictions should predict attrition for multiple employees",
+          "status": "passed",
+          "duration": 21,
+          "failureMessages": []
+        },
+        {
+          "name": "AI/ML Service Integration Tests Predictions - Performance POST /api/ai/predictions/performance/:employeeId - Get Performance Prediction should predict employee performance",
+          "status": "passed",
+          "duration": 35,
+          "failureMessages": []
+        },
+        {
+          "name": "AI/ML Service Integration Tests Predictions - Salary POST /api/ai/predictions/salary - Get Salary Prediction should predict salary recommendation",
+          "status": "passed",
+          "duration": 16,
+          "failureMessages": []
+        },
+        {
+          "name": "AI/ML Service Integration Tests Skill Matching POST /api/ai/skills/match-candidates - Match Candidates should match candidates to job requirements",
+          "status": "passed",
+          "duration": 39,
+          "failureMessages": []
+        },
+        {
+          "name": "AI/ML Service Integration Tests Skill Matching POST /api/ai/skills/gap-analysis - Analyze Skill Gaps should analyze team skill gaps",
+          "status": "passed",
+          "duration": 16,
+          "failureMessages": []
+        },
+        {
+          "name": "AI/ML Service Integration Tests Skill Matching POST /api/ai/skills/learning-path - Get Learning Path should generate learning path",
+          "status": "passed",
+          "duration": 29,
+          "failureMessages": []
+        },
+        {
+          "name": "AI/ML Service Integration Tests Sentiment Analysis POST /api/ai/sentiment/analyze - Analyze Sentiment should analyze feedback sentiment",
+          "status": "passed",
+          "duration": 9,
+          "failureMessages": []
+        },
+        {
+          "name": "AI/ML Service Integration Tests ML Models GET /api/ai/models - List ML Models should return list of ML models",
+          "status": "passed",
+          "duration": 12,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "onboarding.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Onboarding Service Integration Tests Workflow Templates POST /api/onboarding/templates - Create Template should create an onboarding workflow template",
+          "status": "passed",
+          "duration": 43,
+          "failureMessages": []
+        },
+        {
+          "name": "Onboarding Service Integration Tests Workflow Templates GET /api/onboarding/templates - List Templates should return list of workflow templates",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Onboarding Service Integration Tests Onboarding Workflows POST /api/onboarding/workflows - Start Onboarding should start an onboarding workflow for employee",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Onboarding Service Integration Tests Onboarding Workflows GET /api/onboarding/workflows - List Workflows should return list of active onboarding workflows",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Onboarding Service Integration Tests Onboarding Workflows GET /api/onboarding/workflows/:id/progress - Get Progress should return onboarding progress",
+          "status": "passed",
+          "duration": 38,
+          "failureMessages": []
+        },
+        {
+          "name": "Onboarding Service Integration Tests Onboarding Tasks POST /api/onboarding/tasks/:id/complete - Complete Task should complete an onboarding task",
+          "status": "passed",
+          "duration": 10,
+          "failureMessages": []
+        },
+        {
+          "name": "Onboarding Service Integration Tests Offboarding POST /api/onboarding/offboarding - Start Offboarding should start an offboarding workflow",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Onboarding Service Integration Tests Offboarding GET /api/onboarding/offboarding/:id/checklist - Get Checklist should return offboarding checklist",
+          "status": "passed",
+          "duration": 9,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "workforce.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Workforce Service Integration Tests Position Management POST /api/workforce/positions - Create Position should create a new position",
+          "status": "passed",
+          "duration": 49,
+          "failureMessages": []
+        },
+        {
+          "name": "Workforce Service Integration Tests Position Management GET /api/workforce/positions - List Positions should return list of positions",
+          "status": "passed",
+          "duration": 11,
+          "failureMessages": []
+        },
+        {
+          "name": "Workforce Service Integration Tests Position Management PATCH /api/workforce/positions/:id/headcount - Update Headcount should update position headcount",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Workforce Service Integration Tests Headcount Planning POST /api/workforce/headcount-plans - Create Headcount Plan should create a headcount plan",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Workforce Service Integration Tests Headcount Planning GET /api/workforce/headcount-plans - List Headcount Plans should return list of headcount plans",
+          "status": "passed",
+          "duration": 18,
+          "failureMessages": []
+        },
+        {
+          "name": "Workforce Service Integration Tests Headcount Planning POST /api/workforce/headcount-plans/:id/submit - Submit Plan should submit headcount plan for approval",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Workforce Service Integration Tests Succession Planning POST /api/workforce/succession-plans - Create Succession Plan should create a succession plan",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Workforce Service Integration Tests Succession Planning GET /api/workforce/succession-plans - List Succession Plans should return list of succession plans",
+          "status": "passed",
+          "duration": 15,
+          "failureMessages": []
+        },
+        {
+          "name": "Workforce Service Integration Tests Succession Planning POST /api/workforce/succession-plans/:id/successors - Add Successor should add a successor candidate",
+          "status": "passed",
+          "duration": 13,
+          "failureMessages": []
+        },
+        {
+          "name": "Workforce Service Integration Tests Analytics GET /api/workforce/analytics - Get Workforce Analytics should return workforce analytics",
+          "status": "passed",
+          "duration": 7,
+          "failureMessages": []
+        },
+        {
+          "name": "Workforce Service Integration Tests Analytics GET /api/workforce/org-chart - Get Org Chart should return organization chart",
+          "status": "passed",
+          "duration": 7,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "integration-service.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Integration Service Tests Webhooks POST /api/integrations/webhooks - Create Webhook should create a new webhook",
+          "status": "passed",
+          "duration": 17,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests Webhooks GET /api/integrations/webhooks - List Webhooks should return list of webhooks",
+          "status": "passed",
+          "duration": 18,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests Webhooks GET /api/integrations/webhooks/events - Get Available Events should return available webhook events",
+          "status": "passed",
+          "duration": 11,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests Webhooks POST /api/integrations/webhooks/:id/test - Test Webhook should test webhook delivery",
+          "status": "passed",
+          "duration": 23,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests API Keys POST /api/integrations/api-keys - Create API Key should create a new API key",
+          "status": "passed",
+          "duration": 10,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests API Keys GET /api/integrations/api-keys - List API Keys should return list of API keys",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests Third-party Integrations POST /api/integrations/integrations - Create Integration should create a new integration",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests Third-party Integrations GET /api/integrations/integrations - List Integrations should return list of integrations",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests Third-party Integrations POST /api/integrations/integrations/:id/test - Test Integration should test integration connection",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests SSO Configuration POST /api/integrations/sso - Create SSO Config should create SSO configuration",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests SSO Configuration GET /api/integrations/sso - List SSO Configs should return list of SSO configurations",
+          "status": "passed",
+          "duration": 7,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests SSO Configuration GET /api/integrations/sso/metadata - Get SSO Metadata should return SSO metadata",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Integration Service Tests Calendar Sync POST /api/integrations/calendar/connect - Connect Calendar should connect calendar integration",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "reports.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Reports Service Integration Tests Standard Reports GET /api/reports/standard/employees - Employee Report should return employee report",
+          "status": "passed",
+          "duration": 43,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Standard Reports GET /api/reports/standard/attendance - Attendance Report should return attendance report",
+          "status": "passed",
+          "duration": 25,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Standard Reports GET /api/reports/standard/leaves - Leave Report should return leave report",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Standard Reports GET /api/reports/standard/payroll - Payroll Report should return payroll report",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Standard Reports GET /api/reports/standard/recruitment - Recruitment Report should return recruitment report",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Standard Reports GET /api/reports/standard/performance - Performance Report should return performance report",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Standard Reports GET /api/reports/standard/training - Training Report should return training report",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Custom Reports POST /api/reports/custom - Create Custom Report should create a custom report",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Custom Reports GET /api/reports/custom - List Custom Reports should return list of custom reports",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Custom Reports POST /api/reports/custom/:id/execute - Execute Report should execute a custom report",
+          "status": "passed",
+          "duration": 22,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Custom Reports GET /api/reports/executions - Get Report Executions should return report execution history",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Dashboards POST /api/reports/dashboards - Create Dashboard should create a dashboard",
+          "status": "passed",
+          "duration": 7,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Dashboards GET /api/reports/dashboards - List Dashboards should return list of dashboards",
+          "status": "passed",
+          "duration": 10,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Dashboards POST /api/reports/dashboards/:id/widgets - Add Widget should add a widget to dashboard",
+          "status": "passed",
+          "duration": 11,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Dashboards POST /api/reports/dashboards/:id/set-default - Set Default Dashboard should set dashboard as default",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Dashboards POST /api/reports/dashboards/:id/duplicate - Duplicate Dashboard should duplicate a dashboard",
+          "status": "passed",
+          "duration": 8,
+          "failureMessages": []
+        },
+        {
+          "name": "Reports Service Integration Tests Dashboards POST /api/reports/dashboards/:id/share - Share Dashboard should share a dashboard",
+          "status": "passed",
+          "duration": 15,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "engagement.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Engagement Service Integration Tests Surveys POST /api/engagement/surveys - Create Survey should create a new survey",
+          "status": "passed",
+          "duration": 34,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests Surveys GET /api/engagement/surveys - List Surveys should return list of surveys",
+          "status": "passed",
+          "duration": 14,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests Surveys POST /api/engagement/surveys/:id/publish - Publish Survey should publish a survey",
+          "status": "passed",
+          "duration": 21,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests Surveys POST /api/engagement/surveys/:id/responses - Submit Response should submit survey response",
+          "status": "passed",
+          "duration": 5,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests 360 Feedback POST /api/engagement/feedback-cycles - Create Feedback Cycle should create a 360 feedback cycle",
+          "status": "passed",
+          "duration": 21,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests 360 Feedback GET /api/engagement/feedback-cycles - List Feedback Cycles should return list of feedback cycles",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests Recognition POST /api/engagement/recognitions - Create Recognition should create a recognition",
+          "status": "passed",
+          "duration": 8,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests Recognition GET /api/engagement/recognitions - List Recognitions should return list of recognitions",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests Recognition GET /api/engagement/leaderboard - Get Leaderboard should return recognition leaderboard",
+          "status": "passed",
+          "duration": 9,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests Goals/OKRs POST /api/engagement/goals - Create Goal should create a goal",
+          "status": "passed",
+          "duration": 7,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests Goals/OKRs GET /api/engagement/goals - List Goals should return list of goals",
+          "status": "passed",
+          "duration": 7,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests Goals/OKRs GET /api/engagement/goals/tree - Get Goal Tree should return goal hierarchy tree",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Engagement Service Integration Tests Goals/OKRs POST /api/engagement/goals/:id/check-ins - Add Check-in should add a goal check-in",
+          "status": "passed",
+          "duration": 11,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "notification.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Notification Service Integration Tests Notification Management GET /api/notifications - List Notifications should return list of notifications",
+          "status": "passed",
+          "duration": 7,
+          "failureMessages": []
+        },
+        {
+          "name": "Notification Service Integration Tests Notification Management POST /api/notifications - Create Notification should create a new notification",
+          "status": "passed",
+          "duration": 13,
+          "failureMessages": []
+        },
+        {
+          "name": "Notification Service Integration Tests Notification Management PATCH /api/notifications/:id/read - Mark as Read should mark notification as read",
+          "status": "passed",
+          "duration": 0,
+          "failureMessages": []
+        },
+        {
+          "name": "Notification Service Integration Tests Notification Management POST /api/notifications/mark-all-read - Mark All as Read should mark all notifications as read",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Notification Service Integration Tests Notification Management GET /api/notifications/unread-count - Get Unread Count should return unread notification count",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Notification Service Integration Tests Email Templates GET /api/notifications/templates - List Templates should return list of email templates",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Notification Service Integration Tests Email Templates POST /api/notifications/templates - Create Template should create a new email template",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "employee.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Employee Service Integration Tests Department Management POST /api/employees/departments - Create Department should create a new department",
+          "status": "passed",
+          "duration": 45,
+          "failureMessages": []
+        },
+        {
+          "name": "Employee Service Integration Tests Department Management GET /api/employees/departments - List Departments should return list of departments",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Employee Service Integration Tests Employee Management POST /api/employees - Create Employee should create a new employee",
+          "status": "passed",
+          "duration": 12,
+          "failureMessages": []
+        },
+        {
+          "name": "Employee Service Integration Tests Employee Management GET /api/employees - List Employees should return paginated list of employees",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Employee Service Integration Tests Employee Management GET /api/employees - List Employees should filter employees by department",
+          "status": "passed",
+          "duration": 1,
+          "failureMessages": []
+        },
+        {
+          "name": "Employee Service Integration Tests Employee Management GET /api/employees/:id - Get Employee by ID should return employee details",
+          "status": "passed",
+          "duration": 2,
+          "failureMessages": []
+        },
+        {
+          "name": "Employee Service Integration Tests Employee Management GET /api/employees/:id - Get Employee by ID should return 404 for non-existent employee",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Employee Service Integration Tests Employee Management PUT /api/employees/:id - Update Employee should update employee details",
+          "status": "passed",
+          "duration": 1,
+          "failureMessages": []
+        },
+        {
+          "name": "Employee Service Integration Tests Dashboard Statistics GET /api/employees/dashboard/stats - Get Dashboard Stats should return dashboard statistics",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "leave.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Leave Service Integration Tests Leave Types Management GET /api/leaves/types - List Leave Types should return list of leave types",
+          "status": "passed",
+          "duration": 43,
+          "failureMessages": []
+        },
+        {
+          "name": "Leave Service Integration Tests Leave Types Management POST /api/leaves/types - Create Leave Type should create a new leave type",
+          "status": "passed",
+          "duration": 6,
+          "failureMessages": []
+        },
+        {
+          "name": "Leave Service Integration Tests Leave Requests POST /api/leaves - Create Leave Request should create a new leave request",
+          "status": "passed",
+          "duration": 1,
+          "failureMessages": []
+        },
+        {
+          "name": "Leave Service Integration Tests Leave Requests GET /api/leaves - List Leave Requests should return list of leave requests",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Leave Service Integration Tests Leave Requests GET /api/leaves - List Leave Requests should filter leaves by status",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Leave Service Integration Tests Leave Requests PATCH /api/leaves/:id/approve - Approve Leave should approve a leave request",
+          "status": "passed",
+          "duration": 0,
+          "failureMessages": []
+        },
+        {
+          "name": "Leave Service Integration Tests Holidays GET /api/leaves/holidays - List Holidays should return list of holidays",
+          "status": "passed",
+          "duration": 2,
+          "failureMessages": []
+        },
+        {
+          "name": "Leave Service Integration Tests Holidays POST /api/leaves/holidays - Create Holiday should create a new holiday",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Leave Service Integration Tests Leave Balance GET /api/leaves/balance/:employeeId - Get Leave Balance should return employee leave balance",
           "status": "passed",
           "duration": 1,
           "failureMessages": []
@@ -363,7 +1580,7 @@
         {
           "name": "Authentication Service Integration Tests POST /api/auth/register - Tenant Registration should reject duplicate email registration",
           "status": "passed",
-          "duration": 2,
+          "duration": 12,
           "failureMessages": []
         },
         {
@@ -375,7 +1592,7 @@
         {
           "name": "Authentication Service Integration Tests POST /api/auth/login - User Login should reject invalid credentials",
           "status": "passed",
-          "duration": 2,
+          "duration": 3,
           "failureMessages": []
         },
         {
@@ -387,13 +1604,160 @@
         {
           "name": "Authentication Service Integration Tests GET /api/auth/me - Get Current User should reject unauthorized request",
           "status": "passed",
-          "duration": 2,
+          "duration": 3,
           "failureMessages": []
         },
         {
           "name": "Authentication Service Integration Tests POST /api/auth/refresh - Token Refresh should refresh access token",
           "status": "passed",
           "duration": 1,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "tenant.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Tenant Service Integration Tests GET /api/tenants - List Tenants should return list of tenants (admin only)",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Tenant Service Integration Tests GET /api/tenants/:id - Get Tenant Details should return tenant details",
+          "status": "passed",
+          "duration": 1,
+          "failureMessages": []
+        },
+        {
+          "name": "Tenant Service Integration Tests PUT /api/tenants/:id - Update Tenant should update tenant settings",
+          "status": "passed",
+          "duration": 1,
+          "failureMessages": []
+        },
+        {
+          "name": "Tenant Service Integration Tests POST /api/tenants/:id/subscription - Update Subscription should update tenant subscription",
+          "status": "passed",
+          "duration": 1,
+          "failureMessages": []
+        },
+        {
+          "name": "Tenant Service Integration Tests GET /api/tenants/:id/stats - Get Tenant Statistics should return tenant statistics",
+          "status": "passed",
+          "duration": 0,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "attendance.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Attendance Service Integration Tests Check-in/Check-out POST /api/attendance/check-in - Employee Check-in should record employee check-in",
+          "status": "passed",
+          "duration": 2,
+          "failureMessages": []
+        },
+        {
+          "name": "Attendance Service Integration Tests Check-in/Check-out POST /api/attendance/check-out - Employee Check-out should record employee check-out",
+          "status": "passed",
+          "duration": 1,
+          "failureMessages": []
+        },
+        {
+          "name": "Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should return list of attendance records",
+          "status": "passed",
+          "duration": 38,
+          "failureMessages": []
+        },
+        {
+          "name": "Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should filter attendance by date range",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Attendance Service Integration Tests Attendance Records GET /api/attendance - List Attendance Records should filter attendance by employee",
+          "status": "passed",
+          "duration": 1,
+          "failureMessages": []
+        },
+        {
+          "name": "Attendance Service Integration Tests Attendance Records GET /api/attendance/summary - Get Attendance Summary should return attendance summary",
+          "status": "passed",
+          "duration": 2,
+          "failureMessages": []
+        },
+        {
+          "name": "Attendance Service Integration Tests Attendance Records GET /api/attendance/daily-status - Get Daily Status should return daily attendance status",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Attendance Service Integration Tests Bulk Operations POST /api/attendance/bulk - Bulk Mark Attendance should mark attendance for multiple employees",
+          "status": "passed",
+          "duration": 0,
+          "failureMessages": []
+        }
+      ]
+    },
+    {
+      "name": "timesheet.test.ts",
+      "status": "passed",
+      "duration": 0,
+      "tests": [
+        {
+          "name": "Timesheet Service Integration Tests Projects POST /api/timesheets/projects - Create Project should create a new project",
+          "status": "passed",
+          "duration": 4,
+          "failureMessages": []
+        },
+        {
+          "name": "Timesheet Service Integration Tests Projects GET /api/timesheets/projects - List Projects should return list of projects",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Timesheet Service Integration Tests Timesheets POST /api/timesheets - Create Timesheet should create a new timesheet",
+          "status": "passed",
+          "duration": 2,
+          "failureMessages": []
+        },
+        {
+          "name": "Timesheet Service Integration Tests Timesheets GET /api/timesheets - List Timesheets should return list of timesheets",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Timesheet Service Integration Tests Time Entries POST /api/timesheets/:id/entries - Add Time Entry should add a time entry",
+          "status": "passed",
+          "duration": 2,
+          "failureMessages": []
+        },
+        {
+          "name": "Timesheet Service Integration Tests Time Entries GET /api/timesheets/:id/entries - List Time Entries should return list of time entries",
+          "status": "passed",
+          "duration": 3,
+          "failureMessages": []
+        },
+        {
+          "name": "Timesheet Service Integration Tests Timesheet Actions POST /api/timesheets/:id/submit - Submit Timesheet should submit timesheet for approval",
+          "status": "passed",
+          "duration": 2,
+          "failureMessages": []
+        },
+        {
+          "name": "Timesheet Service Integration Tests Timesheet Actions POST /api/timesheets/:id/approve - Approve Timesheet should approve timesheet",
+          "status": "passed",
+          "duration": 3,
           "failureMessages": []
         }
       ]

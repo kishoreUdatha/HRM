@@ -137,6 +137,11 @@ router.get('/employees/next-code', getNextEmployeeCode);
 router.get('/employees/bulk-upload/template', downloadTemplate);
 router.post('/employees/bulk-upload', upload.single('file'), bulkUploadEmployees);
 router.post('/employees/bulk-upload/validate', upload.single('file'), validateUpload);
+// Org-chart under employees prefix (before :id to avoid conflicts)
+router.get('/employees/org-chart', getOrgChart);
+router.get('/employees/org-chart/departments', getDepartmentOrgChart);
+router.get('/employees/org-chart/stats', getOrgStats);
+// Employee by ID routes (must come after static routes)
 router.get('/employees/:id', getEmployeeById);
 router.post('/employees', employeeValidation, validate, createEmployee);
 router.put('/employees/:id', updateEmployee);

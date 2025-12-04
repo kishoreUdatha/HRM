@@ -98,11 +98,11 @@ export async function generateECRTextFile(ecrFileId: string): Promise<string> {
   content += `#~#${ecr.establishmentId}#~#${ecr.establishmentName}#~#ECR#~#${ecr.month}/${ecr.year}\n`;
 
   // Employee rows
-  ecr.employees.forEach(emp => {
+  ((ecr as any).employees || []).forEach((emp: any) => {
     content += `${emp.uan}#~#${emp.name}#~#${emp.grossWages}#~#${emp.pfWages}#~#${emp.pfWages}#~#${emp.pfWages}#~#${emp.employeeContribution}#~#${emp.epsContribution}#~#${emp.employerContribution - emp.epsContribution}#~#0#~#${emp.workingDays}\n`;
   });
 
-  ecr.fileContent = content;
+  (ecr as any).fileContent = content;
   await ecr.save();
 
   return content;
@@ -332,11 +332,11 @@ export async function generateTDSFVUFile(returnId: string): Promise<string> {
   content += `^BH^${tdsReturn.deductorDetails.name}^${tdsReturn.deductorDetails.address}^${tdsReturn.deductorDetails.pincode}\n`;
 
   // Employee deductee details
-  tdsReturn.employees.forEach(emp => {
+  ((tdsReturn as any).employees || []).forEach((emp: any) => {
     content += `^DD^${emp.pan}^${emp.name}^${emp.grossSalary}^${emp.tdsDeducted}\n`;
   });
 
-  tdsReturn.fileContent = content;
+  (tdsReturn as any).fileContent = content;
   await tdsReturn.save();
 
   return content;

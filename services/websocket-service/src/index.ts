@@ -5,7 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import jwt from 'jsonwebtoken';
 import Redis from 'ioredis';
-import amqp, { Channel, Connection } from 'amqplib';
+import amqp, { Channel } from 'amqplib';
 
 dotenv.config();
 
@@ -45,38 +45,39 @@ let rabbitChannel: Channel | null = null;
 
 async function connectRabbitMQ(): Promise<void> {
   try {
-    const connection: Connection = await amqp.connect(
+    const connection = await amqp.connect(
       process.env.RABBITMQ_URL || 'amqp://localhost:5672'
     );
-    rabbitChannel = await connection.createChannel();
+    const channel = await connection.createChannel();
+    rabbitChannel = channel;
 
     // Declare exchanges for different event types
-    await rabbitChannel.assertExchange('notifications', 'topic', { durable: true });
-    await rabbitChannel.assertExchange('attendance', 'topic', { durable: true });
-    await rabbitChannel.assertExchange('leave', 'topic', { durable: true });
-    await rabbitChannel.assertExchange('dashboard', 'topic', { durable: true });
-    await rabbitChannel.assertExchange('chat', 'topic', { durable: true });
+    await channel.assertExchange('notifications', 'topic', { durable: true });
+    await channel.assertExchange('attendance', 'topic', { durable: true });
+    await channel.assertExchange('leave', 'topic', { durable: true });
+    await channel.assertExchange('dashboard', 'topic', { durable: true });
+    await channel.assertExchange('chat', 'topic', { durable: true });
 
     // Create queues for WebSocket service
-    const wsQueue = await rabbitChannel.assertQueue('websocket_events', { durable: true });
+    const wsQueue = await channel.assertQueue('websocket_events', { durable: true });
 
     // Bind to all exchanges
-    await rabbitChannel.bindQueue(wsQueue.queue, 'notifications', '#');
-    await rabbitChannel.bindQueue(wsQueue.queue, 'attendance', '#');
-    await rabbitChannel.bindQueue(wsQueue.queue, 'leave', '#');
-    await rabbitChannel.bindQueue(wsQueue.queue, 'dashboard', '#');
-    await rabbitChannel.bindQueue(wsQueue.queue, 'chat', '#');
+    await channel.bindQueue(wsQueue.queue, 'notifications', '#');
+    await channel.bindQueue(wsQueue.queue, 'attendance', '#');
+    await channel.bindQueue(wsQueue.queue, 'leave', '#');
+    await channel.bindQueue(wsQueue.queue, 'dashboard', '#');
+    await channel.bindQueue(wsQueue.queue, 'chat', '#');
 
     // Consume messages and broadcast to appropriate clients
-    rabbitChannel.consume(wsQueue.queue, (msg) => {
+    channel.consume(wsQueue.queue, (msg) => {
       if (msg) {
         try {
           const event = JSON.parse(msg.content.toString());
           handleRabbitMQEvent(event);
-          rabbitChannel?.ack(msg);
+          channel.ack(msg);
         } catch (error) {
           console.error('Error processing RabbitMQ message:', error);
-          rabbitChannel?.nack(msg, false, false);
+          channel.nack(msg, false, false);
         }
       }
     });

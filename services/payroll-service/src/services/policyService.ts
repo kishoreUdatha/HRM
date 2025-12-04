@@ -38,11 +38,11 @@ export async function getPayrollPolicies(
   const query: any = { tenantId };
   if (!includeInactive) query.isActive = true;
 
-  return PayrollPolicy.find(query).sort({ createdAt: -1 }).lean();
+  return PayrollPolicy.find(query).sort({ createdAt: -1 }).lean() as any;
 }
 
 export async function getPayrollPolicyById(policyId: string): Promise<IPayrollPolicy | null> {
-  return PayrollPolicy.findById(policyId).lean();
+  return PayrollPolicy.findById(policyId).lean() as any;
 }
 
 export async function updatePayrollPolicy(
@@ -104,7 +104,7 @@ export async function setDefaultPolicy(
 }
 
 export async function getDefaultPolicy(tenantId: string): Promise<IPayrollPolicy | null> {
-  return PayrollPolicy.findOne({ tenantId, isDefault: true, isActive: true }).lean();
+  return PayrollPolicy.findOne({ tenantId, isDefault: true, isActive: true }).lean() as any;
 }
 
 // ==================== SALARY COMPONENT RULES ====================
@@ -240,7 +240,7 @@ export async function getEmployeePolicyAssignment(
   tenantId: string,
   employeeId: string
 ): Promise<IPayrollPolicyAssignment | null> {
-  return PayrollPolicyAssignment.findOne({ tenantId, employeeId, isActive: true }).lean();
+  return PayrollPolicyAssignment.findOne({ tenantId, employeeId, isActive: true }).lean() as any;
 }
 
 export async function getEmployeePolicy(
@@ -249,7 +249,7 @@ export async function getEmployeePolicy(
 ): Promise<IPayrollPolicy | null> {
   const assignment = await getEmployeePolicyAssignment(tenantId, employeeId);
   if (assignment) {
-    return PayrollPolicy.findById(assignment.policyId).lean();
+    return PayrollPolicy.findById(assignment.policyId).lean() as any;
   }
 
   // Return default policy if no assignment

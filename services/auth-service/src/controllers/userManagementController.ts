@@ -121,9 +121,12 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       );
     }
 
-    const userResponse = user.toObject();
-    delete (userResponse as Record<string, unknown>).password;
-    delete (userResponse as Record<string, unknown>).refreshTokens;
+    const userObj = user.toObject();
+    const userResponse = {
+      ...userObj,
+      password: undefined,
+      refreshTokens: undefined,
+    };
 
     res.status(201).json({
       success: true,
@@ -165,9 +168,9 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       changes.push({ field: 'role', oldValue: user.role, newValue: role });
       user.role = role;
     }
-    if (status && status !== user.status) {
-      changes.push({ field: 'status', oldValue: user.status, newValue: status });
-      user.status = status;
+    if (status && status !== (user as any).status) {
+      changes.push({ field: 'status', oldValue: (user as any).status, newValue: status });
+      (user as any).status = status;
     }
     if (employeeId !== undefined && employeeId !== user.employeeId?.toString()) {
       changes.push({ field: 'employeeId', oldValue: user.employeeId, newValue: employeeId });
@@ -192,9 +195,12 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       );
     }
 
-    const userResponse = user.toObject();
-    delete (userResponse as Record<string, unknown>).password;
-    delete (userResponse as Record<string, unknown>).refreshTokens;
+    const userObj = user.toObject();
+    const userResponse = {
+      ...userObj,
+      password: undefined,
+      refreshTokens: undefined,
+    };
 
     res.status(200).json({
       success: true,
@@ -283,8 +289,8 @@ export const updateUserStatus = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const oldStatus = user.status;
-    user.status = status;
+    const oldStatus = (user as any).status;
+    (user as any).status = status;
 
     // Invalidate refresh tokens if deactivating
     if (status !== 'active') {
@@ -383,7 +389,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    user.status = 'inactive';
+    (user as any).status = 'inactive';
     user.email = `deleted_${Date.now()}_${user.email}`;
     user.refreshTokens = [];
     await user.save();

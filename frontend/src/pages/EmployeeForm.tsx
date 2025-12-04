@@ -120,7 +120,7 @@ const EmployeeForm: React.FC = () => {
       setFormData((prev) => ({
         ...prev,
         [parent]: {
-          ...(prev[parent as keyof Employee] as Record<string, unknown>),
+          ...(prev[parent as keyof Partial<Employee>] as unknown as Record<string, unknown>),
           [child]: value,
         },
       }));

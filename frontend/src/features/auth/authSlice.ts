@@ -91,7 +91,7 @@ export const checkAuth = createAsyncThunk(
       }
       const user = await authService.getCurrentUser();
       const tenantId = localStorage.getItem('tenantId');
-      let tenant = null;
+      let tenant: Tenant | null = null;
       if (tenantId) {
         try {
           tenant = await authService.getTenantById(tenantId);

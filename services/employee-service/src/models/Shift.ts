@@ -111,7 +111,7 @@ shiftSchema.index({ tenantId: 1, name: 1 }, { unique: true });
 shiftSchema.index({ tenantId: 1, isActive: 1 });
 
 // Calculate working hours before saving
-shiftSchema.pre('save', function (next) {
+shiftSchema.pre('save', function () {
   const start = this.startTime.split(':').map(Number);
   const end = this.endTime.split(':').map(Number);
 
@@ -126,8 +126,6 @@ shiftSchema.pre('save', function (next) {
 
   const totalMinutes = endMinutes - startMinutes - this.breakDuration;
   this.workingHours = Math.round((totalMinutes / 60) * 100) / 100;
-
-  next();
 });
 
 // Ensure only one default shift per tenant

@@ -18,8 +18,8 @@ export const createRecognition = async (req: Request, res: Response) => {
     const recognition = new Recognition({ ...req.body, tenantId });
     await recognition.save();
 
-    if (recognition.points && recognition.points > 0 && recognition.status === 'published') {
-      await addPoints(tenantId, recognition.toEmployeeId, recognition.points, 'recognition', recognition._id.toString(), recognition.title);
+    if (recognition.points && recognition.points > 0 && recognition.status === 'approved') {
+      await addPoints(tenantId, recognition.toEmployeeId.toString(), recognition.points, 'recognition', recognition._id.toString(), recognition.title);
     }
 
     res.status(201).json({ success: true, data: recognition });
@@ -31,12 +31,10 @@ export const createRecognition = async (req: Request, res: Response) => {
 export const getRecognitions = async (req: Request, res: Response) => {
   try {
     const { tenantId } = req.params;
-    const { employeeId, type, visibility, featured, page = 1, limit = 20 } = req.query;
-    const query: any = { tenantId, status: 'published' };
+    const { employeeId, type, page = 1, limit = 20 } = req.query;
+    const query: Record<string, unknown> = { tenantId, status: 'approved' };
     if (employeeId) query.$or = [{ toEmployeeId: employeeId }, { fromEmployeeId: employeeId }];
     if (type) query.type = type;
-    if (visibility) query.visibility = visibility;
-    if (featured === 'true') query.featured = true;
 
     const recognitions = await Recognition.find(query).sort({ createdAt: -1 }).skip((+page - 1) * +limit).limit(+limit);
     const total = await Recognition.countDocuments(query);
@@ -52,8 +50,8 @@ export const getRecognitionsFeed = async (req: Request, res: Response) => {
     const { tenantId } = req.params;
     const { page = 1, limit = 20 } = req.query;
 
-    const recognitions = await Recognition.find({ tenantId, status: 'published', visibility: 'public' })
-      .sort({ featured: -1, createdAt: -1 })
+    const recognitions = await Recognition.find({ tenantId, status: 'approved', isPublic: true })
+      .sort({ createdAt: -1 })
       .skip((+page - 1) * +limit)
       .limit(+limit);
 
@@ -71,11 +69,11 @@ export const addReaction = async (req: Request, res: Response) => {
     const recognition = await Recognition.findById(recognitionId);
     if (!recognition) return res.status(404).json({ success: false, message: 'Recognition not found' });
 
-    const existingIdx = recognition.reactions.findIndex(r => r.employeeId === employeeId && r.type === type);
+    const existingIdx = recognition.reactions.findIndex(r => r.employeeId?.toString() === employeeId && r.type === type);
     if (existingIdx >= 0) {
       recognition.reactions.splice(existingIdx, 1);
     } else {
-      recognition.reactions.push({ employeeId, type, createdAt: new Date() });
+      recognition.reactions.push({ employeeId, type, at: new Date() });
     }
     await recognition.save();
 
@@ -93,7 +91,7 @@ export const addComment = async (req: Request, res: Response) => {
     const recognition = await Recognition.findById(recognitionId);
     if (!recognition) return res.status(404).json({ success: false, message: 'Recognition not found' });
 
-    recognition.comments.push({ employeeId, text, createdAt: new Date() });
+    recognition.comments.push({ employeeId, text, at: new Date() });
     await recognition.save();
 
     res.json({ success: true, data: recognition });
@@ -111,7 +109,7 @@ export const getLeaderboard = async (req: Request, res: Response) => {
     const matchField = type === 'received' ? 'toEmployeeId' : 'fromEmployeeId';
 
     const leaderboard = await Recognition.aggregate([
-      { $match: { tenantId, status: 'published', createdAt: { $gte: startDate } } },
+      { $match: { tenantId, status: 'approved', createdAt: { $gte: startDate } } },
       { $group: { _id: `$${matchField}`, totalPoints: { $sum: { $ifNull: ['$points', 0] } }, count: { $sum: 1 } } },
       { $sort: { totalPoints: -1, count: -1 } },
       { $limit: 50 }

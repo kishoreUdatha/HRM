@@ -40,6 +40,7 @@ interface DepartmentMetric {
   avgPerformance: number;
   engagementScore: number;
   attritionRate: number;
+  [key: string]: string | number;
 }
 
 const Analytics: React.FC = () => {
@@ -286,7 +287,7 @@ const Analytics: React.FC = () => {
                     cx="50%"
                     cy="50%"
                     outerRadius={100}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                   >
                     {departmentMetrics.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

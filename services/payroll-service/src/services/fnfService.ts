@@ -405,6 +405,11 @@ export async function getPendingFnFList(tenantId: string): Promise<IFullAndFinal
   }).sort({ initiatedAt: 1 }).lean();
 }
 
+// Aliases for backward compatibility
+export const initiateFullAndFinal = initiateFnF;
+export const updateClearanceStatus = recordClearance;
+export const getPendingFnFSettlements = getPendingFnFList;
+
 export async function generateFnFStatement(fnf: IFullAndFinal, companyDetails: { name: string; address: string }): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -491,3 +496,6 @@ export async function generateFnFStatement(fnf: IFullAndFinal, companyDetails: {
   const pdfBytes = await pdfDoc.save();
   return Buffer.from(pdfBytes);
 }
+
+// Alias for backward compatibility
+export const generateFnFStatementPDF = generateFnFStatement;

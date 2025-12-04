@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import { v4 as uuidv4 } from 'uuid';
 import Survey from '../models/Survey';
 import SurveyResponse from '../models/SurveyResponse';
 
@@ -9,7 +8,7 @@ export const createSurvey = async (req: Request, res: Response) => {
     const survey = new Survey({
       ...req.body,
       tenantId,
-      questions: req.body.questions?.map((q: any) => ({ ...q, id: q.id || uuidv4() })) || []
+      questions: req.body.questions?.map((q: Record<string, unknown>, idx: number) => ({ ...q, id: q.id || `q_${idx}` })) || []
     });
     await survey.save();
     res.status(201).json({ success: true, data: survey });
@@ -76,7 +75,7 @@ export const publishSurvey = async (req: Request, res: Response) => {
     if (survey.questions.length === 0) return res.status(400).json({ success: false, message: 'Survey must have at least one question' });
 
     const now = new Date();
-    survey.status = survey.schedule.startDate <= now ? 'active' : 'scheduled';
+    survey.status = survey.startDate <= now ? 'active' : 'scheduled';
     await survey.save();
     res.json({ success: true, data: survey });
   } catch (error) {
@@ -103,7 +102,8 @@ export const submitResponse = async (req: Request, res: Response) => {
     const { tenantId } = req.params;
     const { employeeId, answers, metadata } = req.body;
 
-    if (!survey.settings.allowMultipleResponses && employeeId) {
+    // Check for existing response
+    if (employeeId) {
       const existing = await SurveyResponse.findOne({ surveyId: survey._id, employeeId });
       if (existing) return res.status(400).json({ success: false, message: 'You have already responded to this survey' });
     }
@@ -111,8 +111,8 @@ export const submitResponse = async (req: Request, res: Response) => {
     const response = new SurveyResponse({
       tenantId,
       surveyId: survey._id,
-      employeeId: survey.settings.anonymous ? undefined : employeeId,
-      anonymous: survey.settings.anonymous,
+      employeeId: survey.isAnonymous ? undefined : employeeId,
+      anonymous: survey.isAnonymous,
       answers,
       metadata,
       completedAt: new Date(),
@@ -123,7 +123,10 @@ export const submitResponse = async (req: Request, res: Response) => {
     });
     await response.save();
 
-    survey.responseCount += 1;
+    survey.totalResponses += 1;
+    if (survey.totalInvited > 0) {
+      survey.responseRate = (survey.totalResponses / survey.totalInvited) * 100;
+    }
     await survey.save();
 
     res.status(201).json({ success: true, data: { id: response._id }, message: 'Response submitted successfully' });
@@ -140,30 +143,34 @@ export const getSurveyResults = async (req: Request, res: Response) => {
     const responses = await SurveyResponse.find({ surveyId: survey._id, completedAt: { $ne: null } });
 
     const questionResults = survey.questions.map(question => {
-      const questionResponses = responses.map(r => r.answers.find(a => a.questionId === question.id)).filter(Boolean);
-      const result: any = { questionId: question.id, questionText: question.text, type: question.type, totalResponses: questionResponses.length };
+      const questionResponses = responses.map(r => r.answers.find((a: { questionId: string }) => a.questionId === question.id)).filter(Boolean);
+      const result: Record<string, unknown> = { questionId: question.id, questionText: question.text, type: question.type, totalResponses: questionResponses.length };
 
-      if (question.type === 'rating' || question.type === 'scale') {
-        const values = questionResponses.map(a => +a!.value).filter(v => !isNaN(v));
+      if (question.type === 'rating' || question.type === 'scale' || question.type === 'nps') {
+        const values = questionResponses.map((a: any) => Number(a.value)).filter(v => !isNaN(v));
         result.average = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
         result.distribution = {};
-        for (let i = question.scaleMin || 1; i <= (question.scaleMax || 5); i++) {
-          result.distribution[i] = values.filter(v => v === i).length;
+        const min = question.scale?.min || 1;
+        const max = question.scale?.max || 5;
+        for (let i = min; i <= max; i++) {
+          (result.distribution as Record<number, number>)[i] = values.filter(v => v === i).length;
         }
-      } else if (question.type === 'multiple_choice' || question.type === 'yes_no') {
+      } else if (question.type === 'multiple_choice' || question.type === 'checkbox') {
         result.distribution = {};
-        questionResponses.forEach(a => {
-          const val = String(a!.value);
-          result.distribution[val] = (result.distribution[val] || 0) + 1;
+        questionResponses.forEach((a: any) => {
+          const val = String(a.value);
+          (result.distribution as Record<string, number>)[val] = ((result.distribution as Record<string, number>)[val] || 0) + 1;
         });
       } else if (question.type === 'text') {
-        result.responses = questionResponses.map(a => a!.value);
+        result.responses = questionResponses.map((a: any) => a.value);
       }
 
       return result;
     });
 
-    const eNPS = survey.type === 'eNPS' ? calculateENPS(responses, survey.questions[0]?.id) : null;
+    // Calculate eNPS for pulse/engagement surveys with NPS questions
+    const npsQuestion = survey.questions.find(q => q.type === 'nps');
+    const eNPS = npsQuestion ? calculateENPS(responses, npsQuestion.id) : null;
 
     res.json({
       success: true,
@@ -171,7 +178,7 @@ export const getSurveyResults = async (req: Request, res: Response) => {
         surveyId: survey._id,
         title: survey.title,
         totalResponses: responses.length,
-        completionRate: survey.responseCount > 0 ? (responses.length / survey.responseCount) * 100 : 0,
+        completionRate: survey.totalInvited > 0 ? (responses.length / survey.totalInvited) * 100 : 0,
         averageTimeSpent: responses.reduce((acc, r) => acc + (r.timeSpentSeconds || 0), 0) / (responses.length || 1),
         questionResults,
         eNPS,

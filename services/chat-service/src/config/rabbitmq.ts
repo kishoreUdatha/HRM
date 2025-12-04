@@ -1,18 +1,20 @@
-import amqp, { Channel, Connection } from 'amqplib';
+import amqp, { Channel, ChannelModel } from 'amqplib';
 
 let channel: Channel | null = null;
-let connection: Connection | null = null;
+let connection: ChannelModel | null = null;
 
 export async function connectRabbitMQ(): Promise<void> {
   try {
-    connection = await amqp.connect(
+    const conn = await amqp.connect(
       process.env.RABBITMQ_URL || 'amqp://localhost:5672'
     );
-    channel = await connection.createChannel();
+    connection = conn;
+    const ch = await conn.createChannel();
+    channel = ch;
 
     // Declare exchanges
-    await channel.assertExchange('chat', 'topic', { durable: true });
-    await channel.assertExchange('notifications', 'topic', { durable: true });
+    await ch.assertExchange('chat', 'topic', { durable: true });
+    await ch.assertExchange('notifications', 'topic', { durable: true });
 
     console.log('[Chat Service] Connected to RabbitMQ');
   } catch (error) {

@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IPayrollAudit extends Document {
   tenantId: string;
-  entityType: 'payroll' | 'paystub' | 'salary' | 'loan' | 'reimbursement' | 'bonus' | 'tax_declaration' | 'form16' | 'salary_revision' | 'batch';
+  entityType: 'payroll' | 'paystub' | 'salary' | 'loan' | 'reimbursement' | 'bonus' | 'tax_declaration' | 'form16' | 'salary_revision' | 'batch' | 'statutory_compliance';
   entityId: string;
   action: 'create' | 'update' | 'delete' | 'approve' | 'reject' | 'process' | 'pay' | 'cancel' | 'generate' | 'submit' | 'disburse' | 'close';
   performedBy: string;
@@ -22,11 +22,13 @@ export interface IPayrollAudit extends Document {
     employeeId?: string;
     employeeName?: string;
     month?: number;
-    year?: number;
+    year?: number | string;
     amount?: number;
     batchId?: string;
     reason?: string;
     comments?: string;
+    type?: string;
+    quarter?: number | string;
   };
   sessionId?: string;
   requestId?: string;
@@ -37,7 +39,7 @@ const PayrollAuditSchema = new Schema({
   tenantId: { type: String, required: true, index: true },
   entityType: {
     type: String,
-    enum: ['payroll', 'paystub', 'salary', 'loan', 'reimbursement', 'bonus', 'tax_declaration', 'form16', 'salary_revision', 'batch'],
+    enum: ['payroll', 'paystub', 'salary', 'loan', 'reimbursement', 'bonus', 'tax_declaration', 'form16', 'salary_revision', 'batch', 'statutory_compliance'],
     required: true
   },
   entityId: { type: String, required: true, index: true },
@@ -67,7 +69,9 @@ const PayrollAuditSchema = new Schema({
     amount: Number,
     batchId: String,
     reason: String,
-    comments: String
+    comments: String,
+    type: String,
+    quarter: Schema.Types.Mixed
   },
   sessionId: String,
   requestId: String

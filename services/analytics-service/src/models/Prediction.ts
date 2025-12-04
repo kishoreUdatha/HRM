@@ -30,7 +30,7 @@ export interface IPrediction extends Document {
     expectedImpact: number;
     category: string;
   }[];
-  model: {
+  modelInfo: {
     name: string;
     version: string;
     accuracy: number;
@@ -93,7 +93,7 @@ const PredictionSchema = new Schema<IPrediction>(
       expectedImpact: Number,
       category: String,
     }],
-    model: {
+    modelInfo: {
       name: String,
       version: String,
       accuracy: Number,

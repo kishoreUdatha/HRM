@@ -15,7 +15,7 @@ export const getOrgChart = async (req: Request, res: Response): Promise<void> =>
       tenantId,
       status: 'active',
     })
-      .select('firstName lastName employeeId designation departmentId managerId profilePhoto email')
+      .select('firstName lastName employeeCode designation departmentId reportingManagerId avatar email')
       .populate('departmentId', 'name code')
       .lean();
 
@@ -38,16 +38,17 @@ export const getOrgChart = async (req: Request, res: Response): Promise<void> =>
 
     // First pass: create all nodes
     employees.forEach(emp => {
+      const dept = emp.departmentId as any;
       const node: OrgNode = {
         id: emp._id.toString(),
         name: `${emp.firstName} ${emp.lastName}`,
-        employeeId: emp.employeeId,
+        employeeId: emp.employeeCode,
         designation: emp.designation,
-        department: (emp.departmentId as { name: string })?.name || 'N/A',
-        departmentCode: (emp.departmentId as { code: string })?.code,
+        department: dept?.name || 'N/A',
+        departmentCode: dept?.code,
         email: emp.email,
-        profilePhoto: emp.profilePhoto,
-        managerId: emp.managerId?.toString(),
+        profilePhoto: emp.avatar,
+        managerId: emp.reportingManagerId?.toString(),
         children: [],
       };
       employeeMap.set(emp._id.toString(), node);
@@ -94,9 +95,9 @@ export const getDepartmentOrgChart = async (req: Request, res: Response): Promis
     const tenantId = req.headers['x-tenant-id'] as string;
 
     // Get all departments
-    const departments = await Department.find({ tenantId, isActive: true })
-      .select('name code description headId parentDepartmentId')
-      .populate('headId', 'firstName lastName designation')
+    const departments = await Department.find({ tenantId, status: 'active' })
+      .select('name code description managerId parentDepartmentId')
+      .populate('managerId', 'firstName lastName designation')
       .lean();
 
     interface DeptNode {
@@ -128,7 +129,7 @@ export const getDepartmentOrgChart = async (req: Request, res: Response): Promis
     const roots: DeptNode[] = [];
 
     departments.forEach(dept => {
-      const head = dept.headId as { firstName: string; lastName: string; designation: string } | null;
+      const head = dept.managerId as any;
       const node: DeptNode = {
         id: dept._id.toString(),
         name: dept.name,
@@ -171,7 +172,7 @@ export const getEmployeeHierarchy = async (req: Request, res: Response): Promise
     const { direction = 'both' } = req.query; // 'up', 'down', 'both'
 
     const employee = await Employee.findOne({ _id: id, tenantId })
-      .select('firstName lastName employeeId designation departmentId managerId')
+      .select('firstName lastName employeeCode designation departmentId reportingManagerId')
       .populate('departmentId', 'name')
       .lean();
 
@@ -198,9 +199,9 @@ export const getEmployeeHierarchy = async (req: Request, res: Response): Promise
       current: {
         id: employee._id.toString(),
         name: `${employee.firstName} ${employee.lastName}`,
-        employeeId: employee.employeeId,
+        employeeId: employee.employeeCode,
         designation: employee.designation,
-        department: (employee.departmentId as { name: string })?.name || 'N/A',
+        department: (employee.departmentId as any)?.name || 'N/A',
         level: 0,
       },
       downward: [],
@@ -208,7 +209,7 @@ export const getEmployeeHierarchy = async (req: Request, res: Response): Promise
 
     // Get upward hierarchy (managers)
     if (direction === 'up' || direction === 'both') {
-      let currentManagerId = employee.managerId;
+      let currentManagerId = employee.reportingManagerId;
       let level = -1;
 
       while (currentManagerId) {
@@ -217,7 +218,7 @@ export const getEmployeeHierarchy = async (req: Request, res: Response): Promise
           tenantId,
           status: 'active',
         })
-          .select('firstName lastName employeeId designation departmentId managerId')
+          .select('firstName lastName employeeCode designation departmentId reportingManagerId')
           .populate('departmentId', 'name')
           .lean();
 
@@ -226,13 +227,13 @@ export const getEmployeeHierarchy = async (req: Request, res: Response): Promise
         hierarchy.upward.unshift({
           id: manager._id.toString(),
           name: `${manager.firstName} ${manager.lastName}`,
-          employeeId: manager.employeeId,
+          employeeId: manager.employeeCode,
           designation: manager.designation,
-          department: (manager.departmentId as { name: string })?.name || 'N/A',
+          department: (manager.departmentId as any)?.name || 'N/A',
           level,
         });
 
-        currentManagerId = manager.managerId;
+        currentManagerId = manager.reportingManagerId;
         level--;
       }
     }
@@ -242,10 +243,10 @@ export const getEmployeeHierarchy = async (req: Request, res: Response): Promise
       const getReports = async (managerId: string, level: number): Promise<HierarchyNode[]> => {
         const reports = await Employee.find({
           tenantId,
-          managerId,
+          reportingManagerId: managerId,
           status: 'active',
         })
-          .select('firstName lastName employeeId designation departmentId')
+          .select('firstName lastName employeeCode designation departmentId')
           .populate('departmentId', 'name')
           .lean();
 
@@ -254,9 +255,9 @@ export const getEmployeeHierarchy = async (req: Request, res: Response): Promise
           const node: HierarchyNode = {
             id: report._id.toString(),
             name: `${report.firstName} ${report.lastName}`,
-            employeeId: report.employeeId,
+            employeeId: report.employeeCode,
             designation: report.designation,
-            department: (report.departmentId as { name: string })?.name || 'N/A',
+            department: (report.departmentId as any)?.name || 'N/A',
             level,
           };
           nodes.push(node);
@@ -290,10 +291,10 @@ export const getDirectReports = async (req: Request, res: Response): Promise<voi
 
     const reports = await Employee.find({
       tenantId,
-      managerId: id,
+      reportingManagerId: id,
       status: 'active',
     })
-      .select('firstName lastName employeeId designation departmentId email profilePhoto')
+      .select('firstName lastName employeeCode designation departmentId email avatar')
       .populate('departmentId', 'name')
       .lean();
 
@@ -302,7 +303,7 @@ export const getDirectReports = async (req: Request, res: Response): Promise<voi
       reports.map(async (report) => {
         const directReportCount = await Employee.countDocuments({
           tenantId,
-          managerId: report._id,
+          reportingManagerId: report._id,
           status: 'active',
         });
         return {
@@ -344,17 +345,17 @@ export const updateReportingManager = async (req: Request, res: Response): Promi
         }
         visited.add(currentManager);
 
-        const manager = await Employee.findById(currentManager).select('managerId').lean();
-        currentManager = manager?.managerId?.toString() || null;
+        const manager = await Employee.findById(currentManager).select('reportingManagerId').lean();
+        currentManager = manager?.reportingManagerId?.toString() || null;
       }
     }
 
     const employee = await Employee.findOneAndUpdate(
       { _id: id, tenantId },
-      { managerId: managerId || null },
+      { reportingManagerId: managerId || null },
       { new: true }
     )
-      .populate('managerId', 'firstName lastName designation')
+      .populate('reportingManagerId', 'firstName lastName designation')
       .lean();
 
     if (!employee) {
@@ -396,7 +397,7 @@ export const getOrgStats = async (req: Request, res: Response): Promise<void> =>
             pipeline: [
               {
                 $match: {
-                  $expr: { $eq: ['$managerId', '$$empId'] },
+                  $expr: { $eq: ['$reportingManagerId', '$$empId'] },
                   status: 'active',
                   tenantId: new mongoose.Types.ObjectId(tenantId),
                 },
@@ -409,7 +410,7 @@ export const getOrgStats = async (req: Request, res: Response): Promise<void> =>
         { $group: { _id: null, avgReports: { $avg: { $size: '$directReports' } } } },
       ]),
       calculateOrgDepth(tenantId),
-      Employee.countDocuments({ tenantId, status: 'active', managerId: { $exists: false } }),
+      Employee.countDocuments({ tenantId, status: 'active', reportingManagerId: { $exists: false } }),
       Employee.aggregate([
         { $match: { tenantId: new mongoose.Types.ObjectId(tenantId), status: 'active' } },
         {
@@ -419,7 +420,7 @@ export const getOrgStats = async (req: Request, res: Response): Promise<void> =>
             pipeline: [
               {
                 $match: {
-                  $expr: { $eq: ['$managerId', '$$empId'] },
+                  $expr: { $eq: ['$reportingManagerId', '$$empId'] },
                   status: 'active',
                 },
               },
@@ -452,12 +453,12 @@ export const getOrgStats = async (req: Request, res: Response): Promise<void> =>
 // Helper function to calculate org depth
 async function calculateOrgDepth(tenantId: string): Promise<number> {
   const employees = await Employee.find({ tenantId, status: 'active' })
-    .select('_id managerId')
+    .select('_id reportingManagerId')
     .lean();
 
   const employeeMap = new Map<string, string | null>();
   employees.forEach(emp => {
-    employeeMap.set(emp._id.toString(), emp.managerId?.toString() || null);
+    employeeMap.set(emp._id.toString(), emp.reportingManagerId?.toString() || null);
   });
 
   let maxDepth = 0;

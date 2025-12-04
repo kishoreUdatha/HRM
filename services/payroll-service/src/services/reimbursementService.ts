@@ -221,7 +221,7 @@ export async function getEmployeeReimbursements(
     if (filters.endDate) query.createdAt.$lte = filters.endDate;
   }
 
-  return Reimbursement.find(query).sort({ createdAt: -1 }).lean();
+  return Reimbursement.find(query).sort({ createdAt: -1 }).lean() as any;
 }
 
 export async function getPendingApprovals(
@@ -233,7 +233,7 @@ export async function getPendingApprovals(
     status: { $in: ['submitted', 'pending_approval'] }
   };
 
-  return Reimbursement.find(query).sort({ submittedAt: 1 }).lean();
+  return Reimbursement.find(query).sort({ submittedAt: 1 }).lean() as any;
 }
 
 export async function getApprovedReimbursementsForPayroll(
@@ -249,7 +249,7 @@ export async function getApprovedReimbursementsForPayroll(
 
   if (employeeId) query.employeeId = employeeId;
 
-  return Reimbursement.find(query).lean();
+  return Reimbursement.find(query).lean() as any;
 }
 
 export async function cancelReimbursement(

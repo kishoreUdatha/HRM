@@ -207,7 +207,7 @@ export async function getEmployeeArrears(
   const query: any = { tenantId, employeeId };
   if (status) query.status = status;
 
-  return Arrear.find(query).sort({ createdAt: -1 }).lean();
+  return Arrear.find(query).sort({ createdAt: -1 }).lean() as any;
 }
 
 export async function getPendingArrearsForPayroll(
@@ -217,15 +217,15 @@ export async function getPendingArrearsForPayroll(
   const query: any = { tenantId, status: 'approved' };
   if (employeeId) query.employeeId = employeeId;
 
-  return Arrear.find(query).lean();
+  return Arrear.find(query).lean() as any;
 }
 
 export async function getArrearDetails(arrearId: string): Promise<IArrear | null> {
-  return Arrear.findById(arrearId).lean();
+  return Arrear.findById(arrearId).lean() as any;
 }
 
 export async function getPendingArrearApprovals(tenantId: string): Promise<IArrear[]> {
-  return Arrear.find({ tenantId, status: 'calculated' }).sort({ createdAt: 1 }).lean();
+  return Arrear.find({ tenantId, status: 'calculated' }).sort({ createdAt: 1 }).lean() as any;
 }
 
 export async function bulkCalculateArrears(
@@ -281,7 +281,7 @@ export async function getArrearSummary(
     query['period.toYear'] = { $lte: period.toYear };
   }
 
-  const arrears = await Arrear.find(query).lean();
+  const arrears = await Arrear.find(query).lean() as any[];
 
   const statusBreakdown: Record<string, number> = {};
   const typeBreakdown: Record<string, { count: number; amount: number }> = {};

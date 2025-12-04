@@ -361,11 +361,11 @@ export async function getBonusList(
   if (filters?.bonusType) query.bonusType = filters.bonusType;
   if (filters?.status) query.status = filters.status;
 
-  return Bonus.find(query).sort({ createdAt: -1 }).lean();
+  return Bonus.find(query).sort({ createdAt: -1 }).lean() as any;
 }
 
 export async function getBonusDetails(bonusId: string): Promise<IBonus | null> {
-  return Bonus.findById(bonusId).lean();
+  return Bonus.findById(bonusId).lean() as any;
 }
 
 export async function getEmployeeBonusHistory(
@@ -389,7 +389,7 @@ export async function getEmployeeBonusHistory(
   };
   if (financialYear) query.financialYear = financialYear;
 
-  const bonuses = await Bonus.find(query).lean();
+  const bonuses = await Bonus.find(query).lean() as any[];
 
   return bonuses.map(bonus => {
     const empBonus = bonus.employees.find(e => e.employeeId === employeeId);
@@ -418,14 +418,14 @@ export async function getApprovedBonusesForPayroll(
     tenantId,
     status: 'approved',
     payoutDate: { $gte: startOfMonth, $lte: endOfMonth }
-  }).lean();
+  }).lean() as any;
 }
 
 export async function getBonusSummaryByType(
   tenantId: string,
   financialYear: string
 ): Promise<Record<string, { count: number; totalAmount: number; paidAmount: number }>> {
-  const bonuses = await Bonus.find({ tenantId, financialYear }).lean();
+  const bonuses = await Bonus.find({ tenantId, financialYear }).lean() as any[];
 
   const summary: Record<string, { count: number; totalAmount: number; paidAmount: number }> = {};
 

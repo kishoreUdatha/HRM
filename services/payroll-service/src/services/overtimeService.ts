@@ -18,7 +18,7 @@ export async function createOvertimePolicy(
 }
 
 export async function getOvertimePolicies(tenantId: string): Promise<IOvertimePolicy[]> {
-  return OvertimePolicy.find({ tenantId, isActive: true }).lean();
+  return OvertimePolicy.find({ tenantId, isActive: true }).lean() as any;
 }
 
 export async function updateOvertimePolicy(
@@ -40,7 +40,7 @@ export async function createShiftAllowance(
 }
 
 export async function getShiftAllowances(tenantId: string): Promise<IShiftAllowance[]> {
-  return ShiftAllowance.find({ tenantId, isActive: true }).lean();
+  return ShiftAllowance.find({ tenantId, isActive: true }).lean() as any;
 }
 
 export async function assignShiftToEmployee(
@@ -70,7 +70,7 @@ export async function getEmployeeShiftAssignment(
   tenantId: string,
   employeeId: string
 ): Promise<IShiftAssignment | null> {
-  return ShiftAssignment.findOne({ tenantId, employeeId, isActive: true }).lean();
+  return ShiftAssignment.findOne({ tenantId, employeeId, isActive: true }).lean() as any;
 }
 
 // ==================== OVERTIME ENTRY ====================
@@ -188,11 +188,11 @@ export async function getEmployeeOvertimeEntries(
     query.date = { $gte: startDate, $lte: endDate };
   }
 
-  return OvertimeEntry.find(query).sort({ date: -1 }).lean();
+  return OvertimeEntry.find(query).sort({ date: -1 }).lean() as any;
 }
 
 export async function getPendingOvertimeApprovals(tenantId: string): Promise<IOvertimeEntry[]> {
-  return OvertimeEntry.find({ tenantId, status: 'pending' }).sort({ date: 1 }).lean();
+  return OvertimeEntry.find({ tenantId, status: 'pending' }).sort({ date: 1 }).lean() as any;
 }
 
 export async function getApprovedOvertimeForPayroll(
@@ -209,12 +209,12 @@ export async function getApprovedOvertimeForPayroll(
     employeeId,
     status: 'approved',
     date: { $gte: startDate, $lte: endDate }
-  }).lean();
+  }).lean() as any[];
 
   const totalHours = entries.reduce((sum, e) => sum + e.overtimeHours, 0);
   const totalAmount = entries.reduce((sum, e) => sum + e.amount, 0);
 
-  return { totalHours, totalAmount, entries };
+  return { totalHours, totalAmount, entries: entries as IOvertimeEntry[] };
 }
 
 export async function markOvertimeAsPaid(
@@ -284,7 +284,7 @@ export async function getOvertimeSummary(
   const entries = await OvertimeEntry.find({
     tenantId,
     date: { $gte: startDate, $lte: endDate }
-  }).lean();
+  }).lean() as any[];
 
   const typeBreakdown: Record<string, { hours: number; amount: number }> = {};
 

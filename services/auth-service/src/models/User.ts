@@ -13,6 +13,8 @@ export interface IUser extends Document {
   avatar?: string;
   employeeId?: mongoose.Types.ObjectId;
   isActive: boolean;
+  status: 'active' | 'inactive' | 'suspended';
+  isEmailVerified: boolean;
   lastLogin?: Date;
   refreshTokens: string[];
   passwordResetToken?: string;
@@ -71,6 +73,15 @@ const userSchema = new Schema<IUser>(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    status: {
+      type: String,
+      enum: ['active', 'inactive', 'suspended'],
+      default: 'active',
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
     },
     lastLogin: {
       type: Date,

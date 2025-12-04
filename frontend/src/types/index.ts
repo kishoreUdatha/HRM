@@ -37,7 +37,7 @@ export interface User {
   avatar?: string;
 }
 
-export type UserRole = 'super_admin' | 'tenant_admin' | 'hr' | 'manager' | 'employee';
+export type UserRole = 'super_admin' | 'tenant_admin' | 'hr' | 'manager' | 'employee' | 'admin' | 'hr_manager';
 
 export interface LoginCredentials {
   email: string;
@@ -70,6 +70,12 @@ export interface AuthResponse {
 }
 
 // Employee Types
+export interface EmergencyContact {
+  name: string;
+  relationship: string;
+  phone: string;
+}
+
 export interface Employee {
   _id: string;
   tenantId: string;
@@ -91,6 +97,7 @@ export interface Employee {
   salary: SalaryInfo;
   status: 'active' | 'inactive' | 'terminated' | 'on-leave';
   avatar?: string;
+  emergencyContact?: EmergencyContact;
 }
 
 export interface Address {

@@ -118,13 +118,13 @@ export async function getSalaryRevisionHistory(
 ): Promise<ISalaryRevision[]> {
   return SalaryRevision.find({ tenantId, employeeId })
     .sort({ effectiveDate: -1 })
-    .lean();
+    .lean() as any;
 }
 
 export async function getPendingRevisions(tenantId: string): Promise<ISalaryRevision[]> {
   return SalaryRevision.find({ tenantId, approvalStatus: 'pending' })
     .sort({ createdAt: -1 })
-    .lean();
+    .lean() as any;
 }
 
 export async function calculateArrears(
@@ -253,5 +253,5 @@ export async function getUnprocessedArrears(tenantId: string): Promise<ISalaryRe
     approvalStatus: 'approved',
     'arrearDetails.processed': false,
     'arrearDetails.arrearAmount': { $gt: 0 }
-  }).lean();
+  }).lean() as any;
 }

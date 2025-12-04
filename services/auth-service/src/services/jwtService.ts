@@ -1,4 +1,4 @@
-import jwt, { SignOptions } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 
 interface JwtPayload {
   userId: string;
@@ -15,15 +15,10 @@ interface TokenPair {
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'hrm_saas_access_secret_2024';
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'hrm_saas_refresh_secret_2024';
-const ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
-const REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
 export const generateTokens = (payload: JwtPayload): TokenPair => {
-  const accessOptions: SignOptions = { expiresIn: ACCESS_EXPIRES as string };
-  const refreshOptions: SignOptions = { expiresIn: REFRESH_EXPIRES as string };
-
-  const accessToken = jwt.sign(payload, ACCESS_SECRET, accessOptions);
-  const refreshToken = jwt.sign(payload, REFRESH_SECRET, refreshOptions);
+  const accessToken = jwt.sign(payload, ACCESS_SECRET, { expiresIn: '15m' });
+  const refreshToken = jwt.sign(payload, REFRESH_SECRET, { expiresIn: '7d' });
 
   return { accessToken, refreshToken };
 };
@@ -37,8 +32,7 @@ export const verifyRefreshToken = (token: string): JwtPayload => {
 };
 
 export const generateAccessToken = (payload: JwtPayload): string => {
-  const options: SignOptions = { expiresIn: ACCESS_EXPIRES as string };
-  return jwt.sign(payload, ACCESS_SECRET, options);
+  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: '15m' });
 };
 
 export const decodeToken = (token: string): JwtPayload | null => {
