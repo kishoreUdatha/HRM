@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import ChatbotWidget from '../chatbot/ChatbotWidget';
 
 const Layout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -43,6 +44,9 @@ const Layout: React.FC = () => {
           </footer>
         </div>
       </div>
+
+      {/* AI Chatbot Widget */}
+      <ChatbotWidget />
     </div>
   );
 };

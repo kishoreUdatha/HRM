@@ -28,6 +28,18 @@ import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Shifts from './pages/Shifts';
 import NotFound from './pages/NotFound';
+import Payroll from './pages/Payroll';
+import Chat from './pages/Chat';
+import Analytics from './pages/Analytics';
+import Onboarding from './pages/Onboarding';
+import Benefits from './pages/Benefits';
+import Expenses from './pages/Expenses';
+import Timesheets from './pages/Timesheets';
+import Compliance from './pages/Compliance';
+import Engagement from './pages/Engagement';
+import Assets from './pages/Assets';
+import Grievances from './pages/Grievances';
+import Workforce from './pages/Workforce';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -97,6 +109,30 @@ const AppRoutes: React.FC = () => {
         <Route path="/org-chart" element={<OrgChart />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/payroll" element={
+          <ProtectedRoute allowedRoles={['admin', 'tenant_admin', 'hr']}>
+            <Payroll />
+          </ProtectedRoute>
+        } />
+        <Route path="/chat" element={<Chat />} />
+        <Route path="/analytics" element={
+          <ProtectedRoute allowedRoles={['admin', 'tenant_admin', 'hr']}>
+            <Analytics />
+          </ProtectedRoute>
+        } />
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/benefits" element={<Benefits />} />
+        <Route path="/expenses" element={<Expenses />} />
+        <Route path="/timesheets" element={<Timesheets />} />
+        <Route path="/compliance" element={<Compliance />} />
+        <Route path="/engagement" element={<Engagement />} />
+        <Route path="/assets" element={<Assets />} />
+        <Route path="/grievances" element={<Grievances />} />
+        <Route path="/workforce" element={
+          <ProtectedRoute allowedRoles={['admin', 'tenant_admin', 'hr']}>
+            <Workforce />
+          </ProtectedRoute>
+        } />
         <Route
           path="/settings"
           element={
