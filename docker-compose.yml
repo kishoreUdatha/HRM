@@ -1,0 +1,491 @@
+version: '3.8'
+
+services:
+  # ===========================================
+  # INFRASTRUCTURE SERVICES
+  # ===========================================
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: hrm-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: hrm_password_2024
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - hrm-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: hrm-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - hrm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: hrm-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: hrm_user
+      RABBITMQ_DEFAULT_PASS: hrm_password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - hrm-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # MICROSERVICES
+  # ===========================================
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: hrm-api-gateway
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - JWT_ACCESS_SECRET=hrm_saas_access_secret_2024
+      - JWT_REFRESH_SECRET=hrm_saas_refresh_secret_2024
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - TENANT_SERVICE_URL=http://tenant-service:3002
+      - EMPLOYEE_SERVICE_URL=http://employee-service:3003
+      - ATTENDANCE_SERVICE_URL=http://attendance-service:3004
+      - LEAVE_SERVICE_URL=http://leave-service:3005
+      - PAYROLL_SERVICE_URL=http://payroll-service:3006
+      - NOTIFICATION_SERVICE_URL=http://notification-service:3007
+      - REPORTS_SERVICE_URL=http://reports-service:3008
+      - WEBSOCKET_SERVICE_URL=http://websocket-service:3009
+      - CHAT_SERVICE_URL=http://chat-service:3010
+      - ANALYTICS_SERVICE_URL=http://analytics-service:3011
+      - DOCUMENT_SERVICE_URL=http://document-service:3012
+      - INTEGRATION_SERVICE_URL=http://integration-service:3013
+      - ENGAGEMENT_SERVICE_URL=http://engagement-service:3014
+      - AI_CHATBOT_SERVICE_URL=http://ai-chatbot-service:3015
+      - AI_ML_SERVICE_URL=http://ai-ml-service:3016
+      - CLIENT_URL=http://localhost:5173
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+      - auth-service
+      - tenant-service
+      - employee-service
+    networks:
+      - hrm-network
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    container_name: hrm-auth-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_auth?authSource=admin
+      - JWT_ACCESS_SECRET=hrm_saas_access_secret_2024
+      - JWT_REFRESH_SECRET=hrm_saas_refresh_secret_2024
+      - JWT_ACCESS_EXPIRES_IN=15m
+      - JWT_REFRESH_EXPIRES_IN=7d
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Tenant Service
+  tenant-service:
+    build:
+      context: ./services/tenant-service
+      dockerfile: Dockerfile
+    container_name: hrm-tenant-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_tenants?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Employee Service
+  employee-service:
+    build:
+      context: ./services/employee-service
+      dockerfile: Dockerfile
+    container_name: hrm-employee-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_employees?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Attendance Service
+  attendance-service:
+    build:
+      context: ./services/attendance-service
+      dockerfile: Dockerfile
+    container_name: hrm-attendance-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_attendance?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Leave Service
+  leave-service:
+    build:
+      context: ./services/leave-service
+      dockerfile: Dockerfile
+    container_name: hrm-leave-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_leaves?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Payroll Service
+  payroll-service:
+    build:
+      context: ./services/payroll-service
+      dockerfile: Dockerfile
+    container_name: hrm-payroll-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3006
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_payroll?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Notification Service
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    container_name: hrm-notification-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3007
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_notifications?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_SECURE=false
+      - SMTP_USER=your-email@gmail.com
+      - SMTP_PASS=your-app-password
+      - EMAIL_FROM=HRM System <noreply@hrm.com>
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Reports & Analytics Service
+  reports-service:
+    build:
+      context: ./services/reports-service
+      dockerfile: Dockerfile
+    container_name: hrm-reports-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3008
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_reports?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # ===========================================
+  # ADVANCED FEATURE SERVICES
+  # ===========================================
+
+  # WebSocket Service (Real-time Communications)
+  websocket-service:
+    build:
+      context: ./services/websocket-service
+      dockerfile: Dockerfile
+    container_name: hrm-websocket-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3009
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+      - JWT_ACCESS_SECRET=hrm_saas_access_secret_2024
+    ports:
+      - "3009:3009"
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Chat Service
+  chat-service:
+    build:
+      context: ./services/chat-service
+      dockerfile: Dockerfile
+    container_name: hrm-chat-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3010
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_chat?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Analytics Service (Advanced BI & Predictions)
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+      dockerfile: Dockerfile
+    container_name: hrm-analytics-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3011
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_analytics?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Document Service (S3, Versioning, Signatures, OCR)
+  document-service:
+    build:
+      context: ./services/document-service
+      dockerfile: Dockerfile
+    container_name: hrm-document-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3012
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_documents?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+      - AWS_ACCESS_KEY_ID=your-aws-access-key
+      - AWS_SECRET_ACCESS_KEY=your-aws-secret-key
+      - AWS_REGION=us-east-1
+      - S3_BUCKET=hrm-documents
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Integration Service (Webhooks, API Keys, Third-party)
+  integration-service:
+    build:
+      context: ./services/integration-service
+      dockerfile: Dockerfile
+    container_name: hrm-integration-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3013
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_integrations?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    ports:
+      - "3013:3013"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Engagement Service (Surveys, Feedback, Recognition, OKRs)
+  engagement-service:
+    build:
+      context: ./services/engagement-service
+      dockerfile: Dockerfile
+    container_name: hrm-engagement-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3014
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_engagement?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # AI Chatbot Service (HR Assistant, NLP, Query Handling)
+  ai-chatbot-service:
+    build:
+      context: ./services/ai-chatbot-service
+      dockerfile: Dockerfile
+    container_name: hrm-ai-chatbot-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3015
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_chatbot?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+      - REDIS_URL=redis://redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=gpt-3.5-turbo
+      - LEAVE_SERVICE_URL=http://leave-service:3005
+      - ATTENDANCE_SERVICE_URL=http://attendance-service:3004
+      - PAYROLL_SERVICE_URL=http://payroll-service:3006
+      - EMPLOYEE_SERVICE_URL=http://employee-service:3003
+    ports:
+      - "3015:3015"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # AI/ML Service (Predictions, Resume Parsing, Skill Matching, Sentiment Analysis)
+  ai-ml-service:
+    build:
+      context: ./services/ai-ml-service
+      dockerfile: Dockerfile
+    container_name: hrm-ai-ml-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3016
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_ai_ml?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=gpt-3.5-turbo
+    ports:
+      - "3016:3016"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Frontend Client
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hrm-frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost:3000/api
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api-gateway
+    networks:
+      - hrm-network
+
+networks:
+  hrm-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+  redis_data:
+  rabbitmq_data:
