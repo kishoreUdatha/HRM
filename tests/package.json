@@ -1,0 +1,24 @@
+{
+  "name": "hrm-tests",
+  "version": "1.0.0",
+  "description": "HRM Integration and E2E Tests",
+  "scripts": {
+    "test": "jest --config jest.config.js",
+    "test:integration": "jest --config jest.config.js --testPathPattern=integration",
+    "test:unit": "jest --config jest.config.js --testPathPattern=unit",
+    "test:coverage": "jest --config jest.config.js --coverage",
+    "test:watch": "jest --config jest.config.js --watch",
+    "test:report": "jest --config jest.config.js --json --outputFile=test-results.json && node generate-report.js"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.0",
+    "@types/supertest": "^6.0.2",
+    "axios": "^1.6.5",
+    "jest": "^29.7.0",
+    "jest-html-reporter": "^3.10.2",
+    "supertest": "^6.3.4",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.3.3"
+  }
+}
