@@ -106,6 +106,7 @@ services:
       - TIMESHEET_SERVICE_URL=http://timesheet-service:3024
       - ASSET_SERVICE_URL=http://asset-service:3025
       - GRIEVANCE_SERVICE_URL=http://grievance-service:3026
+      - BILLING_SERVICE_URL=http://billing-service:3027
       - CLIENT_URL=http://localhost:5173
     ports:
       - "3000:3000"
@@ -651,6 +652,31 @@ services:
       - PORT=3026
       - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_grievances?authSource=admin
       - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Billing Service (Razorpay Integration, Subscriptions, Invoices)
+  billing-service:
+    build:
+      context: ./services/billing-service
+      dockerfile: Dockerfile
+    container_name: hrm-billing-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3027
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_billing?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-rzp_test_placeholder}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-placeholder_secret}
+      - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET:-webhook_secret}
+    ports:
+      - "3027:3027"
     depends_on:
       mongodb:
         condition: service_healthy

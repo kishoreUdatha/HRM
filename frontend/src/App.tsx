@@ -49,6 +49,22 @@ import UserManagement from './pages/admin/UserManagement';
 import AuditLogs from './pages/admin/AuditLogs';
 import RoleManagement from './pages/admin/RoleManagement';
 
+// Super Admin Pages
+import SuperAdminLogin from './pages/super-admin/SuperAdminLogin';
+import SuperAdminLayout from './pages/super-admin/SuperAdminLayout';
+import SuperAdminProtectedRoute from './components/super-admin/SuperAdminProtectedRoute';
+import PlatformDashboard from './pages/super-admin/PlatformDashboard';
+import TenantManagement from './pages/super-admin/TenantManagement';
+import TenantDetails from './pages/super-admin/TenantDetails';
+import PlatformAnalytics from './pages/super-admin/PlatformAnalytics';
+import PlatformNotifications from './pages/super-admin/PlatformNotifications';
+import SystemSettings from './pages/super-admin/SystemSettings';
+import SystemHealth from './pages/super-admin/SystemHealth';
+import BillingDashboard from './pages/super-admin/BillingDashboard';
+
+// Tenant Billing
+import BillingSettings from './pages/tenant/BillingSettings';
+
 // Auth check wrapper
 const AuthCheck: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useAppDispatch();
@@ -96,68 +112,184 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       >
+        {/* Dashboard - accessible to all authenticated users */}
         <Route path="/" element={<Dashboard />} />
-        <Route path="/employees" element={<Employees />} />
-        <Route path="/employees/new" element={<EmployeeForm />} />
-        <Route path="/employees/:id" element={<EmployeeForm />} />
-        <Route path="/departments" element={<Departments />} />
-        <Route path="/shifts" element={<Shifts />} />
-        <Route path="/attendance" element={<Attendance />} />
-        <Route path="/leaves" element={<Leaves />} />
+
+        {/* Employee Management - requires employees:read */}
+        <Route path="/employees" element={
+          <ProtectedRoute requiredPermissions={['employees:read']}>
+            <Employees />
+          </ProtectedRoute>
+        } />
+        <Route path="/employees/new" element={
+          <ProtectedRoute requiredPermissions={['employees:write']}>
+            <EmployeeForm />
+          </ProtectedRoute>
+        } />
+        <Route path="/employees/:id" element={
+          <ProtectedRoute requiredPermissions={['employees:read']}>
+            <EmployeeForm />
+          </ProtectedRoute>
+        } />
+        <Route path="/departments" element={
+          <ProtectedRoute requiredPermissions={['employees:read']}>
+            <Departments />
+          </ProtectedRoute>
+        } />
+        <Route path="/shifts" element={
+          <ProtectedRoute requiredPermissions={['attendance:write', 'employees:write']}>
+            <Shifts />
+          </ProtectedRoute>
+        } />
+        <Route path="/org-chart" element={
+          <ProtectedRoute requiredPermissions={['employees:read']}>
+            <OrgChart />
+          </ProtectedRoute>
+        } />
+
+        {/* Attendance - requires attendance permissions */}
+        <Route path="/attendance" element={
+          <ProtectedRoute requiredPermissions={['attendance:read', 'attendance:checkin']}>
+            <Attendance />
+          </ProtectedRoute>
+        } />
+        <Route path="/timesheets" element={
+          <ProtectedRoute requiredPermissions={['attendance:read']}>
+            <Timesheets />
+          </ProtectedRoute>
+        } />
+
+        {/* Leave Management */}
+        <Route path="/leaves" element={
+          <ProtectedRoute requiredPermissions={['leaves:read']}>
+            <Leaves />
+          </ProtectedRoute>
+        } />
         <Route path="/leave-types" element={
-          <ProtectedRoute allowedRoles={['admin', 'tenant_admin', 'hr', 'hr_manager']}>
+          <ProtectedRoute requiredPermissions={['leaves:write', 'leaves:approve']}>
             <LeaveTypes />
           </ProtectedRoute>
         } />
         <Route path="/leave-balances" element={
-          <ProtectedRoute allowedRoles={['admin', 'tenant_admin', 'hr', 'hr_manager']}>
+          <ProtectedRoute requiredPermissions={['leaves:approve', 'employees:read']}>
             <LeaveBalances />
           </ProtectedRoute>
         } />
-        <Route path="/recruitment" element={<Recruitment />} />
-        <Route path="/performance" element={<Performance />} />
-        <Route path="/training" element={<Training />} />
-        <Route path="/documents" element={<Documents />} />
-        <Route path="/org-chart" element={<OrgChart />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/profile" element={<Profile />} />
+
+        {/* Payroll */}
         <Route path="/payroll" element={
-          <ProtectedRoute allowedRoles={['admin', 'tenant_admin', 'hr']}>
+          <ProtectedRoute requiredPermissions={['payroll:read']}>
             <Payroll />
           </ProtectedRoute>
         } />
-        <Route path="/chat" element={<Chat />} />
+        <Route path="/benefits" element={
+          <ProtectedRoute requiredPermissions={['payroll:read', 'employees:read']}>
+            <Benefits />
+          </ProtectedRoute>
+        } />
+        <Route path="/expenses" element={
+          <ProtectedRoute requiredPermissions={['payroll:read']}>
+            <Expenses />
+          </ProtectedRoute>
+        } />
+
+        {/* Recruitment */}
+        <Route path="/recruitment" element={
+          <ProtectedRoute requiredPermissions={['recruitment:read']}>
+            <Recruitment />
+          </ProtectedRoute>
+        } />
+        <Route path="/onboarding" element={
+          <ProtectedRoute requiredPermissions={['employees:write', 'recruitment:write']}>
+            <Onboarding />
+          </ProtectedRoute>
+        } />
+
+        {/* HR Features requiring employees:read */}
+        <Route path="/performance" element={
+          <ProtectedRoute requiredPermissions={['employees:read']}>
+            <Performance />
+          </ProtectedRoute>
+        } />
+        <Route path="/training" element={
+          <ProtectedRoute requiredPermissions={['employees:read']}>
+            <Training />
+          </ProtectedRoute>
+        } />
+        <Route path="/engagement" element={
+          <ProtectedRoute requiredPermissions={['employees:read']}>
+            <Engagement />
+          </ProtectedRoute>
+        } />
+        <Route path="/assets" element={
+          <ProtectedRoute requiredPermissions={['employees:read']}>
+            <Assets />
+          </ProtectedRoute>
+        } />
+        <Route path="/grievances" element={
+          <ProtectedRoute requiredPermissions={['employees:read']}>
+            <Grievances />
+          </ProtectedRoute>
+        } />
+        <Route path="/compliance" element={
+          <ProtectedRoute requiredPermissions={['employees:read', 'reports:read']}>
+            <Compliance />
+          </ProtectedRoute>
+        } />
+
+        {/* Documents - employees can access their own */}
+        <Route path="/documents" element={
+          <ProtectedRoute requiredPermissions={['profile:read']}>
+            <Documents />
+          </ProtectedRoute>
+        } />
+
+        {/* Reports & Analytics */}
+        <Route path="/reports" element={
+          <ProtectedRoute requiredPermissions={['reports:read']}>
+            <Reports />
+          </ProtectedRoute>
+        } />
         <Route path="/analytics" element={
-          <ProtectedRoute allowedRoles={['admin', 'tenant_admin', 'hr']}>
+          <ProtectedRoute requiredPermissions={['reports:read']}>
             <Analytics />
           </ProtectedRoute>
         } />
-        <Route path="/onboarding" element={<Onboarding />} />
-        <Route path="/benefits" element={<Benefits />} />
-        <Route path="/expenses" element={<Expenses />} />
-        <Route path="/timesheets" element={<Timesheets />} />
-        <Route path="/compliance" element={<Compliance />} />
-        <Route path="/engagement" element={<Engagement />} />
-        <Route path="/assets" element={<Assets />} />
-        <Route path="/grievances" element={<Grievances />} />
         <Route path="/workforce" element={
-          <ProtectedRoute allowedRoles={['admin', 'tenant_admin', 'hr']}>
+          <ProtectedRoute requiredPermissions={['reports:read', 'employees:read']}>
             <Workforce />
           </ProtectedRoute>
         } />
+
+        {/* Profile - accessible to all authenticated users */}
+        <Route path="/profile" element={<Profile />} />
+
+        {/* Chat - accessible to all */}
+        <Route path="/chat" element={<Chat />} />
+
+        {/* Settings - requires settings permissions */}
         <Route
           path="/settings"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'tenant_admin']}>
+            <ProtectedRoute requiredPermissions={['settings:read', 'settings:write']}>
               <Settings />
             </ProtectedRoute>
           }
         />
-        {/* Admin Routes */}
+        <Route
+          path="/billing"
+          element={
+            <ProtectedRoute requiredPermissions={['settings:write']}>
+              <BillingSettings />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Admin Routes - requires users permissions */}
         <Route
           path="/admin"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'tenant_admin']}>
+            <ProtectedRoute requiredPermissions={['users:read', 'users:write']}>
               <AdminDashboard />
             </ProtectedRoute>
           }
@@ -165,7 +297,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="/admin/users"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'tenant_admin']}>
+            <ProtectedRoute requiredPermissions={['users:read', 'users:write']}>
               <UserManagement />
             </ProtectedRoute>
           }
@@ -173,7 +305,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="/admin/audit-logs"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'tenant_admin']}>
+            <ProtectedRoute requiredPermissions={['users:read']}>
               <AuditLogs />
             </ProtectedRoute>
           }
@@ -181,11 +313,32 @@ const AppRoutes: React.FC = () => {
         <Route
           path="/admin/roles"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'tenant_admin']}>
+            <ProtectedRoute requiredPermissions={['users:write']}>
               <RoleManagement />
             </ProtectedRoute>
           }
         />
+      </Route>
+
+      {/* Super Admin Routes */}
+      <Route path="/super-admin/login" element={<SuperAdminLogin />} />
+      <Route
+        path="/super-admin"
+        element={
+          <SuperAdminProtectedRoute>
+            <SuperAdminLayout />
+          </SuperAdminProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/super-admin/dashboard" replace />} />
+        <Route path="dashboard" element={<PlatformDashboard />} />
+        <Route path="tenants" element={<TenantManagement />} />
+        <Route path="tenants/:id" element={<TenantDetails />} />
+        <Route path="analytics" element={<PlatformAnalytics />} />
+        <Route path="billing" element={<BillingDashboard />} />
+        <Route path="notifications" element={<PlatformNotifications />} />
+        <Route path="settings" element={<SystemSettings />} />
+        <Route path="health" element={<SystemHealth />} />
       </Route>
 
       {/* 404 */}

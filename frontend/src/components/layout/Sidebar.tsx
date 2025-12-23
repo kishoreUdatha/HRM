@@ -38,58 +38,70 @@ interface NavItem {
   name: string;
   path: string;
   icon: React.ComponentType<{ className?: string }>;
-  roles?: string[];
+  permissions?: string[]; // Required permissions (any of these)
+  roles?: string[]; // Fallback role check
 }
 
+// Helper function to check if user has required permission
+const hasPermission = (userPermissions: string[], requiredPermissions?: string[]): boolean => {
+  if (!requiredPermissions || requiredPermissions.length === 0) return true;
+  if (userPermissions.includes('*')) return true; // Full access
+  return requiredPermissions.some(perm => userPermissions.includes(perm));
+};
+
 const navigation: NavItem[] = [
-  { name: 'Dashboard', path: '/', icon: HiHome },
-  { name: 'Employees', path: '/employees', icon: HiUsers },
-  { name: 'Departments', path: '/departments', icon: HiUserGroup },
-  { name: 'Shifts', path: '/shifts', icon: HiClock, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },
-  { name: 'Org Chart', path: '/org-chart', icon: HiOfficeBuilding },
-  { name: 'Attendance', path: '/attendance', icon: HiCalendar },
-  { name: 'Leave Management', path: '/leaves', icon: HiCalendar },
-  { name: 'Leave Types', path: '/leave-types', icon: HiClipboardList, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },
-  { name: 'Leave Balances', path: '/leave-balances', icon: HiCollection, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },
-  { name: 'Payroll', path: '/payroll', icon: HiCurrencyDollar, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },
-  { name: 'Timesheets', path: '/timesheets', icon: HiClock },
-  { name: 'Recruitment', path: '/recruitment', icon: HiBriefcase, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },
-  { name: 'Onboarding', path: '/onboarding', icon: HiUserAdd },
-  { name: 'Performance', path: '/performance', icon: HiStar },
-  { name: 'Training', path: '/training', icon: HiAcademicCap },
-  { name: 'Benefits', path: '/benefits', icon: HiHeart },
-  { name: 'Expenses', path: '/expenses', icon: HiCreditCard },
-  { name: 'Engagement', path: '/engagement', icon: HiHeart },
-  { name: 'Assets', path: '/assets', icon: HiCube },
-  { name: 'Grievances', path: '/grievances', icon: HiExclamationCircle },
-  { name: 'Compliance', path: '/compliance', icon: HiClipboardCheck },
-  { name: 'Documents', path: '/documents', icon: HiDocumentText },
-  { name: 'Chat', path: '/chat', icon: HiChat },
-  { name: 'Analytics', path: '/analytics', icon: HiTrendingUp, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },
-  { name: 'Workforce', path: '/workforce', icon: HiCollection, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },
-  { name: 'Reports', path: '/reports', icon: HiChartBar, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },
-  { name: 'Settings', path: '/settings', icon: HiCog, roles: ['admin', 'tenant_admin'] },
+  { name: 'Dashboard', path: '/', icon: HiHome }, // Everyone can see dashboard
+  { name: 'Employees', path: '/employees', icon: HiUsers, permissions: ['employees:read'] },
+  { name: 'Departments', path: '/departments', icon: HiUserGroup, permissions: ['employees:read'] },
+  { name: 'Shifts', path: '/shifts', icon: HiClock, permissions: ['attendance:write', 'employees:write'] },
+  { name: 'Org Chart', path: '/org-chart', icon: HiOfficeBuilding, permissions: ['employees:read'] },
+  { name: 'Attendance', path: '/attendance', icon: HiCalendar, permissions: ['attendance:read', 'attendance:checkin'] },
+  { name: 'Leave Management', path: '/leaves', icon: HiCalendar, permissions: ['leaves:read'] },
+  { name: 'Leave Types', path: '/leave-types', icon: HiClipboardList, permissions: ['leaves:write', 'leaves:approve'] },
+  { name: 'Leave Balances', path: '/leave-balances', icon: HiCollection, permissions: ['leaves:approve', 'employees:read'] },
+  { name: 'Payroll', path: '/payroll', icon: HiCurrencyDollar, permissions: ['payroll:read'] },
+  { name: 'Timesheets', path: '/timesheets', icon: HiClock, permissions: ['attendance:read'] },
+  { name: 'Recruitment', path: '/recruitment', icon: HiBriefcase, permissions: ['recruitment:read'] },
+  { name: 'Onboarding', path: '/onboarding', icon: HiUserAdd, permissions: ['employees:write', 'recruitment:write'] },
+  { name: 'Performance', path: '/performance', icon: HiStar, permissions: ['employees:read'] },
+  { name: 'Training', path: '/training', icon: HiAcademicCap, permissions: ['employees:read'] },
+  { name: 'Benefits', path: '/benefits', icon: HiHeart, permissions: ['payroll:read', 'employees:read'] },
+  { name: 'Expenses', path: '/expenses', icon: HiCreditCard, permissions: ['payroll:read'] },
+  { name: 'Engagement', path: '/engagement', icon: HiHeart, permissions: ['employees:read'] },
+  { name: 'Assets', path: '/assets', icon: HiCube, permissions: ['employees:read'] },
+  { name: 'Grievances', path: '/grievances', icon: HiExclamationCircle, permissions: ['employees:read'] },
+  { name: 'Compliance', path: '/compliance', icon: HiClipboardCheck, permissions: ['employees:read', 'reports:read'] },
+  { name: 'Documents', path: '/documents', icon: HiDocumentText, permissions: ['profile:read'] }, // Employees can access their own docs
+  { name: 'Chat', path: '/chat', icon: HiChat }, // Everyone can use chat
+  { name: 'Analytics', path: '/analytics', icon: HiTrendingUp, permissions: ['reports:read'] },
+  { name: 'Workforce', path: '/workforce', icon: HiCollection, permissions: ['reports:read', 'employees:read'] },
+  { name: 'Reports', path: '/reports', icon: HiChartBar, permissions: ['reports:read'] },
+  { name: 'Settings', path: '/settings', icon: HiCog, permissions: ['settings:read', 'settings:write'] },
 ];
 
 const adminNavigation: NavItem[] = [
-  { name: 'Admin Dashboard', path: '/admin', icon: HiShieldCheck, roles: ['admin', 'tenant_admin'] },
-  { name: 'User Management', path: '/admin/users', icon: HiUsers, roles: ['admin', 'tenant_admin'] },
-  { name: 'Role Management', path: '/admin/roles', icon: HiClipboardList, roles: ['admin', 'tenant_admin'] },
-  { name: 'Audit Logs', path: '/admin/audit-logs', icon: HiDocumentText, roles: ['admin', 'tenant_admin'] },
+  { name: 'Admin Dashboard', path: '/admin', icon: HiShieldCheck, permissions: ['users:read', 'users:write'] },
+  { name: 'User Management', path: '/admin/users', icon: HiUsers, permissions: ['users:read', 'users:write'] },
+  { name: 'Role Management', path: '/admin/roles', icon: HiClipboardList, permissions: ['users:write'] },
+  { name: 'Audit Logs', path: '/admin/audit-logs', icon: HiDocumentText, permissions: ['users:read'] },
+  { name: 'Billing', path: '/billing', icon: HiCreditCard, permissions: ['settings:write'] },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
   const { user, tenant } = useAppSelector((state) => state.auth);
 
+  // Get user permissions, default to empty array if not set
+  const userPermissions = user?.permissions || [];
+
   const filteredNavigation = navigation.filter((item) => {
-    if (!item.roles) return true;
-    return user && item.roles.includes(user.role);
+    if (!user) return false;
+    return hasPermission(userPermissions, item.permissions);
   });
 
   const filteredAdminNavigation = adminNavigation.filter((item) => {
-    if (!item.roles) return true;
-    return user && item.roles.includes(user.role);
+    if (!user) return false;
+    return hasPermission(userPermissions, item.permissions);
   });
 
   return (

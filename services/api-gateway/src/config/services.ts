@@ -23,6 +23,43 @@ export const services: ServiceConfig[] = [
     timeout: 30000,
     requiresAuth: true,  // Admin routes require authentication
   },
+  // Super admin protected routes (me, list, add, etc.) - requires auth
+  {
+    name: 'auth-super-admin-protected',
+    url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+    pathPrefix: '/api/auth/super-admin/me',
+    targetPath: '/super-admin/me',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'auth-super-admin-list',
+    url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+    pathPrefix: '/api/auth/super-admin/list',
+    targetPath: '/super-admin/list',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'auth-super-admin-add',
+    url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+    pathPrefix: '/api/auth/super-admin/add',
+    targetPath: '/super-admin/add',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'auth-super-admin-stats',
+    url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+    pathPrefix: '/api/auth/super-admin/platform-stats',
+    targetPath: '/super-admin/platform-stats',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
   {
     name: 'auth-service',
     url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
@@ -31,6 +68,16 @@ export const services: ServiceConfig[] = [
     healthCheck: '/health',
     timeout: 30000,
     requiresAuth: false,  // Public - login/register endpoints
+  },
+  // Tenant admin routes (super admin only) - must come before public tenant routes
+  {
+    name: 'tenant-admin-service',
+    url: process.env.TENANT_SERVICE_URL || 'http://localhost:3002',
+    pathPrefix: '/api/tenants/admin',
+    targetPath: '/admin',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication for admin routes
   },
   {
     name: 'tenant-service',
@@ -315,6 +362,48 @@ export const services: ServiceConfig[] = [
     healthCheck: '/health',
     timeout: 30000,
     requiresAuth: true,
+  },
+
+  // ===========================================
+  // BILLING & SUBSCRIPTION
+  // ===========================================
+  // Billing admin routes (super admin only) - must come before public billing routes
+  {
+    name: 'billing-admin-service',
+    url: process.env.BILLING_SERVICE_URL || 'http://localhost:3027',
+    pathPrefix: '/api/billing/admin',
+    targetPath: '/api/billing/admin',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication for admin routes
+  },
+  // Billing tenant routes (authenticated users)
+  {
+    name: 'billing-tenant-service',
+    url: process.env.BILLING_SERVICE_URL || 'http://localhost:3027',
+    pathPrefix: '/api/billing/subscriptions',
+    targetPath: '/api/billing/subscriptions',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication for subscription management
+  },
+  {
+    name: 'billing-invoices-service',
+    url: process.env.BILLING_SERVICE_URL || 'http://localhost:3027',
+    pathPrefix: '/api/billing/invoices',
+    targetPath: '/api/billing/invoices',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication for invoice access
+  },
+  {
+    name: 'billing-service',
+    url: process.env.BILLING_SERVICE_URL || 'http://localhost:3027',
+    pathPrefix: '/api/billing',
+    targetPath: '/api/billing',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: false,  // Public routes (plans, webhooks)
   },
 ];
 

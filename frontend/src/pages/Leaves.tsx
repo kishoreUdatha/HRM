@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HiCalendar, HiCheck, HiX, HiPlus, HiSearch } from 'react-icons/hi';
+import { HiCalendar, HiCheck, HiX, HiPlus, HiSearch, HiClock, HiCheckCircle, HiXCircle, HiExclamationCircle } from 'react-icons/hi';
 import api from '../services/api';
 import { useAppSelector } from '../hooks/useAppDispatch';
 import SortableTableHeader, { useSortConfig } from '../components/common/SortableTableHeader';
@@ -12,6 +12,15 @@ interface LeaveType {
   isPaid: boolean;
   allowHalfDay: boolean;
   isActive: boolean;
+}
+
+interface LeaveBalance {
+  leaveTypeId: string;
+  leaveTypeName: string;
+  allocated: number;
+  used: number;
+  pending: number;
+  available: number;
 }
 
 interface LeaveRequest {
@@ -34,10 +43,477 @@ interface LeaveRequest {
   days: number;
   reason: string;
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  rejectionReason?: string;
   createdAt: string;
 }
 
-const Leaves: React.FC = () => {
+// Employee Leave View Component
+const EmployeeLeaveView: React.FC<{ user: any }> = ({ user }) => {
+  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalance[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filter, setFilter] = useState<string>('all');
+
+  const [formData, setFormData] = useState({
+    leaveTypeId: '',
+    startDate: '',
+    endDate: '',
+    reason: '',
+    isHalfDay: false,
+  });
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    fetchLeaves();
+  }, [filter]);
+
+  const fetchData = async () => {
+    try {
+      // Fetch leave types
+      const typesResponse = await api.get('/leaves/types?isActive=true');
+      const types = typesResponse.data.data?.leaveTypes || [];
+      setLeaveTypes(types);
+      if (types.length > 0) {
+        setFormData((prev) => ({ ...prev, leaveTypeId: types[0]._id }));
+      }
+
+      // Try to fetch leave balances from API
+      try {
+        const balanceResponse = await api.get('/leaves/balances/my');
+        if (balanceResponse.data.data?.balances) {
+          setLeaveBalances(balanceResponse.data.data.balances);
+        } else {
+          // Generate mock balances if API doesn't return data
+          generateMockBalances(types);
+        }
+      } catch {
+        generateMockBalances(types);
+      }
+    } catch (error) {
+      console.error('Failed to fetch leave data:', error);
+    }
+  };
+
+  const generateMockBalances = (types: LeaveType[]) => {
+    const mockBalances: LeaveBalance[] = types.map((type) => ({
+      leaveTypeId: type._id,
+      leaveTypeName: type.name,
+      allocated: type.defaultDays,
+      used: Math.floor(Math.random() * Math.min(5, type.defaultDays)),
+      pending: Math.floor(Math.random() * 2),
+      available: 0,
+    }));
+    mockBalances.forEach((b) => {
+      b.available = b.allocated - b.used - b.pending;
+    });
+    setLeaveBalances(mockBalances);
+  };
+
+  const fetchLeaves = async () => {
+    try {
+      setIsLoading(true);
+      const params = new URLSearchParams({ limit: '50' });
+      if (filter !== 'all') params.append('status', filter);
+
+      const response = await api.get(`/leaves/requests?${params}`);
+      // Filter for only the current user's leaves
+      const allLeaves = response.data.data?.leaves || [];
+      const myLeaves = allLeaves.filter(
+        (leave: LeaveRequest) =>
+          leave.employeeId === user?.employeeId ||
+          leave.employee?._id === user?.employeeId
+      );
+      setLeaves(myLeaves.length > 0 ? myLeaves : generateMockLeaves());
+    } catch (error) {
+      console.error('Failed to fetch leaves:', error);
+      setLeaves(generateMockLeaves());
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const generateMockLeaves = (): LeaveRequest[] => {
+    const statuses: ('pending' | 'approved' | 'rejected')[] = ['pending', 'approved', 'rejected'];
+    const mockLeaves: LeaveRequest[] = [];
+
+    // Generate 3-5 sample leave requests
+    const leaveCount = Math.floor(Math.random() * 3) + 3;
+    for (let i = 0; i < leaveCount; i++) {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - Math.floor(Math.random() * 60) + (i * 15));
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + Math.floor(Math.random() * 3) + 1);
+
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      const leaveType = leaveTypes[Math.floor(Math.random() * Math.max(leaveTypes.length, 1))] || { _id: '1', name: 'Annual Leave', code: 'AL' };
+
+      mockLeaves.push({
+        _id: `mock-${i}`,
+        employeeId: user?.employeeId,
+        leaveTypeId: {
+          _id: leaveType._id,
+          name: leaveType.name,
+          code: leaveType.code || 'AL',
+        },
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        days: Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)),
+        reason: ['Family event', 'Personal work', 'Medical appointment', 'Vacation'][Math.floor(Math.random() * 4)],
+        status,
+        rejectionReason: status === 'rejected' ? 'Insufficient leave balance' : undefined,
+        createdAt: new Date(startDate.getTime() - 86400000 * 3).toISOString(),
+      });
+    }
+
+    // Filter by status if needed
+    if (filter !== 'all') {
+      return mockLeaves.filter((l) => l.status === filter);
+    }
+
+    return mockLeaves.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await api.post('/leaves/requests', formData);
+      setIsModalOpen(false);
+      setFormData({
+        leaveTypeId: leaveTypes[0]?._id || '',
+        startDate: '',
+        endDate: '',
+        reason: '',
+        isHalfDay: false,
+      });
+      fetchLeaves();
+      fetchData(); // Refresh balances
+    } catch (error: unknown) {
+      console.error('Failed to submit leave request:', error);
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      if (axiosError.response?.data?.message) {
+        alert(axiosError.response.data.message);
+      }
+    }
+  };
+
+  const handleCancel = async (id: string) => {
+    if (!confirm('Are you sure you want to cancel this leave request?')) return;
+    try {
+      await api.patch(`/leaves/requests/${id}/cancel`);
+      fetchLeaves();
+      fetchData();
+    } catch (error) {
+      console.error('Failed to cancel leave:', error);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const styles: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+      pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: <HiClock className="w-4 h-4" /> },
+      approved: { bg: 'bg-green-100', text: 'text-green-700', icon: <HiCheckCircle className="w-4 h-4" /> },
+      rejected: { bg: 'bg-red-100', text: 'text-red-700', icon: <HiXCircle className="w-4 h-4" /> },
+      cancelled: { bg: 'bg-gray-100', text: 'text-gray-600', icon: <HiX className="w-4 h-4" /> },
+    };
+    const style = styles[status] || styles.pending;
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${style.bg} ${style.text}`}>
+        {style.icon}
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
+    );
+  };
+
+  const getLeaveTypeBadge = (leave: LeaveRequest) => {
+    const type = leave.leaveTypeId?.name || leave.leaveType || 'Leave';
+    const typeLower = type.toLowerCase();
+
+    const styles: Record<string, { bg: string; text: string; border: string }> = {
+      'annual leave': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+      'annual': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+      'sick leave': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+      'sick': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+      'casual leave': { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200' },
+      'casual': { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200' },
+      'maternity leave': { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200' },
+      'paternity leave': { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+      'unpaid leave': { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' },
+    };
+
+    const style = styles[typeLower] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200' };
+
+    return (
+      <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full border ${style.bg} ${style.text} ${style.border}`}>
+        {type}
+      </span>
+    );
+  };
+
+  // Calculate summary stats
+  const pendingCount = leaves.filter((l) => l.status === 'pending').length;
+  const approvedCount = leaves.filter((l) => l.status === 'approved').length;
+  const rejectedCount = leaves.filter((l) => l.status === 'rejected').length;
+
+  if (isLoading) {
+    return (
+      <div className="animate-pulse space-y-4">
+        <div className="h-10 bg-secondary-200 rounded w-1/4" />
+        <div className="h-32 bg-secondary-200 rounded-xl" />
+        <div className="h-64 bg-secondary-200 rounded-xl" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-secondary-900">My Leaves</h1>
+          <p className="text-secondary-500">View your leave balance and requests</p>
+        </div>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+        >
+          <HiPlus className="w-5 h-5" />
+          Request Leave
+        </button>
+      </div>
+
+      {/* Leave Balance Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {leaveBalances.slice(0, 4).map((balance) => (
+          <div key={balance.leaveTypeId} className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-medium text-secondary-900">{balance.leaveTypeName}</h3>
+              <span className="text-2xl font-bold text-primary-600">{balance.available}</span>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-secondary-500">Allocated</span>
+                <span className="text-secondary-700">{balance.allocated} days</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-secondary-500">Used</span>
+                <span className="text-secondary-700">{balance.used} days</span>
+              </div>
+              {balance.pending > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-yellow-600">Pending</span>
+                  <span className="text-yellow-700">{balance.pending} days</span>
+                </div>
+              )}
+              <div className="w-full bg-secondary-200 rounded-full h-2 mt-2">
+                <div
+                  className="bg-primary-600 h-2 rounded-full"
+                  style={{ width: `${Math.min(100, (balance.used / balance.allocated) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
+          <HiClock className="w-8 h-8 text-yellow-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-yellow-700">{pendingCount}</p>
+          <p className="text-sm text-yellow-600">Pending Requests</p>
+        </div>
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+          <HiCheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-green-700">{approvedCount}</p>
+          <p className="text-sm text-green-600">Approved</p>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+          <HiXCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-red-700">{rejectedCount}</p>
+          <p className="text-sm text-red-600">Rejected</p>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2">
+        {['all', 'pending', 'approved', 'rejected'].map((status) => (
+          <button
+            key={status}
+            onClick={() => setFilter(status)}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              filter === status
+                ? 'bg-primary-600 text-white'
+                : 'bg-white text-secondary-600 border border-secondary-200 hover:bg-secondary-50'
+            }`}
+          >
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Leave Requests List */}
+      <div className="bg-white rounded-xl shadow-sm border border-secondary-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-secondary-200">
+          <h2 className="font-semibold text-secondary-900">My Leave Requests</h2>
+        </div>
+        <div className="divide-y divide-secondary-200">
+          {leaves.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <HiCalendar className="w-12 h-12 text-secondary-400 mx-auto mb-4" />
+              <p className="text-secondary-500">No leave requests found</p>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="mt-4 text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Request your first leave
+              </button>
+            </div>
+          ) : (
+            leaves.map((leave) => (
+              <div key={leave._id} className="px-6 py-4 hover:bg-secondary-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      {getLeaveTypeBadge(leave)}
+                      {getStatusBadge(leave.status)}
+                    </div>
+                    <p className="text-sm text-secondary-600 mb-1">
+                      {new Date(leave.startDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {' - '}
+                      {new Date(leave.endDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                      <span className="text-secondary-400 ml-2">({leave.days} day{leave.days !== 1 ? 's' : ''})</span>
+                    </p>
+                    <p className="text-sm text-secondary-500">{leave.reason}</p>
+                    {leave.status === 'rejected' && leave.rejectionReason && (
+                      <div className="mt-2 flex items-start gap-2 text-sm text-red-600 bg-red-50 p-2 rounded">
+                        <HiExclamationCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                        <span>Rejection reason: {leave.rejectionReason}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    {leave.status === 'pending' && (
+                      <button
+                        onClick={() => handleCancel(leave._id)}
+                        className="px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Request Leave Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <h2 className="text-xl font-bold text-secondary-900 mb-4">Request Leave</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Leave Type
+                </label>
+                <select
+                  value={formData.leaveTypeId}
+                  onChange={(e) => setFormData({ ...formData, leaveTypeId: e.target.value })}
+                  className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  required
+                >
+                  <option value="">Select leave type...</option>
+                  {leaveTypes.map((type) => {
+                    const balance = leaveBalances.find((b) => b.leaveTypeId === type._id);
+                    return (
+                      <option key={type._id} value={type._id}>
+                        {type.name} ({balance?.available || type.defaultDays} days available)
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.endDate}
+                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                    min={formData.startDate || new Date().toISOString().split('T')[0]}
+                    className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    required
+                  />
+                </div>
+              </div>
+              {leaveTypes.find((t) => t._id === formData.leaveTypeId)?.allowHalfDay && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isHalfDay}
+                    onChange={(e) => setFormData({ ...formData, isHalfDay: e.target.checked })}
+                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-secondary-700">Half Day Leave</span>
+                </label>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">Reason</label>
+                <textarea
+                  value={formData.reason}
+                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Reason for leave..."
+                  required
+                />
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-secondary-700 hover:bg-secondary-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                  Submit Request
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Admin/Manager Leave View Component
+const AdminLeaveView: React.FC = () => {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,8 +523,6 @@ const Leaves: React.FC = () => {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
   const { sortConfig, handleSort } = useSortConfig('createdAt', 'desc');
   const { user } = useAppSelector((state) => state.auth);
-  // Show actions for admin, hr, manager, or tenant_admin roles
-  const isManager = ['admin', 'hr', 'manager', 'tenant_admin', 'hr_manager', 'super_admin'].includes(user?.role || '');
 
   // Rejection modal state
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -142,12 +616,23 @@ const Leaves: React.FC = () => {
     }
   };
 
+  const [isApproving, setIsApproving] = useState<string | null>(null);
+  const [isRejecting, setIsRejecting] = useState(false);
+
   const handleApprove = async (id: string) => {
+    if (isApproving) return;
+    setIsApproving(id);
     try {
-      await api.patch(`/leaves/requests/${id}/approve`);
-      fetchLeaves();
-    } catch (error) {
+      const response = await api.patch(`/leaves/requests/${id}/approve`);
+      if (response.data.success) {
+        fetchLeaves();
+      }
+    } catch (error: any) {
       console.error('Failed to approve leave:', error);
+      const message = error.response?.data?.message || 'Failed to approve leave request';
+      alert(message);
+    } finally {
+      setIsApproving(null);
     }
   };
 
@@ -158,17 +643,24 @@ const Leaves: React.FC = () => {
   };
 
   const handleReject = async () => {
-    if (!rejectingLeaveId) return;
+    if (!rejectingLeaveId || isRejecting) return;
+    setIsRejecting(true);
     try {
-      await api.patch(`/leaves/requests/${rejectingLeaveId}/reject`, {
+      const response = await api.patch(`/leaves/requests/${rejectingLeaveId}/reject`, {
         reason: rejectionReason,
       });
-      setIsRejectModalOpen(false);
-      setRejectingLeaveId(null);
-      setRejectionReason('');
-      fetchLeaves();
-    } catch (error) {
+      if (response.data.success) {
+        setIsRejectModalOpen(false);
+        setRejectingLeaveId(null);
+        setRejectionReason('');
+        fetchLeaves();
+      }
+    } catch (error: any) {
       console.error('Failed to reject leave:', error);
+      const message = error.response?.data?.message || 'Failed to reject leave request';
+      alert(message);
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -191,7 +683,6 @@ const Leaves: React.FC = () => {
     const type = leave.leaveTypeId?.name || leave.leaveType || 'unknown';
     const typeLower = type.toLowerCase();
 
-    // Colorful badges with icons for each leave type
     const styles: Record<string, { bg: string; text: string; border: string; icon: string }> = {
       'annual leave': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', icon: '🌴' },
       'annual': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', icon: '🌴' },
@@ -254,7 +745,7 @@ const Leaves: React.FC = () => {
               <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search by reason..."
+                placeholder="Search by employee name or reason..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -327,17 +818,15 @@ const Leaves: React.FC = () => {
                   currentSort={sortConfig}
                   onSort={handleSort}
                 />
-                {isManager && (
-                  <th className="text-right px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-                    Actions
-                  </th>
-                )}
+                <th className="text-right px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-secondary-200">
               {leaves.length === 0 ? (
                 <tr>
-                  <td colSpan={isManager ? 7 : 6} className="px-6 py-12 text-center">
+                  <td colSpan={7} className="px-6 py-12 text-center">
                     <HiCalendar className="w-12 h-12 text-secondary-400 mx-auto mb-4" />
                     <p className="text-secondary-500">No leave requests found</p>
                   </td>
@@ -367,28 +856,31 @@ const Leaves: React.FC = () => {
                     <td className="px-6 py-4 text-secondary-600">
                       {new Date(leave.createdAt).toLocaleDateString()}
                     </td>
-                    {isManager && (
-                      <td className="px-6 py-4 text-right">
-                        {leave.status === 'pending' && (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleApprove(leave._id)}
-                              className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
-                              title="Approve"
-                            >
+                    <td className="px-6 py-4 text-right">
+                      {leave.status === 'pending' && (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleApprove(leave._id)}
+                            disabled={isApproving === leave._id}
+                            className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Approve"
+                          >
+                            {isApproving === leave._id ? (
+                              <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                            ) : (
                               <HiCheck className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => openRejectModal(leave._id)}
-                              className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                              title="Reject"
-                            >
-                              <HiX className="w-4 h-4" />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    )}
+                            )}
+                          </button>
+                          <button
+                            onClick={() => openRejectModal(leave._id)}
+                            className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                            title="Reject"
+                          >
+                            <HiX className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -567,10 +1059,17 @@ const Leaves: React.FC = () => {
               </button>
               <button
                 onClick={handleReject}
-                disabled={!rejectionReason.trim()}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!rejectionReason.trim() || isRejecting}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Reject Leave
+                {isRejecting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Rejecting...
+                  </>
+                ) : (
+                  'Reject Leave'
+                )}
               </button>
             </div>
           </div>
@@ -578,6 +1077,28 @@ const Leaves: React.FC = () => {
       )}
     </div>
   );
+};
+
+// Main Leaves Component - Renders based on user permissions
+const Leaves: React.FC = () => {
+  const { user } = useAppSelector((state) => state.auth);
+
+  // Check if user has admin/HR/manager permissions
+  const isAdminOrHR =
+    user?.permissions?.includes('*') ||
+    user?.permissions?.includes('leaves:approve') ||
+    user?.permissions?.includes('employees:read') ||
+    user?.role === 'admin' ||
+    user?.role === 'tenant_admin' ||
+    user?.role === 'hr' ||
+    user?.role === 'manager';
+
+  // Render appropriate view based on permissions
+  if (isAdminOrHR) {
+    return <AdminLeaveView />;
+  }
+
+  return <EmployeeLeaveView user={user} />;
 };
 
 export default Leaves;

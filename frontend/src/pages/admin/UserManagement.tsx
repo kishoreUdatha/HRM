@@ -24,6 +24,10 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [selectedUserForReset, setSelectedUserForReset] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -113,6 +117,33 @@ const UserManagement = () => {
       fetchStats();
     } catch (error) {
       console.error('Failed to perform bulk action:', error);
+    }
+  };
+
+  const openResetPasswordModal = (user: User) => {
+    setSelectedUserForReset(user);
+    setNewPassword('');
+    setShowResetPasswordModal(true);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserForReset || !newPassword) return;
+
+    setIsResettingPassword(true);
+    try {
+      await api.post(`/auth/admin/users/${selectedUserForReset._id}/reset-password`, {
+        newPassword,
+      });
+      alert(`Password reset successfully for ${selectedUserForReset.firstName} ${selectedUserForReset.lastName}`);
+      setShowResetPasswordModal(false);
+      setSelectedUserForReset(null);
+      setNewPassword('');
+    } catch (error: any) {
+      console.error('Failed to reset password:', error);
+      alert(error.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -319,7 +350,12 @@ const UserManagement = () => {
                           Activate
                         </button>
                       )}
-                      <button className="text-blue-600 hover:text-blue-900">Reset Password</button>
+                      <button
+                        onClick={() => openResetPasswordModal(user)}
+                        className="text-blue-600 hover:text-blue-900"
+                      >
+                        Reset Password
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -406,6 +442,62 @@ const UserManagement = () => {
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   Create User
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetPasswordModal && selectedUserForReset && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h2 className="text-xl font-bold mb-2">Reset Password</h2>
+            <p className="text-gray-600 mb-4">
+              Set a new password for <strong>{selectedUserForReset.firstName} {selectedUserForReset.lastName}</strong> ({selectedUserForReset.email})
+            </p>
+            <form onSubmit={handleResetPassword}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password (min 6 characters)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetPasswordModal(false);
+                    setSelectedUserForReset(null);
+                    setNewPassword('');
+                  }}
+                  disabled={isResettingPassword}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isResettingPassword || newPassword.length < 6}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isResettingPassword ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Resetting...
+                    </>
+                  ) : (
+                    'Reset Password'
+                  )}
                 </button>
               </div>
             </form>

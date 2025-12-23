@@ -113,10 +113,10 @@ services.forEach((service) => {
     target: service.url,
     changeOrigin: true,
     pathRewrite: (path, _req) => {
-      // Prepend the target path that the service expects
-      // path here is the remainder after Express strips the mount point
-      // e.g., for /api/employees/123, path will be /123 (after /api/employees is stripped)
-      return service.targetPath + path;
+      // Strip the pathPrefix from the incoming path and prepend targetPath
+      // e.g., /api/auth/super-admin/login -> strip /api/auth -> /super-admin/login -> prepend '' -> /super-admin/login
+      const strippedPath = path.replace(service.pathPrefix, '') || '/';
+      return service.targetPath + strippedPath;
     },
     timeout: service.timeout,
     on: {

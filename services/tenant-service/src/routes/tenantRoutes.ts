@@ -15,9 +15,28 @@ import {
   getTenantStats,
   deleteTenant,
   extendTrial,
+  startTrial,
+  endTrial,
+  getAdminTenantList,
+  createTenantWithAdmin,
+  updateTenantByAdmin,
 } from '../controllers/tenantController';
+import * as platformAdmin from '../controllers/platformAdminController';
 
 const router = Router();
+
+// Super admin middleware
+const requireSuperAdmin = (req: Request, res: Response, next: NextFunction): void => {
+  const userRole = req.headers['x-user-role'] as string;
+  if (userRole !== 'super_admin') {
+    res.status(403).json({
+      success: false,
+      message: 'Super Admin access required',
+    });
+    return;
+  }
+  next();
+};
 
 // Validation middleware
 const validate = (req: Request, res: Response, next: NextFunction): void => {
@@ -61,9 +80,35 @@ router.put('/current/settings', updateTenantSettings);
 router.put('/current/subscription', updateSubscriptionValidation, validate, updateSubscription);
 
 // Admin routes (super_admin only)
-router.get('/admin/stats', getTenantStats);
-router.put('/admin/:id/status', updateTenantStatus);
-router.put('/admin/:id/extend-trial', extendTrial);
-router.delete('/admin/:id', deleteTenant);
+router.get('/admin/list', requireSuperAdmin, getAdminTenantList);
+router.get('/admin/stats', requireSuperAdmin, getTenantStats);
+router.post('/admin/create-with-admin', requireSuperAdmin, createTenantWithAdmin);
+router.put('/admin/:id/update', requireSuperAdmin, updateTenantByAdmin);
+router.put('/admin/:id/status', requireSuperAdmin, updateTenantStatus);
+router.post('/admin/:id/start-trial', requireSuperAdmin, startTrial);
+router.put('/admin/:id/extend-trial', requireSuperAdmin, extendTrial);
+router.post('/admin/:id/end-trial', requireSuperAdmin, endTrial);
+router.delete('/admin/:id', requireSuperAdmin, deleteTenant);
+
+// Platform Admin Routes (super_admin only)
+// Revenue & Analytics
+router.get('/admin/revenue', requireSuperAdmin, platformAdmin.getRevenueAnalytics);
+router.get('/admin/growth', requireSuperAdmin, platformAdmin.getGrowthAnalytics);
+router.get('/admin/health', requireSuperAdmin, platformAdmin.getPlatformHealth);
+
+// Platform Notifications
+router.get('/admin/notifications', requireSuperAdmin, platformAdmin.getNotifications);
+router.post('/admin/notifications', requireSuperAdmin, platformAdmin.createNotification);
+router.put('/admin/notifications/:id', requireSuperAdmin, platformAdmin.updateNotification);
+router.post('/admin/notifications/:id/send', requireSuperAdmin, platformAdmin.sendNotification);
+router.delete('/admin/notifications/:id', requireSuperAdmin, platformAdmin.deleteNotification);
+
+// System Settings
+router.get('/admin/settings', requireSuperAdmin, platformAdmin.getSystemSettings);
+router.put('/admin/settings', requireSuperAdmin, platformAdmin.updateSystemSettings);
+router.post('/admin/maintenance', requireSuperAdmin, platformAdmin.toggleMaintenanceMode);
+
+// Tenant notifications (for tenant users to get platform announcements)
+router.get('/notifications', platformAdmin.getTenantNotifications);
 
 export default router;

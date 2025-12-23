@@ -138,3 +138,23 @@ export const requireManagerOrAbove = (req: Request, res: Response, next: NextFun
 
   next();
 };
+
+// Super Admin only middleware (platform-level admin)
+export const requireSuperAdmin = (req: Request, res: Response, next: NextFunction): void => {
+  const userRole = req.headers['x-user-role'] as string;
+
+  if (!userRole) {
+    res.status(401).json({ success: false, message: 'Unauthorized' });
+    return;
+  }
+
+  if (userRole !== 'super_admin') {
+    res.status(403).json({
+      success: false,
+      message: 'Super Admin access required',
+    });
+    return;
+  }
+
+  next();
+};

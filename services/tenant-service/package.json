@@ -14,13 +14,15 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "express-validator": "^7.3.1",
-    "mongoose": "^9.0.0"
+    "mongoose": "^9.0.0",
+    "node-fetch": "^2.7.0"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/node": "^24.10.1",
+    "@types/node-fetch": "^2.6.12",
     "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"

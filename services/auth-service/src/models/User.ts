@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
-  tenantId: mongoose.Types.ObjectId;
+  tenantId?: mongoose.Types.ObjectId;  // Optional for super_admin
   email: string;
   password: string;
   firstName: string;
@@ -28,7 +28,10 @@ const userSchema = new Schema<IUser>(
   {
     tenantId: {
       type: Schema.Types.ObjectId,
-      required: [true, 'Tenant ID is required'],
+      required: [function(this: IUser) {
+        // tenantId is not required for super_admin
+        return this.role !== 'super_admin';
+      }, 'Tenant ID is required'],
       index: true,
     },
     email: {
@@ -103,8 +106,23 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-// Compound index for tenant + email uniqueness
-userSchema.index({ tenantId: 1, email: 1 }, { unique: true });
+// Compound index for tenant + email uniqueness (only for non-super_admin users)
+userSchema.index(
+  { tenantId: 1, email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { tenantId: { $exists: true } }
+  }
+);
+
+// Separate unique index for super_admin emails (global uniqueness)
+userSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { role: 'super_admin' }
+  }
+);
 
 // Hash password before saving
 userSchema.pre('save', async function () {

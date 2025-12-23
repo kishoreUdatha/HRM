@@ -44,7 +44,7 @@ export const register = async (
     // Generate tokens
     const tokens = generateTokens({
       userId: user._id.toString(),
-      tenantId: user.tenantId.toString(),
+      tenantId: user.tenantId?.toString() || 'platform',
       email: user.email,
       role: user.role,
       permissions: user.permissions,
@@ -115,7 +115,7 @@ export const login = async (
     // Generate tokens
     const tokens = generateTokens({
       userId: user._id.toString(),
-      tenantId: user.tenantId.toString(),
+      tenantId: user.tenantId?.toString() || 'platform',
       email: user.email,
       role: user.role,
       permissions: user.permissions,
@@ -206,7 +206,7 @@ export const refreshToken = async (
     // Generate new access token
     const accessToken = generateAccessToken({
       userId: user._id.toString(),
-      tenantId: user.tenantId.toString(),
+      tenantId: user.tenantId?.toString() || 'platform',
       email: user.email,
       role: user.role,
       permissions: user.permissions,

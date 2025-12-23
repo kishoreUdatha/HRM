@@ -5,58 +5,129 @@ import LeaveRequest from '../models/LeaveRequest';
 import LeaveBalance from '../models/LeaveBalance';
 import LeaveType from '../models/LeaveType';
 
-// Helper to get employee details from employees database
+// Helper to get employee/user details - checks employees database first, then falls back to auth database
 const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
+  let employeesConn: mongoose.Connection | null = null;
+  let authConn: mongoose.Connection | null = null;
+
   try {
+    if (!employeeIds || employeeIds.length === 0) {
+      return new Map();
+    }
+
     const mongoUri = process.env.MONGODB_URI || '';
     const employeesDbUri = mongoUri.replace('/hrm_leaves', '/hrm_employees');
-    const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+    const authDbUri = mongoUri.replace('/hrm_leaves', '/hrm_auth');
 
-    const employeeSchema = new mongoose.Schema({
-      firstName: String,
-      lastName: String,
-      employeeCode: String,
-      email: String,
-      departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
-      tenantId: mongoose.Schema.Types.ObjectId,
-    });
+    // Convert string IDs to ObjectIds
+    const objectIds = employeeIds.map(id => {
+      try {
+        return new mongoose.Types.ObjectId(id);
+      } catch (err) {
+        return null;
+      }
+    }).filter((id): id is mongoose.Types.ObjectId => id !== null);
 
-    const departmentSchema = new mongoose.Schema({
-      name: String,
-      code: String,
-    });
+    if (objectIds.length === 0) {
+      return new Map();
+    }
 
-    const Employee = employeesConn.model('Employee', employeeSchema);
-    const Department = employeesConn.model('Department', departmentSchema);
+    const tenantObjectId = new mongoose.Types.ObjectId(tenantId);
+    const employeeMap = new Map();
+    const foundIds = new Set<string>();
 
-    const employees = await Employee.find({
-      _id: { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) },
-      tenantId: new mongoose.Types.ObjectId(tenantId),
-    }).lean();
+    // First, try to find in employees database
+    employeesConn = mongoose.createConnection(employeesDbUri);
+    await employeesConn.asPromise();
 
+    const employeesCollection = employeesConn.collection('employees');
+    const departmentsCollection = employeesConn.collection('departments');
+
+    // Search by both _id and userId
+    const employees = await employeesCollection.find({
+      tenantId: tenantObjectId,
+      $or: [
+        { _id: { $in: objectIds } },
+        { userId: { $in: objectIds } },
+      ],
+    }).toArray();
+
+    // Get department details
     const deptIds = employees.map(e => e.departmentId).filter(Boolean);
-    const departments = await Department.find({ _id: { $in: deptIds } }).lean();
+    const departments = deptIds.length > 0
+      ? await departmentsCollection.find({ _id: { $in: deptIds } }).toArray()
+      : [];
     const deptMap = new Map(departments.map(d => [d._id.toString(), d]));
 
-    await employeesConn.close();
-
-    const employeeMap = new Map();
+    // Build map from employee records
     for (const emp of employees) {
       const dept = emp.departmentId ? deptMap.get(emp.departmentId.toString()) : null;
-      employeeMap.set(emp._id.toString(), {
+      const employeeData = {
         _id: emp._id,
         firstName: emp.firstName,
         lastName: emp.lastName,
         employeeCode: emp.employeeCode,
         email: emp.email,
         department: dept ? { _id: dept._id, name: dept.name } : null,
-      });
+      };
+
+      employeeMap.set(emp._id.toString(), employeeData);
+      foundIds.add(emp._id.toString());
+      if (emp.userId) {
+        employeeMap.set(emp.userId.toString(), employeeData);
+        foundIds.add(emp.userId.toString());
+      }
+    }
+
+    // Check which IDs were not found in employees database
+    const missingIds = objectIds.filter(id => !foundIds.has(id.toString()));
+
+    // Fallback to auth database for missing IDs (these might be user IDs without employee records)
+    if (missingIds.length > 0) {
+      authConn = mongoose.createConnection(authDbUri);
+      await authConn.asPromise();
+
+      const usersCollection = authConn.collection('users');
+      const users = await usersCollection.find({
+        tenantId: tenantObjectId,
+        _id: { $in: missingIds },
+      }).toArray();
+
+      for (const user of users) {
+        // Check if we already have this user via employeeId link
+        if (user.employeeId && foundIds.has(user.employeeId.toString())) {
+          // Link user ID to existing employee data
+          const existingData = employeeMap.get(user.employeeId.toString());
+          if (existingData) {
+            employeeMap.set(user._id.toString(), existingData);
+          }
+        } else {
+          // Create user data as fallback (no employee record exists)
+          const userData = {
+            _id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            employeeCode: null,
+            email: user.email,
+            department: null,
+          };
+          employeeMap.set(user._id.toString(), userData);
+        }
+      }
     }
 
     return employeeMap;
   } catch (error) {
     console.error('[Leave Service] Error fetching employee details:', error);
     return new Map();
+  } finally {
+    // Always close connections
+    if (employeesConn) {
+      try { await employeesConn.close(); } catch (e) { /* ignore */ }
+    }
+    if (authConn) {
+      try { await authConn.close(); } catch (e) { /* ignore */ }
+    }
   }
 };
 
@@ -221,10 +292,14 @@ export const getLeaveRequests = async (req: Request, res: Response): Promise<voi
     const employeeMap = await getEmployeeDetails(employeeIds, tenantId);
 
     // Attach employee details to requests
-    const requestsWithEmployees = requests.map(request => ({
-      ...request,
-      employee: employeeMap.get(request.employeeId.toString()) || null,
-    }));
+    const requestsWithEmployees = requests.map(request => {
+      const empId = request.employeeId.toString();
+      const employee = employeeMap.get(empId);
+      return {
+        ...request,
+        employee: employee || null,
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -301,17 +376,34 @@ export const approveLeaveRequest = async (req: Request, res: Response): Promise<
       return;
     }
 
-    // Check leave balance before approving
+    // Check or create leave balance before approving
     const currentYear = new Date().getFullYear();
-    const balance = await LeaveBalance.findOne({
+    let balance = await LeaveBalance.findOne({
       tenantId,
       employeeId: leaveRequest.employeeId,
       leaveTypeId: leaveRequest.leaveTypeId,
       year: currentYear,
     });
 
+    // Create balance if it doesn't exist (initialize with default days from leave type)
+    if (!balance) {
+      balance = new LeaveBalance({
+        tenantId,
+        employeeId: leaveRequest.employeeId,
+        leaveTypeId: leaveRequest.leaveTypeId,
+        year: currentYear,
+        entitled: leaveType.defaultDays || 0,
+        used: 0,
+        pending: leaveRequest.days, // Include pending from this request
+        carriedForward: 0,
+        adjusted: 0,
+      });
+      await balance.save();
+    }
+
+    // Check if balance is sufficient (only if negative balance not allowed)
     if (!leaveType.allowNegativeBalance) {
-      const availableBalance = balance ? balance.balance - balance.pending + leaveRequest.days : 0;
+      const availableBalance = balance.balance - balance.pending + leaveRequest.days;
       if (availableBalance < leaveRequest.days) {
         res.status(400).json({
           success: false,
@@ -326,12 +418,10 @@ export const approveLeaveRequest = async (req: Request, res: Response): Promise<
     leaveRequest.approvedAt = new Date();
     await leaveRequest.save();
 
-    // Update leave balance (reuse the balance fetched earlier)
-    if (balance) {
-      balance.pending -= leaveRequest.days;
-      balance.used += leaveRequest.days;
-      await balance.save();
-    }
+    // Update leave balance
+    balance.pending = Math.max(0, balance.pending - leaveRequest.days);
+    balance.used += leaveRequest.days;
+    await balance.save();
 
     res.status(200).json({
       success: true,

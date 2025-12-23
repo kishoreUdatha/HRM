@@ -1,0 +1,323 @@
+import Razorpay from 'razorpay';
+import crypto from 'crypto';
+
+// Plan pricing configuration (in paise - 100 paise = 1 INR)
+export const PLAN_PRICING = {
+  free: { monthly: 0, yearly: 0 },
+  starter: { monthly: 149900, yearly: 1499000 }, // ₹1,499/mo or ₹14,990/yr
+  professional: { monthly: 399900, yearly: 3999000 }, // ₹3,999/mo or ₹39,990/yr
+  enterprise: { monthly: 999900, yearly: 9999000 }, // ₹9,999/mo or ₹99,990/yr
+};
+
+// Plan features
+export const PLAN_FEATURES = {
+  free: {
+    employeeLimit: 10,
+    features: ['Basic HR', 'Leave Management', 'Attendance'],
+  },
+  starter: {
+    employeeLimit: 50,
+    features: ['All Free features', 'Payroll', 'Reports', 'Email Support'],
+  },
+  professional: {
+    employeeLimit: 200,
+    features: ['All Starter features', 'Performance Management', 'Recruitment', 'API Access', 'Priority Support'],
+  },
+  enterprise: {
+    employeeLimit: -1, // Unlimited
+    features: ['All Professional features', 'Custom Integrations', 'SSO', 'Dedicated Support', 'SLA'],
+  },
+};
+
+class RazorpayService {
+  private razorpay: Razorpay;
+  private webhookSecret: string;
+
+  constructor() {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (!keyId || !keySecret) {
+      console.warn('Razorpay credentials not configured. Billing features will be limited.');
+    }
+
+    this.razorpay = new Razorpay({
+      key_id: keyId || 'rzp_test_placeholder',
+      key_secret: keySecret || 'placeholder_secret',
+    });
+
+    this.webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || '';
+  }
+
+  // Create a Razorpay customer
+  async createCustomer(data: {
+    name: string;
+    email: string;
+    contact?: string;
+    notes?: Record<string, string>;
+  }) {
+    try {
+      const customer = await this.razorpay.customers.create({
+        name: data.name,
+        email: data.email,
+        contact: data.contact || '',
+        notes: data.notes || {},
+      });
+      return customer;
+    } catch (error) {
+      console.error('Error creating Razorpay customer:', error);
+      throw error;
+    }
+  }
+
+  // Create a subscription plan
+  async createPlan(data: {
+    name: string;
+    description: string;
+    amount: number;
+    currency?: string;
+    period: 'monthly' | 'yearly';
+  }) {
+    try {
+      const plan = await this.razorpay.plans.create({
+        period: data.period === 'monthly' ? 'monthly' : 'yearly',
+        interval: 1,
+        item: {
+          name: data.name,
+          description: data.description,
+          amount: data.amount,
+          currency: data.currency || 'INR',
+        },
+      });
+      return plan;
+    } catch (error) {
+      console.error('Error creating Razorpay plan:', error);
+      throw error;
+    }
+  }
+
+  // Create a subscription
+  async createSubscription(data: {
+    planId: string;
+    customerId: string;
+    totalCount?: number;
+    notes?: Record<string, string>;
+  }) {
+    try {
+      const subscriptionOptions = {
+        plan_id: data.planId,
+        customer_id: data.customerId,
+        total_count: data.totalCount || 12,
+        customer_notify: 1,
+        notes: data.notes || {},
+      };
+      const subscription = await this.razorpay.subscriptions.create(subscriptionOptions as any);
+      return subscription;
+    } catch (error) {
+      console.error('Error creating Razorpay subscription:', error);
+      throw error;
+    }
+  }
+
+  // Get subscription details
+  async getSubscription(subscriptionId: string) {
+    try {
+      const subscription = await this.razorpay.subscriptions.fetch(subscriptionId);
+      return subscription;
+    } catch (error) {
+      console.error('Error fetching Razorpay subscription:', error);
+      throw error;
+    }
+  }
+
+  // Cancel subscription
+  async cancelSubscription(subscriptionId: string, cancelAtEnd: boolean = true) {
+    try {
+      const subscription = await this.razorpay.subscriptions.cancel(subscriptionId, cancelAtEnd);
+      return subscription;
+    } catch (error) {
+      console.error('Error cancelling Razorpay subscription:', error);
+      throw error;
+    }
+  }
+
+  // Pause subscription
+  async pauseSubscription(subscriptionId: string) {
+    try {
+      const subscription = await this.razorpay.subscriptions.pause(subscriptionId);
+      return subscription;
+    } catch (error) {
+      console.error('Error pausing Razorpay subscription:', error);
+      throw error;
+    }
+  }
+
+  // Resume subscription
+  async resumeSubscription(subscriptionId: string) {
+    try {
+      const subscription = await this.razorpay.subscriptions.resume(subscriptionId);
+      return subscription;
+    } catch (error) {
+      console.error('Error resuming Razorpay subscription:', error);
+      throw error;
+    }
+  }
+
+  // Create an order for one-time payment
+  async createOrder(data: {
+    amount: number;
+    currency?: string;
+    receipt: string;
+    notes?: Record<string, string>;
+  }) {
+    try {
+      const order = await this.razorpay.orders.create({
+        amount: data.amount,
+        currency: data.currency || 'INR',
+        receipt: data.receipt,
+        notes: data.notes || {},
+      });
+      return order;
+    } catch (error) {
+      console.error('Error creating Razorpay order:', error);
+      throw error;
+    }
+  }
+
+  // Fetch payment details
+  async getPayment(paymentId: string) {
+    try {
+      const payment = await this.razorpay.payments.fetch(paymentId);
+      return payment;
+    } catch (error) {
+      console.error('Error fetching Razorpay payment:', error);
+      throw error;
+    }
+  }
+
+  // Create invoice
+  async createInvoice(data: {
+    customerId: string;
+    lineItems: Array<{
+      name: string;
+      description?: string;
+      amount: number;
+      quantity?: number;
+    }>;
+    expireBy?: number;
+    notes?: Record<string, string>;
+  }) {
+    try {
+      const invoice = await this.razorpay.invoices.create({
+        type: 'invoice',
+        customer_id: data.customerId,
+        line_items: data.lineItems.map((item) => ({
+          name: item.name,
+          description: item.description || '',
+          amount: item.amount,
+          quantity: item.quantity || 1,
+        })),
+        expire_by: data.expireBy || Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
+        sms_notify: 1,
+        email_notify: 1,
+        notes: data.notes || {},
+      });
+      return invoice;
+    } catch (error) {
+      console.error('Error creating Razorpay invoice:', error);
+      throw error;
+    }
+  }
+
+  // Fetch invoices for a subscription
+  async getSubscriptionInvoices(subscriptionId: string) {
+    try {
+      const invoices = await this.razorpay.invoices.all({
+        subscription_id: subscriptionId,
+      });
+      return invoices;
+    } catch (error) {
+      console.error('Error fetching subscription invoices:', error);
+      throw error;
+    }
+  }
+
+  // Verify webhook signature
+  verifyWebhookSignature(body: string, signature: string): boolean {
+    try {
+      const expectedSignature = crypto
+        .createHmac('sha256', this.webhookSecret)
+        .update(body)
+        .digest('hex');
+
+      return crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expectedSignature)
+      );
+    } catch (error) {
+      console.error('Error verifying webhook signature:', error);
+      return false;
+    }
+  }
+
+  // Verify payment signature (for client-side payment verification)
+  verifyPaymentSignature(data: {
+    orderId: string;
+    paymentId: string;
+    signature: string;
+  }): boolean {
+    try {
+      const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
+      const generatedSignature = crypto
+        .createHmac('sha256', keySecret)
+        .update(`${data.orderId}|${data.paymentId}`)
+        .digest('hex');
+
+      return generatedSignature === data.signature;
+    } catch (error) {
+      console.error('Error verifying payment signature:', error);
+      return false;
+    }
+  }
+
+  // Verify subscription payment signature
+  verifySubscriptionSignature(data: {
+    subscriptionId: string;
+    paymentId: string;
+    signature: string;
+  }): boolean {
+    try {
+      const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
+      const generatedSignature = crypto
+        .createHmac('sha256', keySecret)
+        .update(`${data.paymentId}|${data.subscriptionId}`)
+        .digest('hex');
+
+      return generatedSignature === data.signature;
+    } catch (error) {
+      console.error('Error verifying subscription signature:', error);
+      return false;
+    }
+  }
+
+  // Get pricing for a plan
+  getPlanPricing(plan: keyof typeof PLAN_PRICING, cycle: 'monthly' | 'yearly') {
+    return PLAN_PRICING[plan][cycle];
+  }
+
+  // Get plan features
+  getPlanFeatures(plan: keyof typeof PLAN_FEATURES) {
+    return PLAN_FEATURES[plan];
+  }
+
+  // Calculate discount for yearly billing
+  getYearlyDiscount(plan: keyof typeof PLAN_PRICING) {
+    const monthlyTotal = PLAN_PRICING[plan].monthly * 12;
+    const yearlyPrice = PLAN_PRICING[plan].yearly;
+    const savings = monthlyTotal - yearlyPrice;
+    const discountPercent = Math.round((savings / monthlyTotal) * 100);
+    return { savings, discountPercent };
+  }
+}
+
+export default new RazorpayService();

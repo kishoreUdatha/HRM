@@ -88,12 +88,10 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
-
+    // Don't hash password here - the User model's pre-save hook will handle it
     const user = new User({
       email: email.toLowerCase(),
-      password: hashedPassword,
+      password, // Plain password - will be hashed by pre-save hook
       firstName,
       lastName,
       role,

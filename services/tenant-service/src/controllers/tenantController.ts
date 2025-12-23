@@ -8,17 +8,20 @@ export const createTenant = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { name, slug, domain, settings, subscription, billing } = req.body;
+    const { name, slug, domain, settings, subscription, billing, status } = req.body;
+
+    // Generate slug from name if not provided
+    const tenantSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
     // Check if slug already exists
     const existingTenant = await Tenant.findOne({
-      $or: [{ slug }, ...(domain ? [{ domain }] : [])],
+      $or: [{ slug: tenantSlug }, ...(domain ? [{ domain }] : [])],
     });
 
     if (existingTenant) {
       res.status(400).json({
         success: false,
-        message: existingTenant.slug === slug
+        message: existingTenant.slug === tenantSlug
           ? 'Organization slug already taken'
           : 'Domain already registered',
       });
@@ -27,11 +30,12 @@ export const createTenant = async (
 
     const tenant = await Tenant.create({
       name,
-      slug,
+      slug: tenantSlug,
       domain,
       settings,
       subscription,
       billing,
+      status: status || 'trial',
     });
 
     res.status(201).json({
@@ -426,12 +430,51 @@ export const deleteTenant = async (
     }
 
     tenant.status = 'inactive';
-    tenant.slug = `deleted_${Date.now()}_${tenant.slug}`;
+    tenant.slug = `deleted-${Date.now()}-${tenant.slug}`;
     await tenant.save();
 
     res.json({
       success: true,
       message: 'Organization deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update tenant by admin (super admin)
+export const updateTenantByAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { name, status, domain, settings } = req.body;
+
+    const tenant = await Tenant.findById(id);
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    // Update allowed fields
+    if (name) tenant.name = name;
+    if (status) tenant.status = status;
+    if (domain !== undefined) tenant.domain = domain;
+    if (settings) {
+      tenant.settings = { ...tenant.settings, ...settings };
+    }
+
+    await tenant.save();
+
+    res.json({
+      success: true,
+      data: tenant,
+      message: 'Organization updated successfully',
     });
   } catch (error) {
     next(error);
@@ -465,7 +508,10 @@ export const extendTrial = async (
       return;
     }
 
-    tenant.trialEndsAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+    // Extend from current trial end date or from now if already expired
+    const currentTrialEnd = tenant.trialEndsAt ? new Date(tenant.trialEndsAt) : new Date();
+    const baseDate = currentTrialEnd > new Date() ? currentTrialEnd : new Date();
+    tenant.trialEndsAt = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
     await tenant.save();
 
     res.json({
@@ -473,6 +519,375 @@ export const extendTrial = async (
       data: tenant,
       message: `Trial extended by ${days} days`,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Start trial period for a tenant (super admin)
+export const startTrial = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { days = 14, plan = 'professional' } = req.body;
+
+    const tenant = await Tenant.findById(id);
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    // Set trial status and end date
+    tenant.status = 'trial';
+    tenant.trialEndsAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    // Upgrade to trial plan features
+    const trialPlanLimits: Record<string, { maxEmployees: number; maxAdmins: number }> = {
+      starter: { maxEmployees: 50, maxAdmins: 3 },
+      professional: { maxEmployees: 200, maxAdmins: 10 },
+      enterprise: { maxEmployees: 10000, maxAdmins: 100 },
+    };
+
+    const trialPlanFeatures: Record<string, string[]> = {
+      starter: ['employees', 'attendance', 'leaves', 'basic_payroll', 'reports'],
+      professional: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access'],
+      enterprise: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access', 'custom_integrations', 'sso', 'audit_logs'],
+    };
+
+    const selectedPlan = trialPlanLimits[plan] ? plan : 'professional';
+
+    tenant.subscription.plan = selectedPlan as 'free' | 'starter' | 'professional' | 'enterprise';
+    tenant.subscription.maxEmployees = trialPlanLimits[selectedPlan].maxEmployees;
+    tenant.subscription.maxAdmins = trialPlanLimits[selectedPlan].maxAdmins;
+    tenant.subscription.features = trialPlanFeatures[selectedPlan];
+    tenant.subscription.startDate = new Date();
+    tenant.subscription.endDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+
+    await tenant.save();
+
+    res.json({
+      success: true,
+      data: tenant,
+      message: `${days}-day trial started with ${selectedPlan} plan features`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// End trial and convert to free plan (super admin)
+export const endTrial = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { convertToPlan = 'free' } = req.body;
+
+    const tenant = await Tenant.findById(id);
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    if (tenant.status !== 'trial') {
+      res.status(400).json({
+        success: false,
+        message: 'Organization is not on trial',
+      });
+      return;
+    }
+
+    // Convert to specified plan
+    const planLimits: Record<string, { maxEmployees: number; maxAdmins: number }> = {
+      free: { maxEmployees: 10, maxAdmins: 1 },
+      starter: { maxEmployees: 50, maxAdmins: 3 },
+      professional: { maxEmployees: 200, maxAdmins: 10 },
+      enterprise: { maxEmployees: 10000, maxAdmins: 100 },
+    };
+
+    const planFeatures: Record<string, string[]> = {
+      free: ['employees', 'attendance', 'basic_leaves'],
+      starter: ['employees', 'attendance', 'leaves', 'basic_payroll', 'reports'],
+      professional: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access'],
+      enterprise: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access', 'custom_integrations', 'sso', 'audit_logs'],
+    };
+
+    tenant.status = 'active';
+    tenant.trialEndsAt = undefined;
+    tenant.subscription.plan = convertToPlan as 'free' | 'starter' | 'professional' | 'enterprise';
+    tenant.subscription.maxEmployees = planLimits[convertToPlan]?.maxEmployees || 10;
+    tenant.subscription.maxAdmins = planLimits[convertToPlan]?.maxAdmins || 1;
+    tenant.subscription.features = planFeatures[convertToPlan] || planFeatures.free;
+
+    await tenant.save();
+
+    res.json({
+      success: true,
+      data: tenant,
+      message: `Trial ended. Converted to ${convertToPlan} plan`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get all tenants with advanced filtering, sorting, and pagination (super admin)
+export const getAdminTenantList = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      plan,
+      search,
+      sortField = 'createdAt',
+      sortOrder = 'desc',
+      dateFrom,
+      dateTo,
+    } = req.query;
+
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    // Build filter
+    const filter: Record<string, unknown> = {};
+
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+
+    if (plan && plan !== 'all') {
+      filter['subscription.plan'] = plan;
+    }
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { slug: { $regex: search, $options: 'i' } },
+        { 'billing.companyName': { $regex: search, $options: 'i' } },
+        { 'billing.email': { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    // Date range filter
+    if (dateFrom || dateTo) {
+      filter.createdAt = {};
+      if (dateFrom) {
+        (filter.createdAt as Record<string, Date>).$gte = new Date(dateFrom as string);
+      }
+      if (dateTo) {
+        (filter.createdAt as Record<string, Date>).$lte = new Date((dateTo as string) + 'T23:59:59.999Z');
+      }
+    }
+
+    // Build sort
+    const sortFieldMap: Record<string, string> = {
+      name: 'name',
+      createdAt: 'createdAt',
+      status: 'status',
+      plan: 'subscription.plan',
+      employeeCount: 'employeeCount',
+    };
+
+    const sortKey = sortFieldMap[sortField as string] || 'createdAt';
+    const sortDirection = sortOrder === 'asc' ? 1 : -1;
+    const sort: Record<string, 1 | -1> = { [sortKey]: sortDirection };
+
+    const [tenants, total] = await Promise.all([
+      Tenant.find(filter)
+        .sort(sort)
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Tenant.countDocuments(filter),
+    ]);
+
+    res.json({
+      success: true,
+      data: tenants,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Create tenant with admin user (super admin)
+export const createTenantWithAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const {
+      name,
+      slug,
+      plan = 'trial',
+      trialDays = 14,
+      adminEmail,
+      adminPassword,
+      adminFirstName,
+      adminLastName,
+    } = req.body;
+
+    // Validate required fields
+    if (!name) {
+      res.status(400).json({
+        success: false,
+        message: 'Organization name is required',
+      });
+      return;
+    }
+
+    if (!adminEmail || !adminPassword || !adminFirstName || !adminLastName) {
+      res.status(400).json({
+        success: false,
+        message: 'Admin user details (email, password, firstName, lastName) are required',
+      });
+      return;
+    }
+
+    if (adminPassword.length < 6) {
+      res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters',
+      });
+      return;
+    }
+
+    // Generate slug from name if not provided
+    const tenantSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    // Check if slug already exists
+    const existingTenant = await Tenant.findOne({ slug: tenantSlug });
+    if (existingTenant) {
+      res.status(400).json({
+        success: false,
+        message: 'Organization slug already taken',
+      });
+      return;
+    }
+
+    // Determine plan settings
+    const isPaidPlan = ['starter', 'professional', 'enterprise'].includes(plan);
+    const planLimits: Record<string, { maxEmployees: number; maxAdmins: number }> = {
+      free: { maxEmployees: 10, maxAdmins: 1 },
+      trial: { maxEmployees: 200, maxAdmins: 10 },
+      starter: { maxEmployees: 50, maxAdmins: 3 },
+      professional: { maxEmployees: 200, maxAdmins: 10 },
+      enterprise: { maxEmployees: 10000, maxAdmins: 100 },
+    };
+
+    const planFeatures: Record<string, string[]> = {
+      free: ['employees', 'attendance', 'basic_leaves'],
+      trial: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access'],
+      starter: ['employees', 'attendance', 'leaves', 'basic_payroll', 'reports'],
+      professional: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access'],
+      enterprise: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access', 'custom_integrations', 'sso', 'audit_logs'],
+    };
+
+    // Create tenant
+    const tenantData: Record<string, unknown> = {
+      name,
+      slug: tenantSlug,
+      status: plan === 'trial' ? 'trial' : 'active',
+      subscription: {
+        plan: plan === 'trial' ? 'professional' : plan,
+        maxEmployees: planLimits[plan]?.maxEmployees || 10,
+        maxAdmins: planLimits[plan]?.maxAdmins || 1,
+        features: planFeatures[plan] || planFeatures.free,
+        startDate: new Date(),
+        billingCycle: 'monthly',
+        amount: 0,
+        currency: 'INR',
+      },
+    };
+
+    // Set trial end date if trial
+    if (plan === 'trial') {
+      tenantData.trialEndsAt = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
+    }
+
+    const tenant = await Tenant.create(tenantData);
+
+    // Create admin user via auth service
+    // In Docker, use service name; locally use localhost
+    const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
+    let adminUser = null;
+    let adminCreationError = null;
+
+    try {
+      const fetch = (await import('node-fetch')).default;
+      const authResponse = await fetch(`${authServiceUrl}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: adminEmail,
+          password: adminPassword,
+          firstName: adminFirstName,
+          lastName: adminLastName,
+          tenantId: tenant._id.toString(),
+          role: 'tenant_admin',
+        }),
+      });
+
+      const authData = await authResponse.json() as { success: boolean; user?: unknown; message?: string };
+
+      if (authData.success) {
+        adminUser = authData.user;
+      } else {
+        adminCreationError = authData.message || 'Failed to create admin user';
+      }
+    } catch (authError: unknown) {
+      console.error('Error creating admin user:', authError);
+      adminCreationError = authError instanceof Error ? authError.message : 'Failed to connect to auth service';
+    }
+
+    // Return response
+    if (adminUser) {
+      res.status(201).json({
+        success: true,
+        data: {
+          tenant,
+          adminUser,
+        },
+        message: 'Organization and admin user created successfully',
+      });
+    } else {
+      // Tenant created but admin user failed
+      res.status(201).json({
+        success: true,
+        data: {
+          tenant,
+          adminUser: null,
+        },
+        message: `Organization created but admin user creation failed: ${adminCreationError}`,
+        warning: adminCreationError,
+      });
+    }
   } catch (error) {
     next(error);
   }

@@ -101,6 +101,12 @@ const Timesheets: React.FC = () => {
   const { user } = useAppSelector((state) => state.auth);
   const isAdmin = user?.role === 'admin' || user?.role === 'tenant_admin' || user?.role === 'hr' || user?.role === 'hr_manager';
 
+  // Check if user has permission to view all timesheets
+  const canViewAllTimesheets = user?.permissions?.includes('*') ||
+    user?.permissions?.includes('attendance:write') ||
+    user?.permissions?.includes('employees:read') ||
+    isAdmin;
+
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -134,8 +140,21 @@ const Timesheets: React.FC = () => {
       if (statusFilter !== 'all') {
         params.append('status', statusFilter);
       }
+      // If user is not admin/hr, only fetch their own timesheets
+      if (!canViewAllTimesheets && user?._id) {
+        params.append('employeeId', user._id);
+      }
       const response = await api.get(`/timesheets?${params}`);
-      setTimesheets(response.data.data?.timesheets || response.data.timesheets || []);
+      let fetchedTimesheets = response.data.data?.timesheets || response.data.timesheets || [];
+
+      // Extra safety: filter on frontend as well for non-admin users
+      if (!canViewAllTimesheets && user?._id) {
+        fetchedTimesheets = fetchedTimesheets.filter((ts: Timesheet) =>
+          ts.employeeId === user._id || ts.employee?._id === user._id
+        );
+      }
+
+      setTimesheets(fetchedTimesheets);
     } catch (error) {
       console.error('Failed to fetch timesheets:', error);
       // Use mock data for demo
@@ -164,6 +183,59 @@ const Timesheets: React.FC = () => {
 
   const generateMockTimesheets = () => {
     const mockTimesheets: Timesheet[] = [];
+
+    // For employees (non-admin), only generate their own timesheet
+    if (!canViewAllTimesheets && user) {
+      const projectEntries = [
+        { projectCode: 'ALPHA', projectName: 'Project Alpha', description: 'Development tasks' },
+        { projectCode: 'BETA', projectName: 'Project Beta', description: 'Testing and QA' },
+      ];
+
+      const entries: TimesheetEntry[] = projectEntries.map(p => ({
+        ...p,
+        monday: Math.floor(Math.random() * 2) + 7,
+        tuesday: Math.floor(Math.random() * 2) + 7,
+        wednesday: Math.floor(Math.random() * 2) + 7,
+        thursday: Math.floor(Math.random() * 2) + 7,
+        friday: Math.floor(Math.random() * 2) + 7,
+        saturday: 0,
+        sunday: 0,
+        totalHours: 0,
+      }));
+
+      entries.forEach(e => {
+        e.totalHours = e.monday + e.tuesday + e.wednesday + e.thursday + e.friday + e.saturday + e.sunday;
+      });
+
+      const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
+
+      mockTimesheets.push({
+        _id: `ts-${user._id}`,
+        employeeId: user._id,
+        employee: {
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          employeeCode: 'EMP00001',
+          email: user.email,
+        },
+        weekStartDate: '2025-12-15',
+        weekEndDate: '2025-12-21',
+        weekNumber: selectedWeek,
+        month: 12,
+        year: 2025,
+        entries,
+        totalHours,
+        regularHours: Math.min(totalHours, 40),
+        overtimeHours: Math.max(totalHours - 40, 0),
+        status: 'draft',
+      });
+
+      setTimesheets(mockTimesheets);
+      return;
+    }
+
+    // For admin/HR, generate mock data for multiple employees
     const names = [
       { firstName: 'Patricia', lastName: 'Edwards', code: 'EMP00001' },
       { firstName: 'Margaret', lastName: 'Rodriguez', code: 'EMP00002' },

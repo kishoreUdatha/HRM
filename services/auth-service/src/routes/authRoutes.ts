@@ -30,7 +30,9 @@ import {
   exportAuditLogs,
 } from '../controllers/auditController';
 import * as securityController from '../controllers/securityController';
-import { requireAdmin, requireHROrAdmin } from '../middleware/authorize';
+import * as superAdminController from '../controllers/superAdminController';
+import * as roleManagementController from '../controllers/roleManagementController';
+import { requireAdmin, requireHROrAdmin, requireSuperAdmin } from '../middleware/authorize';
 
 const router = Router();
 
@@ -98,6 +100,12 @@ router.post('/admin/users/:id/reset-password', requireAdmin, resetUserPassword);
 router.delete('/admin/users/:id', requireAdmin, deleteUser);
 router.post('/admin/users/bulk', requireAdmin, bulkUpdateUsers);
 
+// ==================== ROLE MANAGEMENT ROUTES ====================
+router.get('/admin/roles', requireAdmin, roleManagementController.getRoles);
+router.get('/admin/roles/:roleName', requireAdmin, roleManagementController.getRoleByName);
+router.put('/admin/roles/:roleName/permissions', requireAdmin, roleManagementController.updateRolePermissions);
+router.post('/admin/roles/:roleName/reset', requireAdmin, roleManagementController.resetRoleToDefault);
+
 // ==================== AUDIT LOG ROUTES ====================
 router.get('/admin/audit-logs', requireAdmin, getAuditLogs);
 router.get('/admin/audit-logs/stats', requireAdmin, getAuditStats);
@@ -127,5 +135,18 @@ router.post('/gdpr/request', securityController.createGDPRRequest);
 router.get('/gdpr/requests', requireAdmin, securityController.getGDPRRequests);
 router.post('/gdpr/requests/:requestId/process', requireAdmin, securityController.processGDPRRequest);
 router.get('/gdpr/export', securityController.exportUserData);
+
+// ==================== SUPER ADMIN ROUTES ====================
+// Public super admin routes
+router.post('/super-admin/login', loginValidation, validate, superAdminController.superAdminLogin);
+router.post('/super-admin/setup', superAdminController.createSuperAdmin);
+router.post('/super-admin/refresh', superAdminController.refreshSuperAdminToken);
+
+// Protected super admin routes (requires super_admin role)
+router.get('/super-admin/me', requireSuperAdmin, superAdminController.getSuperAdminProfile);
+router.get('/super-admin/list', requireSuperAdmin, superAdminController.listSuperAdmins);
+router.post('/super-admin/add', requireSuperAdmin, superAdminController.addSuperAdmin);
+router.put('/super-admin/:id/status', requireSuperAdmin, superAdminController.updateSuperAdminStatus);
+router.get('/super-admin/platform-stats', requireSuperAdmin, superAdminController.getPlatformUserStats);
 
 export default router;
