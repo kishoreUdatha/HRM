@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import Shift from '../models/Shift';
 import Employee from '../models/Employee';
 
@@ -18,11 +19,28 @@ export const getAllShifts = async (req: Request, res: Response): Promise<void> =
       query.isActive = true;
     }
 
-    const shifts = await Shift.find(query).sort({ isDefault: -1, name: 1 });
+    const shifts = await Shift.find(query).sort({ isDefault: -1, name: 1 }).lean();
+
+    // Get employee counts for all shifts
+    const shiftIds = shifts.map(s => s._id);
+    const tenantObjectId = new mongoose.Types.ObjectId(tenantId);
+    const employeeCounts = await Employee.aggregate([
+      { $match: { tenantId: tenantObjectId, shiftId: { $in: shiftIds } } },
+      { $group: { _id: '$shiftId', count: { $sum: 1 } } }
+    ]);
+
+    // Create a map of shiftId -> count
+    const countMap = new Map(employeeCounts.map(ec => [ec._id.toString(), ec.count]));
+
+    // Add employee count to each shift
+    const shiftsWithCounts = shifts.map(shift => ({
+      ...shift,
+      employeeCount: countMap.get(shift._id.toString()) || 0
+    }));
 
     res.json({
       success: true,
-      data: shifts,
+      data: shiftsWithCounts,
     });
   } catch (error) {
     console.error('Error fetching shifts:', error);
@@ -276,8 +294,9 @@ export const getShiftStats = async (req: Request, res: Response): Promise<void> 
     ]);
 
     // Get employee counts per shift
+    const tenantObjectId = new mongoose.Types.ObjectId(tenantId);
     const shiftEmployeeCounts = await Employee.aggregate([
-      { $match: { tenantId: tenantId as unknown as import('mongoose').Types.ObjectId, shiftId: { $exists: true } } },
+      { $match: { tenantId: tenantObjectId, shiftId: { $exists: true, $ne: null } } },
       { $group: { _id: '$shiftId', count: { $sum: 1 } } },
     ]);
 

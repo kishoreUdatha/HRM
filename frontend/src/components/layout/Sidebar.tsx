@@ -49,6 +49,8 @@ const navigation: NavItem[] = [
   { name: 'Org Chart', path: '/org-chart', icon: HiOfficeBuilding },
   { name: 'Attendance', path: '/attendance', icon: HiCalendar },
   { name: 'Leave Management', path: '/leaves', icon: HiCalendar },
+  { name: 'Leave Types', path: '/leave-types', icon: HiClipboardList, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },
+  { name: 'Leave Balances', path: '/leave-balances', icon: HiCollection, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },
   { name: 'Payroll', path: '/payroll', icon: HiCurrencyDollar, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },
   { name: 'Timesheets', path: '/timesheets', icon: HiClock },
   { name: 'Recruitment', path: '/recruitment', icon: HiBriefcase, roles: ['admin', 'hr_manager', 'tenant_admin', 'hr'] },

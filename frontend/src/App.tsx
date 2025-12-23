@@ -18,6 +18,8 @@ import EmployeeForm from './pages/EmployeeForm';
 import Departments from './pages/Departments';
 import Attendance from './pages/Attendance';
 import Leaves from './pages/Leaves';
+import LeaveTypes from './pages/LeaveTypes';
+import LeaveBalances from './pages/LeaveBalances';
 import Recruitment from './pages/Recruitment';
 import Performance from './pages/Performance';
 import Training from './pages/Training';
@@ -102,6 +104,16 @@ const AppRoutes: React.FC = () => {
         <Route path="/shifts" element={<Shifts />} />
         <Route path="/attendance" element={<Attendance />} />
         <Route path="/leaves" element={<Leaves />} />
+        <Route path="/leave-types" element={
+          <ProtectedRoute allowedRoles={['admin', 'tenant_admin', 'hr', 'hr_manager']}>
+            <LeaveTypes />
+          </ProtectedRoute>
+        } />
+        <Route path="/leave-balances" element={
+          <ProtectedRoute allowedRoles={['admin', 'tenant_admin', 'hr', 'hr_manager']}>
+            <LeaveBalances />
+          </ProtectedRoute>
+        } />
         <Route path="/recruitment" element={<Recruitment />} />
         <Route path="/performance" element={<Performance />} />
         <Route path="/training" element={<Training />} />

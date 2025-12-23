@@ -49,18 +49,40 @@ export const createJobPosting = async (req: Request, res: Response) => {
 export const getJobPostings = async (req: Request, res: Response) => {
   try {
     const { tenantId } = req.params;
-    const { status, departmentId, hiringManager, page = 1, limit = 20 } = req.query;
+    const {
+      status,
+      departmentId,
+      hiringManager,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 20
+    } = req.query;
     const query: any = { tenantId };
     if (status) query.status = status;
     if (departmentId) query.departmentId = departmentId;
     if (hiringManager) query.hiringManager = hiringManager;
 
+    // Text search on title, description, requisitionNumber
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { requisitionNumber: { $regex: search, $options: 'i' } },
+      ];
+    }
+
     const skip = (Number(page) - 1) * Number(limit);
+    const sortOptions: Record<string, 1 | -1> = {
+      [sortBy as string]: sortOrder === 'asc' ? 1 : -1,
+    };
+
     const [jobs, total] = await Promise.all([
       JobPosting.find(query)
         .populate('departmentId', 'name')
         .populate('hiringManager', 'firstName lastName')
-        .sort({ createdAt: -1 })
+        .sort(sortOptions)
         .skip(skip)
         .limit(Number(limit)),
       JobPosting.countDocuments(query),
@@ -143,16 +165,37 @@ export const createCandidate = async (req: Request, res: Response) => {
 export const getCandidates = async (req: Request, res: Response) => {
   try {
     const { tenantId } = req.params;
-    const { status, source, skills, search, page = 1, limit = 20 } = req.query;
+    const {
+      status,
+      source,
+      skills,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 20
+    } = req.query;
     const query: any = { tenantId };
     if (status) query.status = status;
     if (source) query.source = source;
     if (skills) query.skills = { $in: (skills as string).split(',') };
-    if (search) query.$text = { $search: search as string };
+
+    // Text search on firstName, lastName, email
+    if (search) {
+      query.$or = [
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+      ];
+    }
 
     const skip = (Number(page) - 1) * Number(limit);
+    const sortOptions: Record<string, 1 | -1> = {
+      [sortBy as string]: sortOrder === 'asc' ? 1 : -1,
+    };
+
     const [candidates, total] = await Promise.all([
-      Candidate.find(query).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+      Candidate.find(query).sort(sortOptions).skip(skip).limit(Number(limit)),
       Candidate.countDocuments(query),
     ]);
     res.json({ success: true, data: candidates, pagination: { page: Number(page), limit: Number(limit), total, totalPages: Math.ceil(total / Number(limit)) } });

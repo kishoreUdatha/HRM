@@ -1,0 +1,13 @@
+{
+  "name": "hrm-scripts",
+  "version": "1.0.0",
+  "description": "Database scripts for HRM application",
+  "scripts": {
+    "seed": "node seed-comprehensive.js",
+    "seed:docker": "docker exec -it hrm-mongodb mongosh --username admin --password hrm_password_2024 --authenticationDatabase admin < seed-comprehensive.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "mongodb": "^6.3.0"
+  }
+}

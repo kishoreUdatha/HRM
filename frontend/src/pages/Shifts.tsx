@@ -7,11 +7,25 @@ import {
   HiStar,
   HiUserGroup,
   HiDownload,
+  HiSearch,
+  HiCheck,
+  HiX,
 } from 'react-icons/hi';
 import api from '../services/api';
-import type { Shift } from '../types';
+import type { Shift, Employee } from '../types';
 
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+interface ShiftEmployee {
+  _id: string;
+  employeeCode: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  designation: string;
+  departmentId?: { _id: string; name: string };
+  status: string;
+}
 
 const Shifts: React.FC = () => {
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -20,6 +34,16 @@ const Shifts: React.FC = () => {
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [error, setError] = useState('');
   const [isSeeding, setIsSeeding] = useState(false);
+
+  // Shift Allocation State
+  const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
+  const [selectedShiftForAllocation, setSelectedShiftForAllocation] = useState<Shift | null>(null);
+  const [shiftEmployees, setShiftEmployees] = useState<ShiftEmployee[]>([]);
+  const [allEmployees, setAllEmployees] = useState<ShiftEmployee[]>([]);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+  const [allocationTab, setAllocationTab] = useState<'current' | 'assign'>('current');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -154,6 +178,118 @@ const Shifts: React.FC = () => {
         ? prev.weeklyOffDays.filter((d) => d !== day)
         : [...prev.weeklyOffDays, day].sort(),
     }));
+  };
+
+  // Shift Allocation Functions
+  const openAllocationModal = async (shift: Shift) => {
+    setSelectedShiftForAllocation(shift);
+    setIsAllocationModalOpen(true);
+    setAllocationTab('current');
+    setSelectedEmployees([]);
+    setEmployeeSearchTerm('');
+    await fetchShiftEmployees(shift._id);
+    await fetchAllEmployees();
+  };
+
+  const closeAllocationModal = () => {
+    setIsAllocationModalOpen(false);
+    setSelectedShiftForAllocation(null);
+    setShiftEmployees([]);
+    setSelectedEmployees([]);
+    setEmployeeSearchTerm('');
+  };
+
+  const fetchShiftEmployees = async (shiftId: string) => {
+    setIsLoadingEmployees(true);
+    try {
+      const response = await api.get(`/shifts/${shiftId}/employees`);
+      setShiftEmployees(response.data.data || []);
+    } catch (error) {
+      console.error('Failed to fetch shift employees:', error);
+      setShiftEmployees([]);
+    } finally {
+      setIsLoadingEmployees(false);
+    }
+  };
+
+  const fetchAllEmployees = async () => {
+    try {
+      const response = await api.get('/employees?limit=1000');
+      setAllEmployees(response.data.data || []);
+    } catch (error) {
+      console.error('Failed to fetch all employees:', error);
+      setAllEmployees([]);
+    }
+  };
+
+  const toggleEmployeeSelection = (employeeId: string) => {
+    setSelectedEmployees((prev) =>
+      prev.includes(employeeId)
+        ? prev.filter((id) => id !== employeeId)
+        : [...prev, employeeId]
+    );
+  };
+
+  const selectAllFilteredEmployees = () => {
+    const filtered = getUnassignedEmployees();
+    const allIds = filtered.map((e) => e._id);
+    setSelectedEmployees(allIds);
+  };
+
+  const clearSelection = () => {
+    setSelectedEmployees([]);
+  };
+
+  const handleBulkAssign = async () => {
+    if (!selectedShiftForAllocation || selectedEmployees.length === 0) return;
+
+    try {
+      await api.post('/shifts/bulk-assign', {
+        shiftId: selectedShiftForAllocation._id,
+        employeeIds: selectedEmployees,
+      });
+      await fetchShiftEmployees(selectedShiftForAllocation._id);
+      await fetchShifts();
+      setSelectedEmployees([]);
+      setAllocationTab('current');
+    } catch (error) {
+      console.error('Failed to assign employees:', error);
+      alert('Failed to assign employees to shift');
+    }
+  };
+
+  const handleRemoveFromShift = async (employeeId: string) => {
+    if (!window.confirm('Remove this employee from the shift?')) return;
+
+    try {
+      // Assign to null/no shift
+      await api.put(`/employees/${employeeId}`, { shiftId: null });
+      if (selectedShiftForAllocation) {
+        await fetchShiftEmployees(selectedShiftForAllocation._id);
+        await fetchShifts();
+      }
+    } catch (error) {
+      console.error('Failed to remove employee from shift:', error);
+    }
+  };
+
+  const getUnassignedEmployees = () => {
+    const assignedIds = shiftEmployees.map((e) => e._id);
+    return allEmployees.filter((e) => {
+      // Not already in this shift
+      if (assignedIds.includes(e._id)) return false;
+      // Match search term
+      if (employeeSearchTerm) {
+        const search = employeeSearchTerm.toLowerCase();
+        return (
+          e.firstName?.toLowerCase().includes(search) ||
+          e.lastName?.toLowerCase().includes(search) ||
+          e.employeeCode?.toLowerCase().includes(search) ||
+          e.email?.toLowerCase().includes(search)
+        );
+      }
+      return true;
+    });
   };
 
   const formatTime = (time: string) => {
@@ -319,12 +455,13 @@ const Shifts: React.FC = () => {
 
               {/* Footer */}
               <div className="flex items-center justify-between pt-4 border-t border-secondary-200">
-                <div className="flex items-center gap-2">
-                  <HiUserGroup className="w-4 h-4 text-secondary-400" />
-                  <span className="text-sm text-secondary-600">
-                    {shift.employeeCount || 0} employees
-                  </span>
-                </div>
+                <button
+                  onClick={() => openAllocationModal(shift)}
+                  className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-700"
+                >
+                  <HiUserGroup className="w-4 h-4" />
+                  <span>{shift.employeeCount || 0} employees</span>
+                </button>
                 <span
                   className={`px-2 py-1 text-xs font-medium rounded-full ${
                     shift.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
@@ -574,6 +711,244 @@ const Shifts: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Shift Allocation Modal */}
+      {isAllocationModalOpen && selectedShiftForAllocation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-secondary-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: `${selectedShiftForAllocation.color}20` }}
+                >
+                  <HiClock className="w-5 h-5" style={{ color: selectedShiftForAllocation.color }} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-secondary-900">
+                    {selectedShiftForAllocation.name}
+                  </h2>
+                  <p className="text-sm text-secondary-500">
+                    {formatTime(selectedShiftForAllocation.startTime)} - {formatTime(selectedShiftForAllocation.endTime)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeAllocationModal}
+                className="p-2 hover:bg-secondary-100 rounded-lg"
+              >
+                <HiX className="w-5 h-5 text-secondary-500" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-secondary-200">
+              <button
+                onClick={() => setAllocationTab('current')}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  allocationTab === 'current'
+                    ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50'
+                    : 'text-secondary-600 hover:bg-secondary-50'
+                }`}
+              >
+                Current Employees ({shiftEmployees.length})
+              </button>
+              <button
+                onClick={() => setAllocationTab('assign')}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  allocationTab === 'assign'
+                    ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50'
+                    : 'text-secondary-600 hover:bg-secondary-50'
+                }`}
+              >
+                Assign Employees
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {allocationTab === 'current' ? (
+                /* Current Employees Tab */
+                <div>
+                  {isLoadingEmployees ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                    </div>
+                  ) : shiftEmployees.length === 0 ? (
+                    <div className="text-center py-12">
+                      <HiUserGroup className="w-12 h-12 text-secondary-400 mx-auto mb-4" />
+                      <p className="text-secondary-600">No employees assigned to this shift</p>
+                      <button
+                        onClick={() => setAllocationTab('assign')}
+                        className="mt-4 text-primary-600 hover:text-primary-700"
+                      >
+                        Assign employees now
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {shiftEmployees.map((employee) => (
+                        <div
+                          key={employee._id}
+                          className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg hover:bg-secondary-100"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                              <span className="text-primary-700 font-medium text-sm">
+                                {employee.firstName?.[0]}{employee.lastName?.[0]}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-secondary-900">
+                                {employee.firstName} {employee.lastName}
+                              </p>
+                              <p className="text-sm text-secondary-500">
+                                {employee.employeeCode} • {employee.designation || 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-secondary-500">
+                              {employee.departmentId?.name || 'No Dept'}
+                            </span>
+                            <button
+                              onClick={() => handleRemoveFromShift(employee._id)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                              title="Remove from shift"
+                            >
+                              <HiX className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Assign Employees Tab */
+                <div>
+                  {/* Search and Actions */}
+                  <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                    <div className="flex-1 relative">
+                      <HiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400 w-5 h-5" />
+                      <input
+                        type="text"
+                        placeholder="Search employees..."
+                        value={employeeSearchTerm}
+                        onChange={(e) => setEmployeeSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={selectAllFilteredEmployees}
+                        className="px-3 py-2 text-sm text-secondary-700 hover:bg-secondary-100 rounded-lg"
+                      >
+                        Select All
+                      </button>
+                      <button
+                        onClick={clearSelection}
+                        className="px-3 py-2 text-sm text-secondary-700 hover:bg-secondary-100 rounded-lg"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Selected Count */}
+                  {selectedEmployees.length > 0 && (
+                    <div className="mb-4 p-3 bg-primary-50 border border-primary-200 rounded-lg flex items-center justify-between">
+                      <span className="text-sm text-primary-700">
+                        {selectedEmployees.length} employee(s) selected
+                      </span>
+                      <button
+                        onClick={handleBulkAssign}
+                        className="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700"
+                      >
+                        Assign to Shift
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Employee List */}
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {getUnassignedEmployees().length === 0 ? (
+                      <div className="text-center py-12">
+                        <p className="text-secondary-600">
+                          {employeeSearchTerm
+                            ? 'No employees match your search'
+                            : 'All employees are already assigned to this shift'}
+                        </p>
+                      </div>
+                    ) : (
+                      getUnassignedEmployees().map((employee) => (
+                        <div
+                          key={employee._id}
+                          onClick={() => toggleEmployeeSelection(employee._id)}
+                          className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                            selectedEmployees.includes(employee._id)
+                              ? 'bg-primary-50 border-2 border-primary-300'
+                              : 'bg-secondary-50 hover:bg-secondary-100 border-2 border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                                selectedEmployees.includes(employee._id)
+                                  ? 'bg-primary-600 border-primary-600'
+                                  : 'border-secondary-300'
+                              }`}
+                            >
+                              {selectedEmployees.includes(employee._id) && (
+                                <HiCheck className="w-4 h-4 text-white" />
+                              )}
+                            </div>
+                            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                              <span className="text-primary-700 font-medium text-sm">
+                                {employee.firstName?.[0]}{employee.lastName?.[0]}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-secondary-900">
+                                {employee.firstName} {employee.lastName}
+                              </p>
+                              <p className="text-sm text-secondary-500">
+                                {employee.employeeCode} • {employee.email}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-secondary-600">{employee.designation || 'N/A'}</p>
+                            <p className="text-xs text-secondary-500">
+                              {employee.departmentId?.name || 'No Department'}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-secondary-200 bg-secondary-50">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-secondary-600">
+                  Total: {shiftEmployees.length} employee(s) in this shift
+                </p>
+                <button
+                  onClick={closeAllocationModal}
+                  className="px-4 py-2 text-secondary-700 hover:bg-secondary-200 rounded-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

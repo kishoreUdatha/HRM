@@ -1,7 +1,68 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
+import mongoose from 'mongoose';
 import Attendance from '../models/Attendance';
 import Shift from '../models/Shift';
+
+// Helper to get employee details from employees database
+const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
+  try {
+    // Connect to employees database
+    const mongoUri = process.env.MONGODB_URI || '';
+    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
+
+    const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+
+    // Define a minimal employee schema for querying
+    const employeeSchema = new mongoose.Schema({
+      firstName: String,
+      lastName: String,
+      employeeCode: String,
+      email: String,
+      departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
+      tenantId: mongoose.Schema.Types.ObjectId,
+    });
+
+    const departmentSchema = new mongoose.Schema({
+      name: String,
+      code: String,
+    });
+
+    const Employee = employeesConn.model('Employee', employeeSchema);
+    const Department = employeesConn.model('Department', departmentSchema);
+
+    const employees = await Employee.find({
+      _id: { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) },
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+    }).lean();
+
+    // Get department details
+    const deptIds = employees.map(e => e.departmentId).filter(Boolean);
+    const departments = await Department.find({ _id: { $in: deptIds } }).lean();
+    const deptMap = new Map(departments.map(d => [d._id.toString(), d]));
+
+    await employeesConn.close();
+
+    // Create a map for quick lookup
+    const employeeMap = new Map();
+    for (const emp of employees) {
+      const dept = emp.departmentId ? deptMap.get(emp.departmentId.toString()) : null;
+      employeeMap.set(emp._id.toString(), {
+        _id: emp._id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        employeeCode: emp.employeeCode,
+        email: emp.email,
+        departmentId: dept ? { _id: dept._id, name: dept.name } : null,
+      });
+    }
+
+    return employeeMap;
+  } catch (error) {
+    console.error('[Attendance Service] Error fetching employee details:', error);
+    return new Map();
+  }
+};
 
 // Check In
 export const checkIn = async (req: Request, res: Response): Promise<void> => {
@@ -149,12 +210,89 @@ export const checkOut = async (req: Request, res: Response): Promise<void> => {
 export const getAttendance = async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
-    const { employeeId, startDate, endDate, status, page = 1, limit = 50 } = req.query;
+    const {
+      employeeId,
+      startDate,
+      endDate,
+      status,
+      search,
+      departmentId,
+      sortBy = 'date',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 50
+    } = req.query;
+
+    // If search or departmentId is provided, we need to filter by employee first
+    let filteredEmployeeIds: string[] | null = null;
+
+    if (search || departmentId) {
+      try {
+        const mongoUri = process.env.MONGODB_URI || '';
+        const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
+        const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+
+        const employeeSchema = new mongoose.Schema({
+          firstName: String,
+          lastName: String,
+          employeeCode: String,
+          email: String,
+          departmentId: mongoose.Schema.Types.ObjectId,
+          tenantId: mongoose.Schema.Types.ObjectId,
+        });
+
+        const Employee = employeesConn.model('Employee', employeeSchema);
+
+        const employeeQuery: Record<string, unknown> = {
+          tenantId: new mongoose.Types.ObjectId(tenantId),
+        };
+
+        if (search) {
+          const searchRegex = { $regex: search, $options: 'i' };
+          employeeQuery.$or = [
+            { firstName: searchRegex },
+            { lastName: searchRegex },
+            { employeeCode: searchRegex },
+            { email: searchRegex },
+          ];
+        }
+
+        if (departmentId) {
+          employeeQuery.departmentId = new mongoose.Types.ObjectId(departmentId as string);
+        }
+
+        const matchingEmployees = await Employee.find(employeeQuery).select('_id').lean();
+        filteredEmployeeIds = matchingEmployees.map(e => e._id.toString());
+
+        await employeesConn.close();
+
+        // If no employees match the search/filter, return empty results
+        if (filteredEmployeeIds.length === 0) {
+          res.status(200).json({
+            success: true,
+            data: {
+              records: [],
+              pagination: {
+                total: 0,
+                page: Number(page),
+                limit: Number(limit),
+                pages: 0,
+              },
+            },
+          });
+          return;
+        }
+      } catch (error) {
+        console.error('[Attendance Service] Error filtering employees:', error);
+      }
+    }
 
     const query: Record<string, unknown> = { tenantId };
 
     if (employeeId) {
       query.employeeId = employeeId;
+    } else if (filteredEmployeeIds) {
+      query.employeeId = { $in: filteredEmployeeIds.map(id => new mongoose.Types.ObjectId(id)) };
     }
 
     if (startDate || endDate) {
@@ -173,19 +311,34 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
 
     const skip = (Number(page) - 1) * Number(limit);
 
+    // Dynamic sorting
+    const sortOptions: Record<string, 1 | -1> = {
+      [sortBy as string]: sortOrder === 'asc' ? 1 : -1,
+    };
+
     const [records, total] = await Promise.all([
       Attendance.find(query)
-        .sort({ date: -1, checkIn: -1 })
+        .sort(sortOptions)
         .skip(skip)
         .limit(Number(limit))
         .lean(),
       Attendance.countDocuments(query),
     ]);
 
+    // Fetch employee details
+    const employeeIds = records.map(r => r.employeeId.toString());
+    const employeeMap = await getEmployeeDetails(employeeIds, tenantId);
+
+    // Attach employee details to records
+    const recordsWithEmployees = records.map(record => ({
+      ...record,
+      employee: employeeMap.get(record.employeeId.toString()) || null,
+    }));
+
     res.status(200).json({
       success: true,
       data: {
-        records,
+        records: recordsWithEmployees,
         pagination: {
           total,
           page: Number(page),

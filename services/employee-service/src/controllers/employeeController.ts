@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Employee from '../models/Employee';
 import { peekNextSequence } from '../models/Counter';
+import { publishEvent } from '../config/rabbitmq';
 
 // Get all employees for tenant
 export const getAllEmployees = async (
@@ -131,9 +132,21 @@ export const createEmployee = async (
       return;
     }
 
-    const employee = await Employee.create(employeeData);
+    const newEmployee = new Employee(employeeData);
+    const employee = await newEmployee.save();
 
-    // TODO: Publish EMPLOYEE_CREATED event to message queue
+    // Publish EMPLOYEE_CREATED event to message queue
+    await publishEvent('employee.created', {
+      eventType: 'EMPLOYEE_CREATED',
+      tenantId,
+      employeeId: employee._id.toString(),
+      employeeCode: employee.employeeCode,
+      email: employee.email,
+      firstName: employee.firstName,
+      lastName: employee.lastName,
+      departmentId: employee.departmentId?.toString(),
+      timestamp: new Date().toISOString(),
+    });
 
     res.status(201).json({
       success: true,

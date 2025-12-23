@@ -1,8 +1,64 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
+import mongoose from 'mongoose';
 import LeaveRequest from '../models/LeaveRequest';
 import LeaveBalance from '../models/LeaveBalance';
 import LeaveType from '../models/LeaveType';
+
+// Helper to get employee details from employees database
+const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
+  try {
+    const mongoUri = process.env.MONGODB_URI || '';
+    const employeesDbUri = mongoUri.replace('/hrm_leaves', '/hrm_employees');
+    const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+
+    const employeeSchema = new mongoose.Schema({
+      firstName: String,
+      lastName: String,
+      employeeCode: String,
+      email: String,
+      departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
+      tenantId: mongoose.Schema.Types.ObjectId,
+    });
+
+    const departmentSchema = new mongoose.Schema({
+      name: String,
+      code: String,
+    });
+
+    const Employee = employeesConn.model('Employee', employeeSchema);
+    const Department = employeesConn.model('Department', departmentSchema);
+
+    const employees = await Employee.find({
+      _id: { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) },
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+    }).lean();
+
+    const deptIds = employees.map(e => e.departmentId).filter(Boolean);
+    const departments = await Department.find({ _id: { $in: deptIds } }).lean();
+    const deptMap = new Map(departments.map(d => [d._id.toString(), d]));
+
+    await employeesConn.close();
+
+    const employeeMap = new Map();
+    for (const emp of employees) {
+      const dept = emp.departmentId ? deptMap.get(emp.departmentId.toString()) : null;
+      employeeMap.set(emp._id.toString(), {
+        _id: emp._id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        employeeCode: emp.employeeCode,
+        email: emp.email,
+        department: dept ? { _id: dept._id, name: dept.name } : null,
+      });
+    }
+
+    return employeeMap;
+  } catch (error) {
+    console.error('[Leave Service] Error fetching employee details:', error);
+    return new Map();
+  }
+};
 
 // Create leave request
 export const createLeaveRequest = async (req: Request, res: Response): Promise<void> => {
@@ -110,7 +166,18 @@ export const createLeaveRequest = async (req: Request, res: Response): Promise<v
 export const getLeaveRequests = async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
-    const { employeeId, status, leaveTypeId, startDate, endDate, page = 1, limit = 20 } = req.query;
+    const {
+      employeeId,
+      status,
+      leaveTypeId,
+      startDate,
+      endDate,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 20
+    } = req.query;
 
     const query: Record<string, unknown> = { tenantId };
 
@@ -127,22 +194,42 @@ export const getLeaveRequests = async (req: Request, res: Response): Promise<voi
       }
     }
 
+    // Text search on reason field
+    if (search) {
+      query.reason = { $regex: search, $options: 'i' };
+    }
+
     const skip = (Number(page) - 1) * Number(limit);
+
+    // Dynamic sorting
+    const sortOptions: Record<string, 1 | -1> = {
+      [sortBy as string]: sortOrder === 'asc' ? 1 : -1,
+    };
 
     const [requests, total] = await Promise.all([
       LeaveRequest.find(query)
         .populate('leaveTypeId', 'name code')
-        .sort({ createdAt: -1 })
+        .sort(sortOptions)
         .skip(skip)
         .limit(Number(limit))
         .lean(),
       LeaveRequest.countDocuments(query),
     ]);
 
+    // Fetch employee details
+    const employeeIds = requests.map(r => r.employeeId.toString());
+    const employeeMap = await getEmployeeDetails(employeeIds, tenantId);
+
+    // Attach employee details to requests
+    const requestsWithEmployees = requests.map(request => ({
+      ...request,
+      employee: employeeMap.get(request.employeeId.toString()) || null,
+    }));
+
     res.status(200).json({
       success: true,
       data: {
-        leaves: requests,
+        leaves: requestsWithEmployees,
         pagination: {
           total,
           page: Number(page),
@@ -207,12 +294,14 @@ export const approveLeaveRequest = async (req: Request, res: Response): Promise<
       return;
     }
 
-    leaveRequest.status = 'approved';
-    leaveRequest.approvedBy = userId as unknown as typeof leaveRequest.approvedBy;
-    leaveRequest.approvedAt = new Date();
-    await leaveRequest.save();
+    // Get leave type to check if negative balance is allowed
+    const leaveType = await LeaveType.findOne({ _id: leaveRequest.leaveTypeId, tenantId });
+    if (!leaveType) {
+      res.status(404).json({ success: false, message: 'Leave type not found' });
+      return;
+    }
 
-    // Update leave balance
+    // Check leave balance before approving
     const currentYear = new Date().getFullYear();
     const balance = await LeaveBalance.findOne({
       tenantId,
@@ -221,6 +310,23 @@ export const approveLeaveRequest = async (req: Request, res: Response): Promise<
       year: currentYear,
     });
 
+    if (!leaveType.allowNegativeBalance) {
+      const availableBalance = balance ? balance.balance - balance.pending + leaveRequest.days : 0;
+      if (availableBalance < leaveRequest.days) {
+        res.status(400).json({
+          success: false,
+          message: `Insufficient leave balance. Available: ${availableBalance} days, Requested: ${leaveRequest.days} days for ${leaveType.name}`,
+        });
+        return;
+      }
+    }
+
+    leaveRequest.status = 'approved';
+    leaveRequest.approvedBy = userId as unknown as typeof leaveRequest.approvedBy;
+    leaveRequest.approvedAt = new Date();
+    await leaveRequest.save();
+
+    // Update leave balance (reuse the balance fetched earlier)
     if (balance) {
       balance.pending -= leaveRequest.days;
       balance.used += leaveRequest.days;
@@ -426,6 +532,216 @@ export const initializeLeaveBalance = async (req: Request, res: Response): Promi
     res.status(500).json({
       success: false,
       message: 'Failed to initialize leave balance',
+    });
+  }
+};
+
+// Get all employees' leave balances (admin view)
+export const getAllLeaveBalances = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { year = new Date().getFullYear(), leaveTypeId, page = 1, limit = 50 } = req.query;
+
+    const query: Record<string, unknown> = { tenantId, year: Number(year) };
+    if (leaveTypeId) query.leaveTypeId = leaveTypeId;
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [balances, total] = await Promise.all([
+      LeaveBalance.find(query)
+        .populate('leaveTypeId', 'name code isPaid')
+        .sort({ employeeId: 1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      LeaveBalance.countDocuments(query),
+    ]);
+
+    // Fetch employee details
+    const employeeIds = [...new Set(balances.map(b => b.employeeId.toString()))];
+    const employeeMap = await getEmployeeDetails(employeeIds, tenantId);
+
+    // Attach employee details
+    const balancesWithEmployees = balances.map(balance => ({
+      ...balance,
+      employee: employeeMap.get(balance.employeeId.toString()) || null,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        balances: balancesWithEmployees,
+        pagination: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          pages: Math.ceil(total / Number(limit)),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('[Leave Service] Get all balances error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch leave balances',
+    });
+  }
+};
+
+// Adjust leave balance
+export const adjustLeaveBalance = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { employeeId, leaveTypeId, year = new Date().getFullYear(), adjustment, reason } = req.body;
+
+    let balance = await LeaveBalance.findOne({
+      tenantId,
+      employeeId,
+      leaveTypeId,
+      year,
+    });
+
+    if (!balance) {
+      // Create balance if it doesn't exist
+      const leaveType = await LeaveType.findOne({ _id: leaveTypeId, tenantId });
+      if (!leaveType) {
+        res.status(404).json({ success: false, message: 'Leave type not found' });
+        return;
+      }
+
+      balance = new LeaveBalance({
+        tenantId,
+        employeeId,
+        leaveTypeId,
+        year,
+        entitled: leaveType.defaultDays,
+        used: 0,
+        pending: 0,
+        carriedForward: 0,
+        adjusted: adjustment,
+      });
+    } else {
+      balance.adjusted += adjustment;
+    }
+
+    await balance.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Leave balance adjusted by ${adjustment} days`,
+      data: { balance },
+    });
+  } catch (error) {
+    console.error('[Leave Service] Adjust balance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to adjust leave balance',
+    });
+  }
+};
+
+// Update leave balance entitled days
+export const updateLeaveBalance = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { id } = req.params;
+    const { entitled, carriedForward, adjusted } = req.body;
+
+    const balance = await LeaveBalance.findOne({ _id: id, tenantId });
+
+    if (!balance) {
+      res.status(404).json({ success: false, message: 'Leave balance not found' });
+      return;
+    }
+
+    if (entitled !== undefined) balance.entitled = entitled;
+    if (carriedForward !== undefined) balance.carriedForward = carriedForward;
+    if (adjusted !== undefined) balance.adjusted = adjusted;
+
+    await balance.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Leave balance updated',
+      data: { balance },
+    });
+  } catch (error) {
+    console.error('[Leave Service] Update balance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update leave balance',
+    });
+  }
+};
+
+// Bulk initialize balances for all employees
+export const bulkInitializeBalances = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { year = new Date().getFullYear() } = req.body;
+
+    // Fetch all employees from employees database
+    const mongoUri = process.env.MONGODB_URI || '';
+    const employeesDbUri = mongoUri.replace('/hrm_leaves', '/hrm_employees');
+    const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+
+    const employeeSchema = new mongoose.Schema({
+      tenantId: mongoose.Schema.Types.ObjectId,
+      status: String,
+    });
+
+    const Employee = employeesConn.model('Employee', employeeSchema);
+    const employees = await Employee.find({
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+      status: 'active',
+    }).select('_id').lean();
+
+    await employeesConn.close();
+
+    const leaveTypes = await LeaveType.find({ tenantId, isActive: true });
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const employee of employees) {
+      for (const leaveType of leaveTypes) {
+        const existing = await LeaveBalance.findOne({
+          tenantId,
+          employeeId: employee._id,
+          leaveTypeId: leaveType._id,
+          year,
+        });
+
+        if (!existing) {
+          const balance = new LeaveBalance({
+            tenantId,
+            employeeId: employee._id,
+            leaveTypeId: leaveType._id,
+            year,
+            entitled: leaveType.defaultDays,
+            used: 0,
+            pending: 0,
+            carriedForward: 0,
+            adjusted: 0,
+          });
+          await balance.save();
+          created++;
+        } else {
+          skipped++;
+        }
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Initialized ${created} leave balances for ${employees.length} employees (${skipped} already existed)`,
+      data: { created, skipped, employeeCount: employees.length },
+    });
+  } catch (error) {
+    console.error('[Leave Service] Bulk initialize error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to bulk initialize leave balances',
     });
   }
 };

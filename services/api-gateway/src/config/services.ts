@@ -10,65 +10,46 @@ export interface ServiceConfig {
 }
 
 export const services: ServiceConfig[] = [
+  // ===========================================
+  // CORE SERVICES
+  // ===========================================
+  // Auth admin routes - must come before general auth routes (more specific first)
+  {
+    name: 'auth-admin-service',
+    url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+    pathPrefix: '/api/auth/admin',
+    targetPath: '/admin',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Admin routes require authentication
+  },
   {
     name: 'auth-service',
     url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
     pathPrefix: '/api/auth',
-    targetPath: '',  // Auth service routes at root: /login, /register, etc.
+    targetPath: '',
     healthCheck: '/health',
     timeout: 30000,
-    requiresAuth: false,
+    requiresAuth: false,  // Public - login/register endpoints
   },
   {
     name: 'tenant-service',
     url: process.env.TENANT_SERVICE_URL || 'http://localhost:3002',
     pathPrefix: '/api/tenants',
-    targetPath: '',  // Tenant service routes at root: /, /:id, etc.
+    targetPath: '',
     healthCheck: '/health',
     timeout: 30000,
-    requiresAuth: false, // Public endpoints for login/registration
+    requiresAuth: false,  // Public - tenant lookup for login
   },
+
+  // ===========================================
+  // EMPLOYEE MANAGEMENT
+  // ===========================================
   {
     name: 'employee-service',
     url: process.env.EMPLOYEE_SERVICE_URL || 'http://localhost:3003',
     pathPrefix: '/api/employees',
-    targetPath: '/employees',  // Employee service routes at /employees
-    healthCheck: '/health',
-    timeout: 30000,
-    requiresAuth: false,  // Temporarily disabled for debugging
-  },
-  {
-    name: 'attendance-service',
-    url: process.env.ATTENDANCE_SERVICE_URL || 'http://localhost:3004',
-    pathPrefix: '/api/attendance',
-    targetPath: '',  // Attendance service routes at root
-    healthCheck: '/health',
-    timeout: 30000,
-    requiresAuth: true,
-  },
-  {
-    name: 'leave-service',
-    url: process.env.LEAVE_SERVICE_URL || 'http://localhost:3005',
-    pathPrefix: '/api/leaves',
-    targetPath: '',  // Leave service routes at root
-    healthCheck: '/health',
-    timeout: 30000,
-    requiresAuth: true,
-  },
-  {
-    name: 'payroll-service',
-    url: process.env.PAYROLL_SERVICE_URL || 'http://localhost:3006',
-    pathPrefix: '/api/payroll',
-    targetPath: '',  // Payroll service routes at root
-    healthCheck: '/health',
-    timeout: 30000,
-    requiresAuth: true,
-  },
-  {
-    name: 'notification-service',
-    url: process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3007',
-    pathPrefix: '/api/notifications',
-    targetPath: '',  // Notification service routes at root
+    targetPath: '/employees',
     healthCheck: '/health',
     timeout: 30000,
     requiresAuth: true,
@@ -77,28 +58,263 @@ export const services: ServiceConfig[] = [
     name: 'dashboard-service',
     url: process.env.EMPLOYEE_SERVICE_URL || 'http://localhost:3003',
     pathPrefix: '/api/dashboard',
-    targetPath: '/dashboard',  // Employee service routes at /dashboard
+    targetPath: '/dashboard',
     healthCheck: '/health',
     timeout: 30000,
-    requiresAuth: false,  // Temporarily disabled for debugging
+    requiresAuth: true,
   },
   {
     name: 'department-service',
     url: process.env.EMPLOYEE_SERVICE_URL || 'http://localhost:3003',
     pathPrefix: '/api/departments',
-    targetPath: '/departments',  // Employee service routes at /departments
+    targetPath: '/departments',
     healthCheck: '/health',
     timeout: 30000,
-    requiresAuth: false,  // Temporarily disabled for debugging
+    requiresAuth: true,
   },
   {
     name: 'shift-service',
     url: process.env.EMPLOYEE_SERVICE_URL || 'http://localhost:3003',
     pathPrefix: '/api/shifts',
-    targetPath: '/shifts',  // Employee service routes at /shifts
+    targetPath: '/shifts',
     healthCheck: '/health',
     timeout: 30000,
-    requiresAuth: false,
+    requiresAuth: true,
+  },
+
+  // ===========================================
+  // HR OPERATIONS
+  // ===========================================
+  {
+    name: 'attendance-service',
+    url: process.env.ATTENDANCE_SERVICE_URL || 'http://localhost:3004',
+    pathPrefix: '/api/attendance',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'leave-service',
+    url: process.env.LEAVE_SERVICE_URL || 'http://localhost:3005',
+    pathPrefix: '/api/leaves',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'payroll-service',
+    url: process.env.PAYROLL_SERVICE_URL || 'http://localhost:3006',
+    pathPrefix: '/api/payroll',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'notification-service',
+    url: process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3007',
+    pathPrefix: '/api/notifications',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+
+  // ===========================================
+  // REPORTS & ANALYTICS
+  // ===========================================
+  {
+    name: 'reports-service',
+    url: process.env.REPORTS_SERVICE_URL || 'http://localhost:3008',
+    pathPrefix: '/api/reports',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 60000,  // Reports may take longer
+    requiresAuth: true,
+  },
+  {
+    name: 'analytics-service',
+    url: process.env.ANALYTICS_SERVICE_URL || 'http://localhost:3011',
+    pathPrefix: '/api/analytics',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 60000,
+    requiresAuth: true,
+  },
+
+  // ===========================================
+  // COMMUNICATION
+  // ===========================================
+  {
+    name: 'websocket-service',
+    url: process.env.WEBSOCKET_SERVICE_URL || 'http://localhost:3009',
+    pathPrefix: '/api/websocket',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'chat-service',
+    url: process.env.CHAT_SERVICE_URL || 'http://localhost:3010',
+    pathPrefix: '/api/chat',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+
+  // ===========================================
+  // DOCUMENTS & INTEGRATIONS
+  // ===========================================
+  {
+    name: 'document-service',
+    url: process.env.DOCUMENT_SERVICE_URL || 'http://localhost:3012',
+    pathPrefix: '/api/documents',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 60000,  // Document uploads may take longer
+    requiresAuth: true,
+  },
+  {
+    name: 'integration-service',
+    url: process.env.INTEGRATION_SERVICE_URL || 'http://localhost:3013',
+    pathPrefix: '/api/integrations',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+
+  // ===========================================
+  // ENGAGEMENT & FEEDBACK
+  // ===========================================
+  {
+    name: 'engagement-service',
+    url: process.env.ENGAGEMENT_SERVICE_URL || 'http://localhost:3014',
+    pathPrefix: '/api/engagement',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+
+  // ===========================================
+  // AI SERVICES
+  // ===========================================
+  {
+    name: 'ai-chatbot-service',
+    url: process.env.AI_CHATBOT_SERVICE_URL || 'http://localhost:3015',
+    pathPrefix: '/api/chatbot',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 60000,  // AI responses may take longer
+    requiresAuth: true,
+  },
+  {
+    name: 'ai-ml-service',
+    url: process.env.AI_ML_SERVICE_URL || 'http://localhost:3016',
+    pathPrefix: '/api/ai',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 60000,
+    requiresAuth: true,
+  },
+
+  // ===========================================
+  // ADDITIONAL HR SERVICES
+  // ===========================================
+  {
+    name: 'workforce-service',
+    url: process.env.WORKFORCE_SERVICE_URL || 'http://localhost:3017',
+    pathPrefix: '/api/workforce',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'recruitment-service',
+    url: process.env.RECRUITMENT_SERVICE_URL || 'http://localhost:3018',
+    pathPrefix: '/api/recruitment',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'localization-service',
+    url: process.env.LOCALIZATION_SERVICE_URL || 'http://localhost:3019',
+    pathPrefix: '/api/localization',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: false,  // Localization data can be public
+  },
+  {
+    name: 'benefits-service',
+    url: process.env.BENEFITS_SERVICE_URL || 'http://localhost:3020',
+    pathPrefix: '/api/benefits',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'onboarding-service',
+    url: process.env.ONBOARDING_SERVICE_URL || 'http://localhost:3021',
+    pathPrefix: '/api/onboarding',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'compliance-service',
+    url: process.env.COMPLIANCE_SERVICE_URL || 'http://localhost:3022',
+    pathPrefix: '/api/compliance',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'expense-service',
+    url: process.env.EXPENSE_SERVICE_URL || 'http://localhost:3023',
+    pathPrefix: '/api/expenses',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'timesheet-service',
+    url: process.env.TIMESHEET_SERVICE_URL || 'http://localhost:3024',
+    pathPrefix: '/api/timesheets',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'asset-service',
+    url: process.env.ASSET_SERVICE_URL || 'http://localhost:3025',
+    pathPrefix: '/api/assets',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  {
+    name: 'grievance-service',
+    url: process.env.GRIEVANCE_SERVICE_URL || 'http://localhost:3026',
+    pathPrefix: '/api/grievances',
+    targetPath: '',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
   },
 ];
 

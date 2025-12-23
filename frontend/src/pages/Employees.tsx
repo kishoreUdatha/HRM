@@ -4,21 +4,24 @@ import { HiPlus, HiSearch, HiFilter, HiDotsVertical, HiPencil, HiTrash, HiEye, H
 import api from '../services/api';
 import type { Employee } from '../types';
 import BulkUploadModal from '../components/employees/BulkUploadModal';
+import SortableTableHeader, { useSortConfig } from '../components/common/SortableTableHeader';
 
 const Employees: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('');
   const [departments, setDepartments] = useState<{ _id: string; name: string }[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const { sortConfig, handleSort } = useSortConfig('createdAt', 'desc');
 
   useEffect(() => {
     fetchEmployees();
     fetchDepartments();
-  }, [pagination.page, selectedDepartment]);
+  }, [pagination.page, pagination.limit, selectedDepartment, selectedStatus, sortConfig]);
 
   const fetchEmployees = async () => {
     try {
@@ -27,7 +30,12 @@ const Employees: React.FC = () => {
         limit: pagination.limit.toString(),
       });
       if (searchTerm) params.append('search', searchTerm);
-      if (selectedDepartment) params.append('department', selectedDepartment);
+      if (selectedDepartment) params.append('departmentId', selectedDepartment);
+      if (selectedStatus) params.append('status', selectedStatus);
+      if (sortConfig.key) {
+        params.append('sortBy', sortConfig.key);
+        params.append('sortOrder', sortConfig.order || 'desc');
+      }
 
       const response = await api.get(`/employees?${params}`);
       // API returns { success, data: [], pagination: {} }
@@ -146,6 +154,17 @@ const Employees: React.FC = () => {
                 </option>
               ))}
             </select>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="on_leave">On Leave</option>
+              <option value="terminated">Terminated</option>
+            </select>
           </div>
           <button
             type="submit"
@@ -162,21 +181,36 @@ const Employees: React.FC = () => {
           <table className="w-full">
             <thead className="bg-secondary-50 border-b border-secondary-200">
               <tr>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-                  Employee
-                </th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-                  Department
-                </th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-                  Position
-                </th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">
-                  Join Date
-                </th>
+                <SortableTableHeader
+                  label="Employee"
+                  sortKey="firstName"
+                  currentSort={sortConfig}
+                  onSort={handleSort}
+                />
+                <SortableTableHeader
+                  label="Department"
+                  sortKey="departmentId"
+                  currentSort={sortConfig}
+                  onSort={handleSort}
+                />
+                <SortableTableHeader
+                  label="Position"
+                  sortKey="designation"
+                  currentSort={sortConfig}
+                  onSort={handleSort}
+                />
+                <SortableTableHeader
+                  label="Status"
+                  sortKey="status"
+                  currentSort={sortConfig}
+                  onSort={handleSort}
+                />
+                <SortableTableHeader
+                  label="Join Date"
+                  sortKey="joiningDate"
+                  currentSort={sortConfig}
+                  onSort={handleSort}
+                />
                 <th className="text-right px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">
                   Actions
                 </th>
@@ -275,30 +309,47 @@ const Employees: React.FC = () => {
         </div>
 
         {/* Pagination */}
-        {pagination.pages > 1 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-secondary-200">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-secondary-200">
+          <div className="flex items-center gap-4">
             <p className="text-sm text-secondary-500">
-              Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
+              Showing {pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0} to{' '}
               {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} employees
             </p>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-                disabled={pagination.page === 1}
-                className="px-3 py-1 text-sm border border-secondary-200 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              <label className="text-sm text-secondary-500">Rows per page:</label>
+              <select
+                value={pagination.limit}
+                onChange={(e) => setPagination((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))}
+                className="px-2 py-1 text-sm border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               >
-                Previous
-              </button>
-              <button
-                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-                disabled={pagination.page === pagination.pages}
-                className="px-3 py-1 text-sm border border-secondary-200 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={30}>30</option>
+                <option value={40}>40</option>
+                <option value={50}>50</option>
+              </select>
             </div>
           </div>
-        )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+              disabled={pagination.page === 1}
+              className="px-3 py-1 text-sm border border-secondary-200 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-secondary-600">
+              Page {pagination.page} of {pagination.pages || 1}
+            </span>
+            <button
+              onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+              disabled={pagination.page === pagination.pages || pagination.pages === 0}
+              className="px-3 py-1 text-sm border border-secondary-200 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Bulk Upload Modal */}

@@ -128,7 +128,17 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
 export const getPayrolls = async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
-    const { employeeId, month, year, status, page = 1, limit = 20 } = req.query;
+    const {
+      employeeId,
+      month,
+      year,
+      status,
+      search,
+      sortBy = 'year',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 20
+    } = req.query;
 
     const query: Record<string, unknown> = { tenantId };
     if (employeeId) query.employeeId = employeeId;
@@ -136,11 +146,24 @@ export const getPayrolls = async (req: Request, res: Response): Promise<void> =>
     if (year) query.year = Number(year);
     if (status) query.status = status;
 
+    // Text search - search by employee ID or notes
+    if (search) {
+      query.$or = [
+        { employeeId: { $regex: search, $options: 'i' } },
+        { notes: { $regex: search, $options: 'i' } },
+      ];
+    }
+
     const skip = (Number(page) - 1) * Number(limit);
+
+    // Dynamic sorting
+    const sortOptions: Record<string, 1 | -1> = {
+      [sortBy as string]: sortOrder === 'asc' ? 1 : -1,
+    };
 
     const [payrolls, total] = await Promise.all([
       Payroll.find(query)
-        .sort({ year: -1, month: -1 })
+        .sort(sortOptions)
         .skip(skip)
         .limit(Number(limit))
         .lean(),

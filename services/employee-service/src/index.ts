@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import connectDB from './config/database';
+import { connectRabbitMQ } from './config/rabbitmq';
 import routes from './routes';
 
 dotenv.config();
@@ -12,6 +13,9 @@ const PORT = process.env.PORT || 3003;
 
 // Connect to MongoDB
 connectDB();
+
+// Connect to RabbitMQ for event publishing
+connectRabbitMQ();
 
 // Middleware
 app.use(cors());

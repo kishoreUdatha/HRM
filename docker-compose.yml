@@ -96,6 +96,16 @@ services:
       - ENGAGEMENT_SERVICE_URL=http://engagement-service:3014
       - AI_CHATBOT_SERVICE_URL=http://ai-chatbot-service:3015
       - AI_ML_SERVICE_URL=http://ai-ml-service:3016
+      - WORKFORCE_SERVICE_URL=http://workforce-service:3017
+      - RECRUITMENT_SERVICE_URL=http://recruitment-service:3018
+      - LOCALIZATION_SERVICE_URL=http://localization-service:3019
+      - BENEFITS_SERVICE_URL=http://benefits-service:3020
+      - ONBOARDING_SERVICE_URL=http://onboarding-service:3021
+      - COMPLIANCE_SERVICE_URL=http://compliance-service:3022
+      - EXPENSE_SERVICE_URL=http://expense-service:3023
+      - TIMESHEET_SERVICE_URL=http://timesheet-service:3024
+      - ASSET_SERVICE_URL=http://asset-service:3025
+      - GRIEVANCE_SERVICE_URL=http://grievance-service:3026
       - CLIENT_URL=http://localhost:5173
     ports:
       - "3000:3000"
@@ -457,6 +467,210 @@ services:
       - OPENAI_MODEL=gpt-3.5-turbo
     ports:
       - "3016:3016"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # ===========================================
+  # ADDITIONAL HR SERVICES
+  # ===========================================
+
+  # Recruitment Service (Job Postings, Candidates, Interviews)
+  recruitment-service:
+    build:
+      context: ./services/recruitment-service
+      dockerfile: Dockerfile
+    container_name: hrm-recruitment-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3018
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_recruitment?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Localization Service (Languages, Currencies, Translations)
+  localization-service:
+    build:
+      context: ./services/localization-service
+      dockerfile: Dockerfile
+    container_name: hrm-localization-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3019
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_localization?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Benefits Service (Benefits Enrollment, Plans, Wellness)
+  benefits-service:
+    build:
+      context: ./services/benefits-service
+      dockerfile: Dockerfile
+    container_name: hrm-benefits-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3020
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_benefits?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Onboarding Service (Employee Onboarding, Checklists)
+  onboarding-service:
+    build:
+      context: ./services/onboarding-service
+      dockerfile: Dockerfile
+    container_name: hrm-onboarding-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3021
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_onboarding?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Compliance Service (Policy Tracking, Training, Work Permits)
+  compliance-service:
+    build:
+      context: ./services/compliance-service
+      dockerfile: Dockerfile
+    container_name: hrm-compliance-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3022
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_compliance?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Expense Service (Expense Reports, Reimbursements, Travel)
+  expense-service:
+    build:
+      context: ./services/expense-service
+      dockerfile: Dockerfile
+    container_name: hrm-expense-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3023
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_expenses?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Timesheet Service (Project Time Tracking, Billing)
+  timesheet-service:
+    build:
+      context: ./services/timesheet-service
+      dockerfile: Dockerfile
+    container_name: hrm-timesheet-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3024
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_timesheets?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Asset Service (Equipment, Asset Management)
+  asset-service:
+    build:
+      context: ./services/asset-service
+      dockerfile: Dockerfile
+    container_name: hrm-asset-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3025
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_assets?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Grievance Service (Employee Grievance Handling)
+  grievance-service:
+    build:
+      context: ./services/grievance-service
+      dockerfile: Dockerfile
+    container_name: hrm-grievance-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3026
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_grievances?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - hrm-network
+
+  # Workforce Service (Headcount, Succession Planning, Positions)
+  workforce-service:
+    build:
+      context: ./services/workforce-service
+      dockerfile: Dockerfile
+    container_name: hrm-workforce-service
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=development
+      - PORT=3017
+      - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_workforce?authSource=admin
+      - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
     depends_on:
       mongodb:
         condition: service_healthy

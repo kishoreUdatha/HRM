@@ -7,7 +7,7 @@ import routes from './routes';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3016;
+const PORT = process.env.PORT || 3026;
 
 app.use(cors());
 app.use(express.json());

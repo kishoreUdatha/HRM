@@ -49,11 +49,23 @@ router.patch('/requests/:id/cancel', leaveRequestController.cancelLeaveRequest);
 
 // ==================== LEAVE BALANCE ROUTES ====================
 
+// Get all leave balances (admin view)
+router.get('/balance', leaveRequestController.getAllLeaveBalances);
+
 // Get leave balance
 router.get('/balance/:employeeId', leaveRequestController.getLeaveBalance);
 
-// Initialize leave balance
+// Initialize leave balance for single employee
 router.post('/balance/initialize', leaveRequestController.initializeLeaveBalance);
+
+// Bulk initialize balances for all employees
+router.post('/balance/bulk-initialize', leaveRequestController.bulkInitializeBalances);
+
+// Adjust leave balance
+router.post('/balance/adjust', leaveRequestController.adjustLeaveBalance);
+
+// Update leave balance
+router.put('/balance/:id', leaveRequestController.updateLeaveBalance);
 
 // ==================== LEAVE TYPE ROUTES ====================
 
