@@ -16,6 +16,15 @@ export interface IAttendance extends Document {
     longitude: number;
     address?: string;
   };
+  // Face verification fields
+  checkInFaceImage?: string;
+  checkOutFaceImage?: string;
+  checkInFaceVerified?: boolean;
+  checkOutFaceVerified?: boolean;
+  checkInFaceScore?: number;
+  checkOutFaceScore?: number;
+  checkInMethod?: 'manual' | 'face' | 'biometric' | 'qr';
+  checkOutMethod?: 'manual' | 'face' | 'biometric' | 'qr';
   status: 'present' | 'absent' | 'late' | 'half_day' | 'on_leave' | 'holiday' | 'weekend';
   workHours?: number;
   overtimeHours?: number;
@@ -59,6 +68,29 @@ const attendanceSchema = new Schema<IAttendance>(
       latitude: Number,
       longitude: Number,
       address: String,
+    },
+    // Face verification fields
+    checkInFaceImage: String,
+    checkOutFaceImage: String,
+    checkInFaceVerified: {
+      type: Boolean,
+      default: false,
+    },
+    checkOutFaceVerified: {
+      type: Boolean,
+      default: false,
+    },
+    checkInFaceScore: Number,
+    checkOutFaceScore: Number,
+    checkInMethod: {
+      type: String,
+      enum: ['manual', 'face', 'biometric', 'qr'],
+      default: 'manual',
+    },
+    checkOutMethod: {
+      type: String,
+      enum: ['manual', 'face', 'biometric', 'qr'],
+      default: 'manual',
     },
     status: {
       type: String,

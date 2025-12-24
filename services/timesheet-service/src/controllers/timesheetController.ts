@@ -248,7 +248,7 @@ export const updateTimesheetEntry = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Timesheet not found or not editable' });
     }
 
-    const entry = timesheet.entries.id(entryId);
+    const entry = timesheet.entries.find(e => e._id?.toString() === entryId);
     if (!entry) {
       return res.status(404).json({ success: false, message: 'Entry not found' });
     }

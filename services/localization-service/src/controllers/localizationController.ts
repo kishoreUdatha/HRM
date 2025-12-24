@@ -136,8 +136,8 @@ export const bulkUpsertTranslations = async (req: Request, res: Response) => {
 
     const ops = Object.entries(translations).map(([key, value]) => ({
       updateOne: {
-        filter: { languageCode, namespace, key, tenantId: tenantId || null },
-        update: { languageCode, namespace, key, value, tenantId: tenantId || null, isCustom: !!tenantId },
+        filter: { languageCode, namespace, key, tenantId: tenantId || undefined },
+        update: { languageCode, namespace, key, value, tenantId: tenantId || undefined, isCustom: !!tenantId },
         upsert: true,
       },
     }));

@@ -27,6 +27,28 @@ router.post(
   attendanceController.checkOut
 );
 
+// Face verification check in
+router.post(
+  '/check-in/face',
+  [
+    body('faceImage').notEmpty().withMessage('Face image is required'),
+    body('location.latitude').optional().isFloat(),
+    body('location.longitude').optional().isFloat(),
+  ],
+  attendanceController.faceCheckIn
+);
+
+// Face verification check out
+router.post(
+  '/check-out/face',
+  [
+    body('faceImage').notEmpty().withMessage('Face image is required'),
+    body('location.latitude').optional().isFloat(),
+    body('location.longitude').optional().isFloat(),
+  ],
+  attendanceController.faceCheckOut
+);
+
 // Get attendance records
 router.get(
   '/',
@@ -63,6 +85,53 @@ router.post(
 
 // Bulk mark attendance
 router.post('/bulk-mark', attendanceController.bulkMarkAttendance);
+
+// ==================== FACE RECOGNITION ROUTES ====================
+
+// Verify face - Identify employee from face image
+router.post(
+  '/verify-face',
+  [
+    body('faceImage').notEmpty().withMessage('Face image is required'),
+    body('location.latitude').optional().isFloat(),
+    body('location.longitude').optional().isFloat(),
+  ],
+  attendanceController.verifyFace
+);
+
+// Confirm face check-in (after successful verification)
+router.post(
+  '/confirm-check-in',
+  [
+    body('employeeId').notEmpty().withMessage('Employee ID is required'),
+    body('confidence').optional().isFloat({ min: 0, max: 1 }),
+    body('location.latitude').optional().isFloat(),
+    body('location.longitude').optional().isFloat(),
+  ],
+  attendanceController.confirmFaceCheckIn
+);
+
+// Confirm face check-out (after successful verification)
+router.post(
+  '/confirm-check-out',
+  [
+    body('employeeId').notEmpty().withMessage('Employee ID is required'),
+    body('confidence').optional().isFloat({ min: 0, max: 1 }),
+    body('location.latitude').optional().isFloat(),
+    body('location.longitude').optional().isFloat(),
+  ],
+  attendanceController.confirmFaceCheckOut
+);
+
+// Enroll face for an employee
+router.post(
+  '/enroll-face',
+  [
+    body('employeeId').notEmpty().withMessage('Employee ID is required'),
+    body('images').isArray({ min: 1 }).withMessage('At least 1 face image is required'),
+  ],
+  attendanceController.enrollFace
+);
 
 // ==================== SHIFT ROUTES ====================
 

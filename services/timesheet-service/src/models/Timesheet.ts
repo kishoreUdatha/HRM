@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ITimesheetEntry {
+  _id?: mongoose.Types.ObjectId;
   date: Date;
   projectId: mongoose.Types.ObjectId;
   taskId?: mongoose.Types.ObjectId;

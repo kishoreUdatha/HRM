@@ -50,6 +50,9 @@ app.use(
   })
 );
 
+// Note: Do NOT add express.json() here - it will consume the body stream
+// and break the proxy. Body parsing is handled by the downstream services.
+
 // Logging
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));

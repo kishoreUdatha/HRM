@@ -328,3 +328,79 @@ export const getNextEmployeeCode = async (
     next(error);
   }
 };
+
+// Update own profile (for mobile app)
+export const updateMyProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const userId = req.headers['x-user-id'] as string;
+    const { phone, address, emergencyContact } = req.body;
+
+    if (!tenantId || !userId) {
+      res.status(400).json({ success: false, message: 'Tenant ID and User ID required' });
+      return;
+    }
+
+    // Find employee by userId
+    const employee = await Employee.findOne({
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+      userId: new mongoose.Types.ObjectId(userId),
+    });
+
+    if (!employee) {
+      // Try finding by _id as userId
+      const employeeById = await Employee.findOne({
+        tenantId: new mongoose.Types.ObjectId(tenantId),
+        _id: new mongoose.Types.ObjectId(userId),
+      });
+
+      if (!employeeById) {
+        res.status(404).json({ success: false, message: 'Employee profile not found' });
+        return;
+      }
+
+      // Update and return
+      const updateData: Record<string, unknown> = {};
+      if (phone !== undefined) updateData.phone = phone;
+      if (address !== undefined) updateData.address = address;
+      if (emergencyContact !== undefined) updateData.emergencyContact = emergencyContact;
+
+      const updatedEmployee = await Employee.findByIdAndUpdate(
+        employeeById._id,
+        { $set: updateData },
+        { new: true }
+      ).populate('departmentId', 'name code');
+
+      res.json({
+        success: true,
+        data: { employee: updatedEmployee },
+        message: 'Profile updated successfully',
+      });
+      return;
+    }
+
+    // Update allowed fields only
+    const updateData: Record<string, unknown> = {};
+    if (phone !== undefined) updateData.phone = phone;
+    if (address !== undefined) updateData.address = address;
+    if (emergencyContact !== undefined) updateData.emergencyContact = emergencyContact;
+
+    const updatedEmployee = await Employee.findByIdAndUpdate(
+      employee._id,
+      { $set: updateData },
+      { new: true }
+    ).populate('departmentId', 'name code');
+
+    res.json({
+      success: true,
+      data: { employee: updatedEmployee },
+      message: 'Profile updated successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};

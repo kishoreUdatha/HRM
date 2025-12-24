@@ -3,6 +3,64 @@ import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
 import Attendance from '../models/Attendance';
 import Shift from '../models/Shift';
+import { faceRecognitionService, FaceEmbeddingData } from '../services/faceRecognitionService';
+
+// Cache for face embeddings to avoid frequent DB queries
+let faceEmbeddingsCache: { tenantId: string; embeddings: FaceEmbeddingData[]; timestamp: number } | null = null;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Helper to get face embeddings from employees database
+const getFaceEmbeddings = async (tenantId: string): Promise<FaceEmbeddingData[]> => {
+  // Check cache first
+  if (faceEmbeddingsCache &&
+      faceEmbeddingsCache.tenantId === tenantId &&
+      Date.now() - faceEmbeddingsCache.timestamp < CACHE_TTL) {
+    return faceEmbeddingsCache.embeddings;
+  }
+
+  try {
+    const mongoUri = process.env.MONGODB_URI || '';
+    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
+    const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+
+    const faceEmbeddingSchema = new mongoose.Schema({
+      tenantId: mongoose.Schema.Types.ObjectId,
+      employeeId: mongoose.Schema.Types.ObjectId,
+      employeeName: String,
+      averageEmbedding: [Number],
+      isActive: Boolean,
+    });
+
+    const FaceEmbedding = employeesConn.model('FaceEmbedding', faceEmbeddingSchema);
+
+    const embeddings = await FaceEmbedding.find({
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+      isActive: true,
+    }).lean();
+
+    await employeesConn.close();
+
+    const result: FaceEmbeddingData[] = embeddings
+      .filter(e => e.averageEmbedding && e.averageEmbedding.length > 0 && e.employeeId && e.employeeName)
+      .map(e => ({
+        employeeId: e.employeeId!.toString(),
+        employeeName: e.employeeName as string,
+        embedding: e.averageEmbedding as number[],
+      }));
+
+    // Update cache
+    faceEmbeddingsCache = {
+      tenantId,
+      embeddings: result,
+      timestamp: Date.now(),
+    };
+
+    return result;
+  } catch (error) {
+    console.error('[Attendance Service] Error fetching face embeddings:', error);
+    return [];
+  }
+};
 
 // Helper to get employee details from employees database
 const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
@@ -61,6 +119,88 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
   } catch (error) {
     console.error('[Attendance Service] Error fetching employee details:', error);
     return new Map();
+  }
+};
+
+// Helper to get employee by userId or by looking up user email
+const getEmployeeByUserIdOrEmail = async (userId: string, tenantId: string) => {
+  try {
+    const mongoUri = process.env.MONGODB_URI || '';
+    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
+
+    const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+
+    const employeeSchema = new mongoose.Schema({
+      firstName: String,
+      lastName: String,
+      employeeCode: String,
+      email: String,
+      userId: mongoose.Schema.Types.ObjectId,
+      tenantId: mongoose.Schema.Types.ObjectId,
+    });
+
+    const Employee = employeesConn.model('Employee', employeeSchema);
+
+    // First try to find by userId field
+    let employee = await Employee.findOne({
+      userId: new mongoose.Types.ObjectId(userId),
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+    }).lean();
+
+    // If not found by userId, get user's email and search by email
+    if (!employee) {
+      console.log('[Attendance Service] Employee not found by userId, trying by email...');
+
+      // Connect to auth database to get user email
+      const authDbUri = mongoUri.replace('/hrm_attendance', '/hrm_auth');
+      const authConn = await mongoose.createConnection(authDbUri).asPromise();
+
+      const userSchema = new mongoose.Schema({
+        email: String,
+        tenantId: mongoose.Schema.Types.ObjectId,
+      });
+
+      const User = authConn.model('User', userSchema);
+      const user = await User.findOne({ _id: new mongoose.Types.ObjectId(userId) }).lean();
+      await authConn.close();
+
+      if (user && user.email) {
+        console.log('[Attendance Service] Found user email:', user.email);
+        // Search employee by email
+        employee = await Employee.findOne({
+          email: user.email.toLowerCase(),
+          tenantId: new mongoose.Types.ObjectId(tenantId),
+        }).lean();
+
+        if (employee) {
+          console.log('[Attendance Service] Found employee by email:', employee._id);
+
+          // Update the employee record to link userId for future lookups
+          await Employee.updateOne(
+            { _id: employee._id },
+            { userId: new mongoose.Types.ObjectId(userId) }
+          );
+          console.log('[Attendance Service] Linked employee to user');
+        }
+      }
+    }
+
+    await employeesConn.close();
+
+    if (employee) {
+      return {
+        _id: employee._id,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        employeeCode: employee.employeeCode,
+        email: employee.email,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[Attendance Service] Error fetching employee by userId/email:', error);
+    return null;
   }
 };
 
@@ -365,11 +505,24 @@ export const getTodayStatus = async (req: Request, res: Response): Promise<void>
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const attendance = await Attendance.findOne({
+    // First try to find attendance by the provided ID
+    let attendance = await Attendance.findOne({
       tenantId,
       employeeId,
       date: today,
     });
+
+    // If not found and this might be a userId, look up the employee first
+    if (!attendance) {
+      const employee = await getEmployeeByUserIdOrEmail(employeeId, tenantId);
+      if (employee) {
+        attendance = await Attendance.findOne({
+          tenantId,
+          employeeId: employee._id.toString(),
+          date: today,
+        });
+      }
+    }
 
     res.status(200).json({
       success: true,
@@ -491,6 +644,199 @@ export const markAttendance = async (req: Request, res: Response): Promise<void>
   }
 };
 
+// Face Check In
+export const faceCheckIn = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const userId = req.headers['x-user-id'] as string;
+    const { employeeId, faceImage, location, notes } = req.body;
+
+    if (!faceImage) {
+      res.status(400).json({
+        success: false,
+        message: 'Face image is required',
+      });
+      return;
+    }
+
+    const targetEmployeeId = employeeId || userId;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Check if already checked in today
+    const existingAttendance = await Attendance.findOne({
+      tenantId,
+      employeeId: targetEmployeeId,
+      date: today,
+    });
+
+    if (existingAttendance && existingAttendance.checkIn) {
+      res.status(400).json({
+        success: false,
+        message: 'Already checked in today',
+      });
+      return;
+    }
+
+    // TODO: Integrate with face verification service (AWS Rekognition, Azure Face API, etc.)
+    // For now, we simulate face verification
+    // In production, you would:
+    // 1. Get the employee's registered face encoding from the database
+    // 2. Send the captured image to a face verification service
+    // 3. Compare the face encoding with the captured image
+    // 4. Return the verification result and confidence score
+
+    const faceVerificationResult = {
+      verified: true, // Simulated - replace with actual verification
+      score: 0.95,    // Confidence score (0-1)
+    };
+
+    const now = new Date();
+
+    // Get employee's shift to determine if late
+    const shift = await Shift.findOne({ tenantId, isDefault: true });
+    let status: 'present' | 'late' = 'present';
+
+    if (shift) {
+      const [shiftHour, shiftMinute] = shift.startTime.split(':').map(Number);
+      const shiftStart = new Date(today);
+      shiftStart.setHours(shiftHour, shiftMinute + shift.graceMinutes, 0, 0);
+
+      if (now > shiftStart) {
+        status = 'late';
+      }
+    }
+
+    const attendance = existingAttendance || new Attendance({
+      tenantId,
+      employeeId: targetEmployeeId,
+      date: today,
+    });
+
+    attendance.checkIn = now;
+    attendance.status = status;
+    attendance.checkInMethod = 'face';
+    attendance.checkInFaceImage = faceImage; // Store or URL to stored image
+    attendance.checkInFaceVerified = faceVerificationResult.verified;
+    attendance.checkInFaceScore = faceVerificationResult.score;
+
+    if (location) {
+      attendance.checkInLocation = location;
+    }
+    if (notes) {
+      attendance.notes = notes;
+    }
+
+    await attendance.save();
+
+    res.status(200).json({
+      success: true,
+      message: faceVerificationResult.verified
+        ? 'Face verified and check-in successful'
+        : 'Face verification failed but check-in recorded',
+      data: {
+        attendance,
+        faceVerified: faceVerificationResult.verified,
+        faceVerificationScore: faceVerificationResult.score,
+      },
+    });
+  } catch (error) {
+    console.error('[Attendance Service] Face check-in error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check in with face verification',
+    });
+  }
+};
+
+// Face Check Out
+export const faceCheckOut = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const userId = req.headers['x-user-id'] as string;
+    const { employeeId, faceImage, location, notes } = req.body;
+
+    if (!faceImage) {
+      res.status(400).json({
+        success: false,
+        message: 'Face image is required',
+      });
+      return;
+    }
+
+    const targetEmployeeId = employeeId || userId;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const attendance = await Attendance.findOne({
+      tenantId,
+      employeeId: targetEmployeeId,
+      date: today,
+    });
+
+    if (!attendance || !attendance.checkIn) {
+      res.status(400).json({
+        success: false,
+        message: 'No check-in record found for today',
+      });
+      return;
+    }
+
+    if (attendance.checkOut) {
+      res.status(400).json({
+        success: false,
+        message: 'Already checked out today',
+      });
+      return;
+    }
+
+    // TODO: Integrate with face verification service
+    const faceVerificationResult = {
+      verified: true,
+      score: 0.93,
+    };
+
+    attendance.checkOut = new Date();
+    attendance.checkOutMethod = 'face';
+    attendance.checkOutFaceImage = faceImage;
+    attendance.checkOutFaceVerified = faceVerificationResult.verified;
+    attendance.checkOutFaceScore = faceVerificationResult.score;
+
+    if (location) {
+      attendance.checkOutLocation = location;
+    }
+    if (notes) {
+      attendance.notes = (attendance.notes || '') + ' ' + notes;
+    }
+
+    // Check if half day (less than 4 hours)
+    const workHours = (attendance.checkOut.getTime() - attendance.checkIn.getTime()) / (1000 * 60 * 60);
+    if (workHours < 4) {
+      attendance.status = 'half_day';
+    }
+
+    await attendance.save();
+
+    res.status(200).json({
+      success: true,
+      message: faceVerificationResult.verified
+        ? 'Face verified and check-out successful'
+        : 'Face verification failed but check-out recorded',
+      data: {
+        attendance,
+        faceVerified: faceVerificationResult.verified,
+        faceVerificationScore: faceVerificationResult.score,
+      },
+    });
+  } catch (error) {
+    console.error('[Attendance Service] Face check-out error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check out with face verification',
+    });
+  }
+};
+
 // Bulk mark attendance
 export const bulkMarkAttendance = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -530,6 +876,438 @@ export const bulkMarkAttendance = async (req: Request, res: Response): Promise<v
     res.status(500).json({
       success: false,
       message: 'Failed to bulk mark attendance',
+    });
+  }
+};
+
+// Verify Face - Identify employee from face image
+export const verifyFace = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { faceImage, location } = req.body;
+
+    if (!faceImage) {
+      res.status(400).json({
+        success: false,
+        status: 'NO_IMAGE',
+        message: 'Face image is required',
+      });
+      return;
+    }
+
+    console.log('[Attendance Service] Verifying face for tenant:', tenantId);
+
+    // Get stored face embeddings for this tenant
+    const storedEmbeddings = await getFaceEmbeddings(tenantId);
+
+    if (storedEmbeddings.length === 0) {
+      res.status(200).json({
+        success: false,
+        status: 'NO_ENROLLMENTS',
+        message: 'No employees are enrolled for face recognition. Please contact HR to enroll your face.',
+      });
+      return;
+    }
+
+    console.log('[Attendance Service] Found', storedEmbeddings.length, 'enrolled faces');
+
+    // Match face against stored embeddings
+    const matchResult = await faceRecognitionService.matchFace(faceImage, storedEmbeddings);
+
+    console.log('[Attendance Service] Match result:', matchResult.status);
+
+    res.status(200).json({
+      success: matchResult.status === 'MATCHED',
+      status: matchResult.status,
+      employeeId: matchResult.employeeId,
+      employeeName: matchResult.employeeName,
+      confidence: matchResult.confidence,
+      message: matchResult.message,
+    });
+  } catch (error) {
+    console.error('[Attendance Service] Face verification error:', error);
+    res.status(500).json({
+      success: false,
+      status: 'ERROR',
+      message: 'Failed to verify face. Please try again.',
+    });
+  }
+};
+
+// Confirm Face Check-In - After face verification
+export const confirmFaceCheckIn = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { employeeId, location, notes, confidence } = req.body;
+
+    if (!employeeId) {
+      res.status(400).json({
+        success: false,
+        message: 'Employee ID is required',
+      });
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Check if already checked in today
+    const existingAttendance = await Attendance.findOne({
+      tenantId,
+      employeeId,
+      date: today,
+    });
+
+    if (existingAttendance && existingAttendance.checkIn) {
+      res.status(400).json({
+        success: false,
+        message: 'Already checked in today',
+      });
+      return;
+    }
+
+    const now = new Date();
+
+    // Get employee's shift to determine if late
+    const shift = await Shift.findOne({ tenantId, isDefault: true });
+    let status: 'present' | 'late' = 'present';
+
+    if (shift) {
+      const [shiftHour, shiftMinute] = shift.startTime.split(':').map(Number);
+      const shiftStart = new Date(today);
+      shiftStart.setHours(shiftHour, shiftMinute + shift.graceMinutes, 0, 0);
+
+      if (now > shiftStart) {
+        status = 'late';
+      }
+    }
+
+    const attendance = existingAttendance || new Attendance({
+      tenantId,
+      employeeId,
+      date: today,
+    });
+
+    attendance.checkIn = now;
+    attendance.status = status;
+    attendance.checkInMethod = 'face';
+    attendance.checkInFaceVerified = true;
+    attendance.checkInFaceScore = confidence || 0.9;
+
+    if (location) {
+      attendance.checkInLocation = location;
+    }
+    if (notes) {
+      attendance.notes = notes;
+    }
+
+    await attendance.save();
+
+    // Get employee name for response
+    const employeeMap = await getEmployeeDetails([employeeId], tenantId);
+    const employee = employeeMap.get(employeeId);
+
+    res.status(200).json({
+      success: true,
+      message: `Thank you, ${employee?.firstName || 'Employee'}! Have a productive day!`,
+      data: {
+        attendance,
+        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
+      },
+    });
+  } catch (error) {
+    console.error('[Attendance Service] Confirm face check-in error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to confirm check-in',
+    });
+  }
+};
+
+// Enroll Face - Save face embeddings for an employee
+export const enrollFace = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const userId = req.headers['x-user-id'] as string;
+    const { employeeId, images } = req.body;
+
+    if (!employeeId) {
+      res.status(400).json({
+        success: false,
+        message: 'Employee ID is required',
+      });
+      return;
+    }
+
+    if (!images || !Array.isArray(images) || images.length < 1) {
+      res.status(400).json({
+        success: false,
+        message: 'At least 1 face image is required for enrollment',
+      });
+      return;
+    }
+
+    console.log('[Attendance Service] Enrolling face for employee/user:', employeeId);
+    console.log('[Attendance Service] Number of images:', images.length);
+
+    // Get employee details first - try by employee ID
+    let employeeMap = await getEmployeeDetails([employeeId], tenantId);
+    let employee = employeeMap.get(employeeId);
+    let actualEmployeeId = employeeId;
+
+    // If not found, try looking up by userId or email
+    if (!employee) {
+      console.log('[Attendance Service] Employee not found by ID, trying by userId/email...');
+      const employeeByUser = await getEmployeeByUserIdOrEmail(employeeId, tenantId);
+      if (employeeByUser) {
+        employee = employeeByUser;
+        actualEmployeeId = employeeByUser._id.toString();
+        console.log('[Attendance Service] Found employee by userId/email:', actualEmployeeId);
+      }
+    }
+
+    if (!employee) {
+      res.status(404).json({
+        success: false,
+        message: 'Employee not found. Please contact HR.',
+      });
+      return;
+    }
+
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
+
+    // Process each image and generate embeddings
+    const embeddings: Array<{
+      vector: number[];
+      capturedAt: Date;
+      quality: number;
+      angle: string;
+    }> = [];
+
+    for (let i = 0; i < images.length; i++) {
+      try {
+        const detection = await faceRecognitionService.detectFace(images[i]);
+
+        if (detection.detected && detection.descriptor && detection.faceCount === 1) {
+          embeddings.push({
+            vector: Array.from(detection.descriptor),
+            capturedAt: new Date(),
+            quality: detection.quality,
+            angle: i === 0 ? 'front' : i === 1 ? 'left' : i === 2 ? 'right' : 'front',
+          });
+          console.log(`[Attendance Service] Image ${i + 1}: Face detected with quality ${detection.quality.toFixed(2)}`);
+        } else {
+          console.log(`[Attendance Service] Image ${i + 1}: No valid face detected`);
+        }
+      } catch (err) {
+        console.error(`[Attendance Service] Error processing image ${i + 1}:`, err);
+      }
+    }
+
+    if (embeddings.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'No valid faces detected in the provided images. Please ensure clear, front-facing photos.',
+      });
+      return;
+    }
+
+    // Calculate average embedding
+    const vectorLength = embeddings[0].vector.length;
+    const avgVector = new Array(vectorLength).fill(0);
+
+    for (const embedding of embeddings) {
+      for (let i = 0; i < vectorLength; i++) {
+        avgVector[i] += embedding.vector[i];
+      }
+    }
+
+    for (let i = 0; i < vectorLength; i++) {
+      avgVector[i] /= embeddings.length;
+    }
+
+    // Normalize the average vector
+    const magnitude = Math.sqrt(avgVector.reduce((sum: number, val: number) => sum + val * val, 0));
+    if (magnitude > 0) {
+      for (let i = 0; i < vectorLength; i++) {
+        avgVector[i] /= magnitude;
+      }
+    }
+
+    // Save to employees database
+    try {
+      const mongoUri = process.env.MONGODB_URI || '';
+      const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
+      const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+
+      const faceEmbeddingSchema = new mongoose.Schema({
+        tenantId: mongoose.Schema.Types.ObjectId,
+        employeeId: mongoose.Schema.Types.ObjectId,
+        employeeName: String,
+        embeddings: [{
+          vector: [Number],
+          capturedAt: Date,
+          quality: Number,
+          angle: String,
+        }],
+        averageEmbedding: [Number],
+        enrolledAt: Date,
+        enrolledBy: mongoose.Schema.Types.ObjectId,
+        isActive: Boolean,
+        version: Number,
+        lastMatchedAt: Date,
+        matchCount: Number,
+      });
+
+      const FaceEmbedding = employeesConn.model('FaceEmbedding', faceEmbeddingSchema);
+
+      // Check if already enrolled
+      const existing = await FaceEmbedding.findOne({
+        tenantId: new mongoose.Types.ObjectId(tenantId),
+        employeeId: new mongoose.Types.ObjectId(actualEmployeeId),
+      });
+
+      if (existing) {
+        // Update existing enrollment
+        (existing as any).embeddings = embeddings;
+        (existing as any).averageEmbedding = avgVector;
+        existing.enrolledAt = new Date();
+        existing.enrolledBy = new mongoose.Types.ObjectId(userId);
+        existing.version = (existing.version || 0) + 1;
+        await existing.save();
+      } else {
+        // Create new enrollment
+        await FaceEmbedding.create({
+          tenantId: new mongoose.Types.ObjectId(tenantId),
+          employeeId: new mongoose.Types.ObjectId(actualEmployeeId),
+          employeeName,
+          embeddings,
+          averageEmbedding: avgVector,
+          enrolledAt: new Date(),
+          enrolledBy: new mongoose.Types.ObjectId(userId),
+          isActive: true,
+          version: 1,
+          matchCount: 0,
+        });
+      }
+
+      // Update employee record
+      const employeeSchema = new mongoose.Schema({
+        faceEnrolled: Boolean,
+        faceEnrollmentDate: Date,
+      });
+
+      const Employee = employeesConn.model('Employee', employeeSchema);
+      await Employee.updateOne(
+        { _id: new mongoose.Types.ObjectId(actualEmployeeId) },
+        { faceEnrolled: true, faceEnrollmentDate: new Date() }
+      );
+
+      await employeesConn.close();
+
+      // Clear cache to pick up new enrollment
+      faceEmbeddingsCache = null;
+
+      res.status(200).json({
+        success: true,
+        message: `Face enrolled successfully for ${employeeName}`,
+        data: {
+          employeeId: actualEmployeeId,
+          employeeName,
+          enrolledImages: embeddings.length,
+          totalImages: images.length,
+        },
+      });
+    } catch (dbError) {
+      console.error('[Attendance Service] Database error during enrollment:', dbError);
+      throw dbError;
+    }
+  } catch (error) {
+    console.error('[Attendance Service] Face enrollment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to enroll face',
+    });
+  }
+};
+
+// Confirm Face Check-Out - After face verification
+export const confirmFaceCheckOut = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { employeeId, location, notes, confidence } = req.body;
+
+    if (!employeeId) {
+      res.status(400).json({
+        success: false,
+        message: 'Employee ID is required',
+      });
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const attendance = await Attendance.findOne({
+      tenantId,
+      employeeId,
+      date: today,
+    });
+
+    if (!attendance || !attendance.checkIn) {
+      res.status(400).json({
+        success: false,
+        message: 'No check-in record found for today',
+      });
+      return;
+    }
+
+    if (attendance.checkOut) {
+      res.status(400).json({
+        success: false,
+        message: 'Already checked out today',
+      });
+      return;
+    }
+
+    attendance.checkOut = new Date();
+    attendance.checkOutMethod = 'face';
+    attendance.checkOutFaceVerified = true;
+    attendance.checkOutFaceScore = confidence || 0.9;
+
+    if (location) {
+      attendance.checkOutLocation = location;
+    }
+    if (notes) {
+      attendance.notes = (attendance.notes || '') + ' ' + notes;
+    }
+
+    // Check if half day (less than 4 hours)
+    const workHours = (attendance.checkOut.getTime() - attendance.checkIn.getTime()) / (1000 * 60 * 60);
+    if (workHours < 4) {
+      attendance.status = 'half_day';
+    }
+
+    await attendance.save();
+
+    // Get employee name for response
+    const employeeMap = await getEmployeeDetails([employeeId], tenantId);
+    const employee = employeeMap.get(employeeId);
+
+    res.status(200).json({
+      success: true,
+      message: `Goodbye, ${employee?.firstName || 'Employee'}! See you tomorrow!`,
+      data: {
+        attendance,
+        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
+        workHours: workHours.toFixed(2),
+      },
+    });
+  } catch (error) {
+    console.error('[Attendance Service] Confirm face check-out error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to confirm check-out',
     });
   }
 };

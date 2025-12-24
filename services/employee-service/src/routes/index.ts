@@ -9,6 +9,7 @@ import {
   deleteEmployee,
   getEmployeeStats,
   getNextEmployeeCode,
+  updateMyProfile,
 } from '../controllers/employeeController';
 import {
   getAllDepartments,
@@ -134,6 +135,7 @@ router.get('/dashboard/stats', getDashboardStats);
 router.get('/employees', getAllEmployees);
 router.get('/employees/stats', getEmployeeStats);
 router.get('/employees/next-code', getNextEmployeeCode);
+router.patch('/employees/me/profile', updateMyProfile);
 router.get('/employees/bulk-upload/template', downloadTemplate);
 router.post('/employees/bulk-upload', upload.single('file'), bulkUploadEmployees);
 router.post('/employees/bulk-upload/validate', upload.single('file'), validateUpload);

@@ -7,7 +7,7 @@ export interface IAsset extends Document {
   category: 'laptop' | 'desktop' | 'mobile' | 'tablet' | 'monitor' | 'keyboard' | 'mouse' | 'headset' | 'furniture' | 'vehicle' | 'software_license' | 'access_card' | 'other';
   type: string;
   brand?: string;
-  model?: string;
+  modelName?: string;
   serialNumber?: string;
   purchaseDate?: Date;
   purchasePrice?: number;
@@ -57,7 +57,7 @@ const assetSchema = new Schema<IAsset>(
     },
     type: String,
     brand: String,
-    model: String,
+    modelName: String,
     serialNumber: String,
     purchaseDate: Date,
     purchasePrice: Number,

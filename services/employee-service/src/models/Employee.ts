@@ -55,6 +55,8 @@ export interface IEmployee extends Document {
   status: 'active' | 'inactive' | 'terminated' | 'on-leave';
   avatar?: string;
   skills: string[];
+  faceEnrolled: boolean;
+  faceEnrollmentDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -175,6 +177,11 @@ const employeeSchema = new Schema<IEmployee>(
     },
     avatar: String,
     skills: [String],
+    faceEnrolled: {
+      type: Boolean,
+      default: false,
+    },
+    faceEnrollmentDate: Date,
   },
   {
     timestamps: true,
