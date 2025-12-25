@@ -501,7 +501,7 @@ const Timesheets: React.FC = () => {
             >
               <HiRefresh className="w-5 h-5" />
             </button>
-            {isAdmin && (
+            {canViewAllTimesheets && (
               <>
                 <button
                   onClick={handleSyncFromAttendance}
@@ -510,7 +510,7 @@ const Timesheets: React.FC = () => {
                   title="Generate timesheets from attendance records"
                 >
                   <HiRefresh className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                  Sync from Attendance
+                  Sync
                 </button>
                 <button
                   onClick={handleCleanupTimesheets}
