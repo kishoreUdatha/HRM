@@ -319,7 +319,7 @@ jobs:
 
       - name: Send email notification
         uses: dawidd6/action-send-mail@v3
-        if: ${{ secrets.SMTP_USERNAME != '' }}
+        continue-on-error: true
         with:
           server_address: smtp.gmail.com
           server_port: 587
