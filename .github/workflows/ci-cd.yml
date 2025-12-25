@@ -85,12 +85,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: services/${{ matrix.service }}/package-lock.json
 
       - name: Install dependencies
         working-directory: services/${{ matrix.service }}
-        run: npm ci
+        run: npm install
 
       - name: Run linting
         working-directory: services/${{ matrix.service }}
@@ -121,12 +119,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install
 
       - name: Run linting
         working-directory: frontend
@@ -399,12 +395,28 @@ jobs:
     if: always()
 
     steps:
-      - name: Send Slack notification
-        uses: 8398a7/action-slack@v3
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
         with:
-          status: ${{ job.status }}
-          channel: '#deployments'
-          fields: repo,message,commit,author,action,eventName,ref,workflow
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        if: env.SLACK_WEBHOOK_URL != ''
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "HRM Deployment ${{ needs.deploy-production.result == 'success' && 'Successful' || 'Failed' }} - ${{ github.ref_name }}"
+          to: udathak@gmail.com, director@candycodetech.com
+          from: HRM CI/CD <noreply@hrm.com>
+          body: |
+            HRM Deployment Report
+            =====================
+
+            Status: ${{ needs.deploy-production.result == 'success' && '✅ SUCCESS' || '❌ FAILED' }}
+
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+
+            Workflow: ${{ github.workflow }}
+            Run ID: ${{ github.run_id }}
+
+            View details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

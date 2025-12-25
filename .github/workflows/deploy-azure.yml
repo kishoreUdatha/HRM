@@ -316,3 +316,28 @@ jobs:
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "**Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Send email notification
+        uses: dawidd6/action-send-mail@v3
+        if: ${{ secrets.SMTP_USERNAME != '' }}
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "HRM Azure Deployment ${{ needs.deploy.result == 'success' && 'Successful' || 'Failed' }} - ${{ github.ref_name }}"
+          to: udathak@gmail.com, director@candycodetech.com
+          from: HRM CI/CD <noreply@hrm.com>
+          body: |
+            HRM Azure Deployment Report
+            ===========================
+
+            Status: ${{ needs.deploy.result == 'success' && '✅ SUCCESS' || '❌ FAILED' }}
+            Health Check: ${{ needs.health-check.result == 'success' && '✅ PASSED' || '⚠️ CHECK LOGS' }}
+
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+
+            View details: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
