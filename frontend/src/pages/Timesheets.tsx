@@ -92,6 +92,8 @@ const Timesheets: React.FC = () => {
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [selectedTimesheet, setSelectedTimesheet] = useState<Timesheet | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Timer state
   const [timerRunning, setTimerRunning] = useState(false);
@@ -190,6 +192,39 @@ const Timesheets: React.FC = () => {
       fetchTimesheets();
     } catch (error) {
       console.error('Failed to reject timesheet:', error);
+    }
+  };
+
+  const handleSyncFromAttendance = async () => {
+    setIsSyncing(true);
+    setSyncMessage(null);
+    try {
+      const response = await api.post(`/timesheets/sync-from-attendance?month=${selectedMonth}&year=${selectedYear}`);
+      setSyncMessage({ type: 'success', text: response.data.message || 'Timesheets synced from attendance successfully!' });
+      fetchTimesheets();
+    } catch (error: any) {
+      console.error('Failed to sync timesheets:', error);
+      setSyncMessage({ type: 'error', text: error.response?.data?.message || 'Failed to sync timesheets from attendance' });
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncMessage(null), 5000);
+    }
+  };
+
+  const handleCleanupTimesheets = async () => {
+    if (!confirm('This will remove all orphaned timesheet data. Continue?')) return;
+    setIsSyncing(true);
+    setSyncMessage(null);
+    try {
+      const response = await api.post('/timesheets/cleanup');
+      setSyncMessage({ type: 'success', text: response.data.message || 'Cleanup completed successfully!' });
+      fetchTimesheets();
+    } catch (error: any) {
+      console.error('Failed to cleanup timesheets:', error);
+      setSyncMessage({ type: 'error', text: error.response?.data?.message || 'Failed to cleanup timesheets' });
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncMessage(null), 5000);
     }
   };
 
@@ -462,11 +497,42 @@ const Timesheets: React.FC = () => {
             <button
               onClick={fetchTimesheets}
               className="p-3 text-secondary-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+              title="Refresh"
             >
               <HiRefresh className="w-5 h-5" />
             </button>
+            {isAdmin && (
+              <>
+                <button
+                  onClick={handleSyncFromAttendance}
+                  disabled={isSyncing}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:from-emerald-600 hover:to-teal-600 transition-all font-medium shadow-lg shadow-emerald-500/25 disabled:opacity-50"
+                  title="Generate timesheets from attendance records"
+                >
+                  <HiRefresh className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                  Sync from Attendance
+                </button>
+                <button
+                  onClick={handleCleanupTimesheets}
+                  disabled={isSyncing}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl hover:from-rose-600 hover:to-pink-600 transition-all font-medium shadow-lg shadow-rose-500/25 disabled:opacity-50"
+                  title="Remove orphaned timesheet data"
+                >
+                  <HiX className="w-4 h-4" />
+                  Cleanup
+                </button>
+              </>
+            )}
           </div>
         </div>
+        {syncMessage && (
+          <div className={`mt-3 px-4 py-3 rounded-xl flex items-center gap-2 ${
+            syncMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+          }`}>
+            {syncMessage.type === 'success' ? <HiCheck className="w-5 h-5" /> : <HiExclamationCircle className="w-5 h-5" />}
+            {syncMessage.text}
+          </div>
+        )}
       </div>
 
       {/* Status Pills */}
