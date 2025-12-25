@@ -1,7 +1,25 @@
 import axios, { AxiosError } from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Determine API URL based on environment
+const getApiUrl = () => {
+  // Use environment variable if set
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Auto-detect based on current hostname
+  const hostname = window.location.hostname;
+  if (hostname.includes('azurecontainerapps.io')) {
+    return 'https://hrm-api-gateway.proudforest-af6f92dd.eastus.azurecontainerapps.io/api';
+  }
+  if (hostname === '135.171.160.105') {
+    return 'http://135.171.160.105/api';
+  }
+  // Default to localhost for development
+  return 'http://localhost:3000/api';
+};
+
+const API_URL = getApiUrl();
 
 const api = axios.create({
   baseURL: API_URL,
