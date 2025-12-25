@@ -1,29 +1,129 @@
+# ===========================================
+# HRM Project .gitignore
+# ===========================================
+
 # Dependencies
 node_modules/
-
-# Environment files
-.env
-.env.local
-.env.*.local
+.pnp/
+.pnp.js
 
 # Build outputs
 dist/
 build/
+.next/
+out/
+
+# Environment files (IMPORTANT - never commit secrets!)
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+*.env
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
 
-# OS files
+# OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 nul
 
 # Logs
+logs/
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
-# Coverage
+# Testing
 coverage/
+.nyc_output/
+test-results/
+*.lcov
+
+# Terraform
+infrastructure/terraform/.terraform/
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.*
+infrastructure/terraform/.terraform.lock.hcl
+infrastructure/terraform/tfplan
+infrastructure/terraform/terraform.tfvars
+infrastructure/terraform/*.auto.tfvars
+
+# Docker
+*.tar
+docker-compose.override.yml
+
+# SSL Certificates (never commit!)
+infrastructure/nginx/ssl/
+*.pem
+*.key
+*.crt
+*.csr
+
+# Backup files
+*.bak
+*.backup
+*.sql
+*.dump
+
+# Temporary files
+tmp/
+temp/
+.cache/
+*.tmp
+
+# Mobile app
+mobile-app/android/.gradle/
+mobile-app/android/app/build/
+mobile-app/android/build/
+mobile-app/android/local.properties
+mobile-app/ios/Pods/
+mobile-app/ios/build/
+mobile-app/.expo/
+*.keystore
+*.jks
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
+.eslintcache
+.stylelintcache
+
+# Output files from terraform
+outputs.json
+infrastructure/outputs.json
+
+# Azure credentials (never commit!)
+azure.json
+*.azureauth
+
+# Keys and credentials
+**/credentials/
+**/secrets/
+*.credentials
+*.secrets
+
+# Debug
+*.debug
+.fusebox/

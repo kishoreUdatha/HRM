@@ -131,11 +131,10 @@ faceEmbeddingSchema.methods.calculateAverageEmbedding = function (): number[] {
 };
 
 // Pre-save hook to update average embedding
-faceEmbeddingSchema.pre('save', function (next) {
+faceEmbeddingSchema.pre('save', function () {
   if (this.isModified('embeddings') && this.embeddings.length > 0) {
     this.averageEmbedding = (this as any).calculateAverageEmbedding();
   }
-  next();
 });
 
 const FaceEmbedding = mongoose.model<IFaceEmbedding>('FaceEmbedding', faceEmbeddingSchema);

@@ -245,15 +245,25 @@ class RazorpayService {
   // Verify webhook signature
   verifyWebhookSignature(body: string, signature: string): boolean {
     try {
+      if (!this.webhookSecret) {
+        console.error('Webhook secret not configured');
+        return false;
+      }
+
       const expectedSignature = crypto
         .createHmac('sha256', this.webhookSecret)
         .update(body)
         .digest('hex');
 
-      return crypto.timingSafeEqual(
-        Buffer.from(signature),
-        Buffer.from(expectedSignature)
-      );
+      // Handle buffer length mismatch - signatures must be same length for timing-safe comparison
+      const signatureBuffer = Buffer.from(signature, 'utf8');
+      const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+
+      if (signatureBuffer.length !== expectedBuffer.length) {
+        return false;
+      }
+
+      return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
     } catch (error) {
       console.error('Error verifying webhook signature:', error);
       return false;
@@ -267,13 +277,26 @@ class RazorpayService {
     signature: string;
   }): boolean {
     try {
-      const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!keySecret) {
+        console.error('Razorpay key secret not configured');
+        return false;
+      }
+
       const generatedSignature = crypto
         .createHmac('sha256', keySecret)
         .update(`${data.orderId}|${data.paymentId}`)
         .digest('hex');
 
-      return generatedSignature === data.signature;
+      // Use timing-safe comparison to prevent timing attacks
+      const signatureBuffer = Buffer.from(data.signature, 'utf8');
+      const generatedBuffer = Buffer.from(generatedSignature, 'utf8');
+
+      if (signatureBuffer.length !== generatedBuffer.length) {
+        return false;
+      }
+
+      return crypto.timingSafeEqual(signatureBuffer, generatedBuffer);
     } catch (error) {
       console.error('Error verifying payment signature:', error);
       return false;
@@ -287,13 +310,26 @@ class RazorpayService {
     signature: string;
   }): boolean {
     try {
-      const keySecret = process.env.RAZORPAY_KEY_SECRET || '';
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!keySecret) {
+        console.error('Razorpay key secret not configured');
+        return false;
+      }
+
       const generatedSignature = crypto
         .createHmac('sha256', keySecret)
         .update(`${data.paymentId}|${data.subscriptionId}`)
         .digest('hex');
 
-      return generatedSignature === data.signature;
+      // Use timing-safe comparison to prevent timing attacks
+      const signatureBuffer = Buffer.from(data.signature, 'utf8');
+      const generatedBuffer = Buffer.from(generatedSignature, 'utf8');
+
+      if (signatureBuffer.length !== generatedBuffer.length) {
+        return false;
+      }
+
+      return crypto.timingSafeEqual(signatureBuffer, generatedBuffer);
     } catch (error) {
       console.error('Error verifying subscription signature:', error);
       return false;

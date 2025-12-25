@@ -81,6 +81,17 @@ export const getTenantBySlug = createAsyncThunk(
   }
 );
 
+// Helper function to check if JWT token is expired
+const isTokenExpired = (token: string): boolean => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const exp = payload.exp * 1000; // Convert to milliseconds
+    return Date.now() >= exp;
+  } catch {
+    return true; // If we can't parse the token, consider it expired
+  }
+};
+
 export const checkAuth = createAsyncThunk(
   'auth/checkAuth',
   async (_, { rejectWithValue }) => {
@@ -89,6 +100,15 @@ export const checkAuth = createAsyncThunk(
       if (!token) {
         return rejectWithValue('No token found');
       }
+
+      // Check if token is expired before making API call
+      if (isTokenExpired(token)) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('tenantId');
+        return rejectWithValue('Token expired');
+      }
+
       const user = await authService.getCurrentUser();
       const tenantId = localStorage.getItem('tenantId');
       let tenant: Tenant | null = null;

@@ -11,8 +11,8 @@ services:
     container_name: hrm-mongodb
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: hrm_password_2024
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-changeme}
     ports:
       - "27017:27017"
     volumes:
@@ -48,8 +48,8 @@ services:
     container_name: hrm-rabbitmq
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: hrm_user
-      RABBITMQ_DEFAULT_PASS: hrm_password
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-hrm_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-changeme}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -78,8 +78,8 @@ services:
       - NODE_ENV=development
       - PORT=3000
       - REDIS_URL=redis://redis:6379
-      - JWT_ACCESS_SECRET=hrm_saas_access_secret_2024
-      - JWT_REFRESH_SECRET=hrm_saas_refresh_secret_2024
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
       - AUTH_SERVICE_URL=http://auth-service:3001
       - TENANT_SERVICE_URL=http://tenant-service:3002
       - EMPLOYEE_SERVICE_URL=http://employee-service:3003

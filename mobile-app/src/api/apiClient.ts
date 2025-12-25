@@ -3,11 +3,17 @@ import {useAuthStore} from '../store/authStore';
 import {authStorage} from '../services/authStorage';
 import type {ApiResponse, AuthTokens} from '../types';
 
-// API Base URL - change this to your actual API gateway URL
-// Using localhost works with adb reverse for physical devices
-// For testing on physical device with adb reverse, use localhost
-// For production, change to your actual domain
-const API_BASE_URL = 'http://localhost:3000/api';
+import Config from 'react-native-config';
+
+// API Base URL - configured via environment variables
+// Set REACT_NATIVE_API_URL in .env file for different environments
+// Development: http://localhost:3000/api (use with adb reverse for physical devices)
+// Production: https://your-domain.com/api
+const API_BASE_URL = Config.API_URL || process.env.REACT_NATIVE_API_URL || 'http://localhost:3000/api';
+
+if (__DEV__) {
+  console.log('[API] Using base URL:', API_BASE_URL);
+}
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({

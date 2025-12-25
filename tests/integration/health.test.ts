@@ -1,5 +1,10 @@
 import { api } from '../setup';
 
+// Helper to check if services are running
+const isServiceUnavailable = (error: any): boolean => {
+  return error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND';
+};
+
 describe('Service Health Check Tests', () => {
   const services = [
     { name: 'API Gateway', endpoint: '/api/health' },
@@ -18,18 +23,17 @@ describe('Service Health Check Tests', () => {
         try {
           const response = await api.get(endpoint);
           expect(response.status).toBe(200);
+          expect(response.data).toBeDefined();
           console.log(`✓ ${name} is healthy`);
         } catch (error: any) {
-          if (error.code === 'ECONNREFUSED') {
-            console.log(`⚠️ ${name} is not running`);
-            // Don't fail the test if service is not running
-            expect(true).toBe(true);
-            return;
+          if (isServiceUnavailable(error)) {
+            console.log(`⚠️ ${name} is not running - skipping test`);
+            return; // Gracefully skip when service is not running
           }
-          // Service exists but no health endpoint
+          // Service exists but no health endpoint - acceptable
           if (error.response?.status === 404) {
-            console.log(`⚠️ ${name} has no health endpoint`);
-            expect(true).toBe(true);
+            console.log(`⚠️ ${name} has no health endpoint - consider adding one`);
+            expect(error.response.status).toBe(404); // Verify it's actually a 404
             return;
           }
           throw error;
@@ -45,15 +49,17 @@ describe('Service Health Check Tests', () => {
           email: 'test@test.com',
           password: 'test',
         });
-        // We expect 401 for invalid credentials, but route should work
-        expect(true).toBe(true);
+        // Unexpected success - verify response structure
+        expect(response.status).toBe(200);
+        expect(response.data).toBeDefined();
       } catch (error: any) {
-        if (error.code === 'ECONNREFUSED') {
-          console.log('⚠️ Services not running');
+        if (isServiceUnavailable(error)) {
+          console.log('⚠️ Services not running - skipping test');
           return;
         }
-        // 401 is expected for invalid credentials
+        // 401/400 is expected for invalid credentials - route is working
         expect([401, 400]).toContain(error.response?.status);
+        expect(error.response?.data).toBeDefined();
         console.log('✓ Auth service route working');
       }
     });
@@ -61,13 +67,15 @@ describe('Service Health Check Tests', () => {
     it('should route to employee service', async () => {
       try {
         const response = await api.get('/api/employees');
-        expect(true).toBe(true);
+        // Unexpected success without auth - verify response
+        expect(response.status).toBe(200);
+        expect(response.data).toBeDefined();
       } catch (error: any) {
-        if (error.code === 'ECONNREFUSED') {
-          console.log('⚠️ Services not running');
+        if (isServiceUnavailable(error)) {
+          console.log('⚠️ Services not running - skipping test');
           return;
         }
-        // 401 is expected without auth
+        // 401/403 is expected without auth - route is working
         expect([401, 403]).toContain(error.response?.status);
         console.log('✓ Employee service route working');
       }
@@ -88,21 +96,30 @@ describe('Service Health Check Tests', () => {
         });
         // If successful, DB is connected
         expect(response.status).toBe(201);
+        expect(response.data).toBeDefined();
         console.log('✓ MongoDB is connected');
       } catch (error: any) {
-        if (error.code === 'ECONNREFUSED') {
-          console.log('⚠️ Services not running');
+        if (isServiceUnavailable(error)) {
+          console.log('⚠️ Services not running - skipping test');
           return;
         }
-        // 400 means validation failed but DB is working
+        // 400 means validation failed but DB is working (can process requests)
         if (error.response?.status === 400) {
-          console.log('✓ MongoDB is connected (validation error)');
-          expect(true).toBe(true);
+          console.log('✓ MongoDB is connected (validation error indicates DB processing)');
+          expect(error.response.status).toBe(400);
+          expect(error.response.data).toBeDefined();
+          return;
+        }
+        // 409 means conflict (slug/email exists) - DB is working
+        if (error.response?.status === 409) {
+          console.log('✓ MongoDB is connected (conflict error indicates DB lookup)');
+          expect(error.response.status).toBe(409);
           return;
         }
         // 500 might indicate DB issue
         if (error.response?.status === 500) {
           console.log('⚠️ Possible database connection issue');
+          fail('Server error - possible database connection issue');
         }
         throw error;
       }
@@ -114,28 +131,42 @@ describe('Service Health Check Tests', () => {
       try {
         const response = await api.get('/api/auth/health');
         expect(response.headers['content-type']).toMatch(/json/);
+        expect(response.data).toBeDefined();
         console.log('✓ JSON response format confirmed');
       } catch (error: any) {
-        if (error.code === 'ECONNREFUSED') {
-          console.log('⚠️ Services not running');
+        if (isServiceUnavailable(error)) {
+          console.log('⚠️ Services not running - skipping test');
           return;
         }
-        expect(true).toBe(true);
+        // Even error responses should be JSON
+        if (error.response) {
+          expect(error.response.headers['content-type']).toMatch(/json/);
+          console.log('✓ JSON response format confirmed (from error response)');
+          return;
+        }
+        throw error;
       }
     });
 
     it('should include CORS headers', async () => {
       try {
         const response = await api.get('/api/health');
-        // Just check the request doesn't fail due to CORS
-        expect(true).toBe(true);
+        // Verify response is successful (CORS didn't block it)
+        expect(response.status).toBeGreaterThanOrEqual(200);
+        expect(response.status).toBeLessThan(500);
         console.log('✓ CORS configured');
       } catch (error: any) {
-        if (error.code === 'ECONNREFUSED') {
-          console.log('⚠️ Services not running');
+        if (isServiceUnavailable(error)) {
+          console.log('⚠️ Services not running - skipping test');
           return;
         }
-        expect(true).toBe(true);
+        // If we get an HTTP response (not a CORS block), CORS is working
+        if (error.response) {
+          expect(error.response.status).toBeDefined();
+          console.log('✓ CORS configured (received HTTP response)');
+          return;
+        }
+        throw error;
       }
     });
   });

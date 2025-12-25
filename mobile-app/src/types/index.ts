@@ -75,8 +75,8 @@ export interface Employee {
   joiningDate: string;
   reportingManagerId?: string;
   reportingManager?: Employee;
-  employmentType: 'full_time' | 'part_time' | 'contract' | 'internship';
-  status: 'active' | 'inactive' | 'on_notice' | 'terminated';
+  employmentType: 'full-time' | 'part-time' | 'contract' | 'intern';
+  status: 'active' | 'inactive' | 'terminated' | 'on-leave';
   shiftId?: string;
   createdAt: string;
   updatedAt: string;
@@ -103,7 +103,7 @@ export interface Attendance {
   faceImageUrl?: string;
   faceVerificationScore?: number;
   faceVerified?: boolean;
-  status: 'present' | 'absent' | 'late' | 'half_day' | 'on_leave' | 'holiday' | 'weekend';
+  status: 'present' | 'absent' | 'half-day' | 'late' | 'on-leave' | 'holiday';
   workHours?: number;
   overtimeHours?: number;
   breakDuration?: number;

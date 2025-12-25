@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { HiCalendar, HiCheck, HiX, HiPlus, HiSearch, HiClock, HiCheckCircle, HiXCircle, HiExclamationCircle } from 'react-icons/hi';
+import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import { useAppSelector } from '../hooks/useAppDispatch';
 import SortableTableHeader, { useSortConfig } from '../components/common/SortableTableHeader';
@@ -195,9 +196,8 @@ const EmployeeLeaveView: React.FC<{ user: any }> = ({ user }) => {
     } catch (error: unknown) {
       console.error('Failed to submit leave request:', error);
       const axiosError = error as { response?: { data?: { message?: string } } };
-      if (axiosError.response?.data?.message) {
-        alert(axiosError.response.data.message);
-      }
+      const errorMessage = axiosError.response?.data?.message || 'Failed to submit leave request';
+      toast.error(errorMessage);
     }
   };
 

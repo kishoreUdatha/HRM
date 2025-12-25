@@ -68,8 +68,14 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
       if (component.calculationType === 'fixed') {
         amount = component.value;
       } else if (component.calculationType === 'percentage') {
-        const baseForCalc = component.percentageOf === 'basic' ? baseSalary : baseSalary;
+        // Calculate percentage based on the configured base (basic salary or gross salary)
+        const grossSalary = baseSalary; // TODO: Calculate actual gross salary from earnings
+        const baseForCalc = component.percentageOf === 'basic' ? baseSalary : grossSalary;
         amount = (baseForCalc * component.value) / 100;
+      }
+      // Ensure amount is valid
+      if (isNaN(amount) || !isFinite(amount) || amount < 0) {
+        amount = 0;
       }
 
       if (component.type === 'earning') {

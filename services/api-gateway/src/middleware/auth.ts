@@ -14,7 +14,11 @@ export interface AuthRequest extends Request {
   tenantId?: string;
 }
 
-const JWT_SECRET = process.env.JWT_ACCESS_SECRET || 'hrm_saas_access_secret_2024';
+const JWT_SECRET = process.env.JWT_ACCESS_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_ACCESS_SECRET environment variable is required');
+}
 
 export const authenticateToken = (
   req: AuthRequest,

@@ -176,6 +176,13 @@ const Payroll: React.FC = () => {
     }
   };
 
+  const escapeHtml = (text: string | undefined | null): string => {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
   const handlePrintPayslip = () => {
     const printContent = payslipRef.current;
     if (!printContent) return;
@@ -183,11 +190,14 @@ const Payroll: React.FC = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const safeFirstName = escapeHtml(selectedPayroll?.employee?.firstName);
+    const safeLastName = escapeHtml(selectedPayroll?.employee?.lastName);
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Payslip - ${selectedPayroll?.employee?.firstName} ${selectedPayroll?.employee?.lastName}</title>
+          <title>Payslip - ${safeFirstName} ${safeLastName}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: white; }

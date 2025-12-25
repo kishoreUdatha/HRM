@@ -13,8 +13,12 @@ interface TokenPair {
   refreshToken: string;
 }
 
-const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'hrm_saas_access_secret_2024';
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'hrm_saas_refresh_secret_2024';
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
+if (!ACCESS_SECRET || !REFRESH_SECRET) {
+  throw new Error('JWT_ACCESS_SECRET and JWT_REFRESH_SECRET environment variables are required');
+}
 
 export const generateTokens = (payload: JwtPayload): TokenPair => {
   const accessToken = jwt.sign(payload, ACCESS_SECRET, { expiresIn: '15m' });
