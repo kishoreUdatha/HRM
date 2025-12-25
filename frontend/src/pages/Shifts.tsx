@@ -67,7 +67,9 @@ const Shifts: React.FC = () => {
   const fetchShifts = async () => {
     try {
       const response = await api.get('/shifts');
-      setShifts(response.data.data || []);
+      // Handle both response formats: { data: shifts[] } and { data: { shifts: [] } }
+      const shiftsData = response.data.data?.shifts || response.data.data || [];
+      setShifts(Array.isArray(shiftsData) ? shiftsData : []);
     } catch (error) {
       console.error('Failed to fetch shifts:', error);
     } finally {

@@ -4,6 +4,69 @@ import TimeEntry from '../models/TimeEntry';
 import Project from '../models/Project';
 import mongoose from 'mongoose';
 
+// Helper to get employee details from employees database
+const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
+  let employeesConn: mongoose.Connection | null = null;
+
+  try {
+    if (!employeeIds || employeeIds.length === 0) {
+      return new Map();
+    }
+
+    const mongoUri = process.env.MONGODB_URI || '';
+    const employeesDbUri = mongoUri.replace('/hrm_timesheets', '/hrm_employees');
+
+    // Convert string IDs to ObjectIds
+    const objectIds = employeeIds.map(id => {
+      try {
+        return new mongoose.Types.ObjectId(id);
+      } catch (err) {
+        return null;
+      }
+    }).filter((id): id is mongoose.Types.ObjectId => id !== null);
+
+    if (objectIds.length === 0) {
+      return new Map();
+    }
+
+    const tenantObjectId = new mongoose.Types.ObjectId(tenantId);
+    const employeeMap = new Map();
+
+    // Connect to employees database
+    employeesConn = mongoose.createConnection(employeesDbUri);
+    await employeesConn.asPromise();
+
+    const employeesCollection = employeesConn.collection('employees');
+
+    // Search by _id
+    const employees = await employeesCollection.find({
+      tenantId: tenantObjectId,
+      _id: { $in: objectIds },
+    }).toArray();
+
+    // Build map from employee records
+    for (const emp of employees) {
+      const employeeData = {
+        _id: emp._id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        employeeCode: emp.employeeCode,
+        email: emp.email,
+      };
+      employeeMap.set(emp._id.toString(), employeeData);
+    }
+
+    return employeeMap;
+  } catch (error) {
+    console.error('[Timesheet Service] Error fetching employee details:', error);
+    return new Map();
+  } finally {
+    if (employeesConn) {
+      try { await employeesConn.close(); } catch (e) { /* ignore */ }
+    }
+  }
+};
+
 // Helper to get week start/end dates
 const getWeekDates = (date: Date): { start: Date; end: Date } => {
   const d = new Date(date);
@@ -46,10 +109,44 @@ export const getProjects = async (req: Request, res: Response) => {
     }
 
     const projects = await Project.find(query)
-      .populate('managerId', 'firstName lastName')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.json({ success: true, data: projects });
+    // Collect all employee IDs (managers and members)
+    const employeeIds: string[] = [];
+    projects.forEach(p => {
+      if (p.managerId) employeeIds.push(p.managerId.toString());
+      p.members?.forEach((m: any) => {
+        if (m.employeeId) employeeIds.push(m.employeeId.toString());
+      });
+    });
+
+    // Fetch employee details from employees database
+    const uniqueEmployeeIds = [...new Set(employeeIds)];
+    const employeeMap = await getEmployeeDetails(uniqueEmployeeIds, tenantId);
+
+    // Merge employee data into projects
+    const projectsWithEmployees = projects.map(project => {
+      const managerId = project.managerId?.toString();
+      const managerData = managerId ? employeeMap.get(managerId) : null;
+
+      const membersWithData = project.members?.map((m: any) => {
+        const memberId = m.employeeId?.toString();
+        const memberData = memberId ? employeeMap.get(memberId) : null;
+        return {
+          ...m,
+          employeeId: memberData || { _id: m.employeeId, firstName: 'Unknown', lastName: 'Employee' },
+        };
+      }) || [];
+
+      return {
+        ...project,
+        managerId: managerData || { _id: project.managerId, firstName: 'Unknown', lastName: 'Manager' },
+        members: membersWithData,
+      };
+    });
+
+    res.json({ success: true, data: projectsWithEmployees });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -58,14 +155,43 @@ export const getProjects = async (req: Request, res: Response) => {
 export const getProjectById = async (req: Request, res: Response) => {
   try {
     const { tenantId, id } = req.params;
-    const project = await Project.findOne({ _id: id, tenantId })
-      .populate('managerId', 'firstName lastName email')
-      .populate('members.employeeId', 'firstName lastName email');
+    const project = await Project.findOne({ _id: id, tenantId }).lean();
 
     if (!project) {
       return res.status(404).json({ success: false, message: 'Project not found' });
     }
-    res.json({ success: true, data: project });
+
+    // Collect all employee IDs (manager and members)
+    const employeeIds: string[] = [];
+    if (project.managerId) employeeIds.push(project.managerId.toString());
+    project.members?.forEach((m: any) => {
+      if (m.employeeId) employeeIds.push(m.employeeId.toString());
+    });
+
+    // Fetch employee details from employees database
+    const uniqueEmployeeIds = [...new Set(employeeIds)];
+    const employeeMap = await getEmployeeDetails(uniqueEmployeeIds, tenantId);
+
+    // Merge employee data
+    const managerId = project.managerId?.toString();
+    const managerData = managerId ? employeeMap.get(managerId) : null;
+
+    const membersWithData = project.members?.map((m: any) => {
+      const memberId = m.employeeId?.toString();
+      const memberData = memberId ? employeeMap.get(memberId) : null;
+      return {
+        ...m,
+        employeeId: memberData || { _id: m.employeeId, firstName: 'Unknown', lastName: 'Employee', email: '' },
+      };
+    }) || [];
+
+    const projectWithEmployees = {
+      ...project,
+      managerId: managerData || { _id: project.managerId, firstName: 'Unknown', lastName: 'Manager', email: '' },
+      members: membersWithData,
+    };
+
+    res.json({ success: true, data: projectWithEmployees });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -160,16 +286,30 @@ export const getTimesheets = async (req: Request, res: Response) => {
 
     const [timesheets, total] = await Promise.all([
       Timesheet.find(query)
-        .populate('employeeId', 'firstName lastName email')
         .sort({ weekStartDate: -1 })
         .skip(skip)
-        .limit(Number(limit)),
+        .limit(Number(limit))
+        .lean(),
       Timesheet.countDocuments(query),
     ]);
 
+    // Fetch employee details from employees database
+    const employeeIds = [...new Set(timesheets.map(t => t.employeeId?.toString()).filter(Boolean))];
+    const employeeMap = await getEmployeeDetails(employeeIds as string[], tenantId);
+
+    // Merge employee data into timesheets
+    const timesheetsWithEmployees = timesheets.map(timesheet => {
+      const empId = timesheet.employeeId?.toString();
+      const employeeData = empId ? employeeMap.get(empId) : null;
+      return {
+        ...timesheet,
+        employeeId: employeeData || { _id: timesheet.employeeId, firstName: 'Unknown', lastName: 'Employee', email: '' },
+      };
+    });
+
     res.json({
       success: true,
-      data: timesheets,
+      data: timesheetsWithEmployees,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -186,13 +326,27 @@ export const getTimesheetById = async (req: Request, res: Response) => {
   try {
     const { tenantId, id } = req.params;
     const timesheet = await Timesheet.findOne({ _id: id, tenantId })
-      .populate('employeeId', 'firstName lastName email')
-      .populate('entries.projectId', 'name code');
+      .populate('entries.projectId', 'name code')
+      .lean();
 
     if (!timesheet) {
       return res.status(404).json({ success: false, message: 'Timesheet not found' });
     }
-    res.json({ success: true, data: timesheet });
+
+    // Fetch employee details from employees database
+    const empId = timesheet.employeeId?.toString();
+    let employeeData = null;
+    if (empId) {
+      const employeeMap = await getEmployeeDetails([empId], tenantId);
+      employeeData = employeeMap.get(empId);
+    }
+
+    const timesheetWithEmployee = {
+      ...timesheet,
+      employeeId: employeeData || { _id: timesheet.employeeId, firstName: 'Unknown', lastName: 'Employee', email: '' },
+    };
+
+    res.json({ success: true, data: timesheetWithEmployee });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -210,7 +364,8 @@ export const addTimesheetEntry = async (req: Request, res: Response) => {
 
     // Check for duplicate entry on same date/project
     const existingEntry = timesheet.entries.find(
-      e => e.date.toDateString() === new Date(entryData.date).toDateString() &&
+      e => e.date && e.projectId &&
+        e.date.toDateString() === new Date(entryData.date).toDateString() &&
         e.projectId.toString() === entryData.projectId
     );
 
@@ -567,6 +722,438 @@ export const getUtilizationReport = async (req: Request, res: Response) => {
 
     res.json({ success: true, data: utilization });
   } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Helper to get attendance records from attendance database
+const getAttendanceRecords = async (tenantId: string, startDate: Date, endDate: Date) => {
+  let attendanceConn: mongoose.Connection | null = null;
+
+  try {
+    const mongoUri = process.env.MONGODB_URI || '';
+    const attendanceDbUri = mongoUri.replace('/hrm_timesheets', '/hrm_attendance');
+
+    const tenantObjectId = new mongoose.Types.ObjectId(tenantId);
+
+    attendanceConn = mongoose.createConnection(attendanceDbUri);
+    await attendanceConn.asPromise();
+
+    const attendanceCollection = attendanceConn.collection('attendances');
+
+    const attendances = await attendanceCollection.find({
+      tenantId: tenantObjectId,
+      date: {
+        $gte: startDate,
+        $lte: endDate,
+      },
+    }).toArray();
+
+    return attendances;
+  } catch (error) {
+    console.error('[Timesheet Service] Error fetching attendance records:', error);
+    return [];
+  } finally {
+    if (attendanceConn) {
+      try { await attendanceConn.close(); } catch (e) { /* ignore */ }
+    }
+  }
+};
+
+// Helper to get all employees for a tenant
+const getAllEmployees = async (tenantId: string) => {
+  let employeesConn: mongoose.Connection | null = null;
+
+  try {
+    const mongoUri = process.env.MONGODB_URI || '';
+    const employeesDbUri = mongoUri.replace('/hrm_timesheets', '/hrm_employees');
+
+    const tenantObjectId = new mongoose.Types.ObjectId(tenantId);
+
+    employeesConn = mongoose.createConnection(employeesDbUri);
+    await employeesConn.asPromise();
+
+    const employeesCollection = employeesConn.collection('employees');
+
+    const employees = await employeesCollection.find({
+      tenantId: tenantObjectId,
+      status: { $in: ['active', 'Active', undefined] },
+    }).toArray();
+
+    return employees;
+  } catch (error) {
+    console.error('[Timesheet Service] Error fetching employees:', error);
+    return [];
+  } finally {
+    if (employeesConn) {
+      try { await employeesConn.close(); } catch (e) { /* ignore */ }
+    }
+  }
+};
+
+// Calculate hours between two times
+const calculateHours = (checkIn: Date | string | null, checkOut: Date | string | null): number => {
+  if (!checkIn || !checkOut) return 0;
+
+  const inTime = new Date(checkIn);
+  const outTime = new Date(checkOut);
+
+  if (isNaN(inTime.getTime()) || isNaN(outTime.getTime())) return 0;
+
+  const diffMs = outTime.getTime() - inTime.getTime();
+  const hours = diffMs / (1000 * 60 * 60);
+
+  return Math.max(0, Math.round(hours * 100) / 100); // Round to 2 decimal places
+};
+
+// Get day of week name from date
+const getDayOfWeek = (date: Date): string => {
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  return days[date.getDay()];
+};
+
+// Generate timesheets from attendance records
+export const generateTimesheetsFromAttendance = async (req: Request, res: Response) => {
+  try {
+    const { tenantId } = req.params;
+    const { startDate, endDate, weekNumber, month, year } = req.query;
+
+    let weekStart: Date;
+    let weekEnd: Date;
+
+    if (startDate && endDate) {
+      weekStart = new Date(startDate as string);
+      weekEnd = new Date(endDate as string);
+    } else if (weekNumber && month && year) {
+      // Calculate week dates from week number
+      const firstDayOfMonth = new Date(Number(year), Number(month) - 1, 1);
+      const weekOffset = (Number(weekNumber) - 1) * 7;
+      weekStart = new Date(firstDayOfMonth);
+      weekStart.setDate(firstDayOfMonth.getDate() + weekOffset);
+      // Adjust to Monday
+      const dayOfWeek = weekStart.getDay();
+      const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      weekStart.setDate(weekStart.getDate() + diff);
+      weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+    } else {
+      // Default to current week
+      const result = getWeekDates(new Date());
+      weekStart = result.start;
+      weekEnd = result.end;
+    }
+
+    weekStart.setHours(0, 0, 0, 0);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    console.log(`[Timesheet Service] Generating timesheets for ${tenantId} from ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
+
+    // Get all employees for this tenant
+    const employees = await getAllEmployees(tenantId);
+    if (employees.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No employees found for this tenant',
+        data: { created: 0, updated: 0, timesheets: [] },
+      });
+    }
+
+    // Get attendance records for the week
+    const attendances = await getAttendanceRecords(tenantId, weekStart, weekEnd);
+    console.log(`[Timesheet Service] Found ${attendances.length} attendance records and ${employees.length} employees`);
+
+    // Group attendance by employee
+    const attendanceByEmployee = new Map<string, any[]>();
+    for (const att of attendances) {
+      const empId = att.employeeId?.toString();
+      if (empId) {
+        if (!attendanceByEmployee.has(empId)) {
+          attendanceByEmployee.set(empId, []);
+        }
+        attendanceByEmployee.get(empId)!.push(att);
+      }
+    }
+
+    const results = {
+      created: 0,
+      updated: 0,
+      timesheets: [] as any[],
+    };
+
+    // Create or update timesheets for each employee
+    for (const employee of employees) {
+      const empId = employee._id.toString();
+      const empAttendances = attendanceByEmployee.get(empId) || [];
+
+      // Calculate daily hours from attendance
+      const dailyHours: Record<string, number> = {
+        monday: 0,
+        tuesday: 0,
+        wednesday: 0,
+        thursday: 0,
+        friday: 0,
+        saturday: 0,
+        sunday: 0,
+      };
+
+      for (const att of empAttendances) {
+        const attDate = new Date(att.date);
+        const dayName = getDayOfWeek(attDate);
+
+        // Calculate hours from check-in/check-out
+        let hours = 0;
+        if (att.checkIn && att.checkOut) {
+          hours = calculateHours(att.checkIn, att.checkOut);
+        } else if (att.totalHours) {
+          hours = Number(att.totalHours) || 0;
+        } else if (att.workingHours) {
+          hours = Number(att.workingHours) || 0;
+        } else if (att.status === 'present' || att.status === 'Present') {
+          hours = 8; // Default to 8 hours if marked present but no time data
+        }
+
+        dailyHours[dayName] += hours;
+      }
+
+      const totalHours = Object.values(dailyHours).reduce((sum, h) => sum + h, 0);
+      const regularHours = Math.min(totalHours, 40);
+      const overtimeHours = Math.max(0, totalHours - 40);
+
+      // Check if timesheet already exists for this week
+      let timesheet = await Timesheet.findOne({
+        tenantId,
+        employeeId: employee._id,
+        weekStartDate: weekStart,
+      });
+
+      // Create timesheet entry for "General Work" project
+      const entry = {
+        projectId: null,
+        projectCode: 'GENERAL',
+        projectName: 'General Work',
+        description: 'Auto-generated from attendance',
+        monday: Math.round(dailyHours.monday * 100) / 100,
+        tuesday: Math.round(dailyHours.tuesday * 100) / 100,
+        wednesday: Math.round(dailyHours.wednesday * 100) / 100,
+        thursday: Math.round(dailyHours.thursday * 100) / 100,
+        friday: Math.round(dailyHours.friday * 100) / 100,
+        saturday: Math.round(dailyHours.saturday * 100) / 100,
+        sunday: Math.round(dailyHours.sunday * 100) / 100,
+        totalHours: Math.round(totalHours * 100) / 100,
+        isBillable: true,
+      };
+
+      if (timesheet) {
+        // Update existing timesheet
+        timesheet.entries = [entry];
+        timesheet.totalHours = totalHours;
+        timesheet.regularHours = regularHours;
+        timesheet.overtimeHours = overtimeHours;
+        timesheet.billableHours = totalHours;
+        timesheet.nonBillableHours = 0;
+        await timesheet.save();
+        results.updated++;
+      } else {
+        // Create new timesheet
+        const weekNum = Math.ceil((weekStart.getDate()) / 7);
+        timesheet = new Timesheet({
+          tenantId,
+          employeeId: employee._id,
+          weekStartDate: weekStart,
+          weekEndDate: weekEnd,
+          weekNumber: weekNum,
+          month: weekStart.getMonth() + 1,
+          year: weekStart.getFullYear(),
+          periodType: 'weekly',
+          entries: [entry],
+          totalHours,
+          regularHours,
+          overtimeHours,
+          billableHours: totalHours,
+          nonBillableHours: 0,
+          status: 'draft',
+        });
+        await timesheet.save();
+        results.created++;
+      }
+
+      // Add employee info to the result
+      results.timesheets.push({
+        _id: timesheet._id,
+        employee: {
+          _id: employee._id,
+          firstName: employee.firstName,
+          lastName: employee.lastName,
+          employeeCode: employee.employeeCode,
+          email: employee.email,
+        },
+        totalHours,
+        regularHours,
+        overtimeHours,
+        status: timesheet.status,
+        dailyHours,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Generated ${results.created} new timesheets, updated ${results.updated} existing timesheets`,
+      data: results,
+    });
+  } catch (error: any) {
+    console.error('[Timesheet Service] Error generating timesheets:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Sync all timesheets for current month from attendance
+export const syncTimesheetsFromAttendance = async (req: Request, res: Response) => {
+  try {
+    const { tenantId } = req.params;
+    const { month, year } = req.query;
+
+    const targetMonth = month ? Number(month) : new Date().getMonth() + 1;
+    const targetYear = year ? Number(year) : new Date().getFullYear();
+
+    // Get first and last day of the month
+    const firstDay = new Date(targetYear, targetMonth - 1, 1);
+    const lastDay = new Date(targetYear, targetMonth, 0);
+
+    // Calculate weeks in the month
+    const weeks: { start: Date; end: Date; weekNumber: number }[] = [];
+    let currentDate = new Date(firstDay);
+
+    // Adjust to Monday of the first week
+    const dayOfWeek = currentDate.getDay();
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    currentDate.setDate(currentDate.getDate() + diff);
+
+    let weekNumber = 1;
+    while (currentDate <= lastDay || weekNumber <= 4) {
+      const weekStart = new Date(currentDate);
+      const weekEnd = new Date(currentDate);
+      weekEnd.setDate(weekStart.getDate() + 6);
+
+      weeks.push({
+        start: new Date(weekStart),
+        end: new Date(weekEnd),
+        weekNumber,
+      });
+
+      currentDate.setDate(currentDate.getDate() + 7);
+      weekNumber++;
+
+      if (weekNumber > 5) break; // Max 5 weeks per month
+    }
+
+    const results = {
+      month: targetMonth,
+      year: targetYear,
+      weeksProcessed: 0,
+      totalCreated: 0,
+      totalUpdated: 0,
+    };
+
+    // Process each week
+    for (const week of weeks) {
+      const employees = await getAllEmployees(tenantId);
+      const attendances = await getAttendanceRecords(tenantId, week.start, week.end);
+
+      // Group attendance by employee
+      const attendanceByEmployee = new Map<string, any[]>();
+      for (const att of attendances) {
+        const empId = att.employeeId?.toString();
+        if (empId) {
+          if (!attendanceByEmployee.has(empId)) {
+            attendanceByEmployee.set(empId, []);
+          }
+          attendanceByEmployee.get(empId)!.push(att);
+        }
+      }
+
+      for (const employee of employees) {
+        const empId = employee._id.toString();
+        const empAttendances = attendanceByEmployee.get(empId) || [];
+
+        const dailyHours: Record<string, number> = {
+          monday: 0, tuesday: 0, wednesday: 0, thursday: 0,
+          friday: 0, saturday: 0, sunday: 0,
+        };
+
+        for (const att of empAttendances) {
+          const attDate = new Date(att.date);
+          const dayName = getDayOfWeek(attDate);
+          let hours = 0;
+
+          if (att.checkIn && att.checkOut) {
+            hours = calculateHours(att.checkIn, att.checkOut);
+          } else if (att.totalHours || att.workingHours) {
+            hours = Number(att.totalHours || att.workingHours) || 0;
+          } else if (att.status === 'present' || att.status === 'Present') {
+            hours = 8;
+          }
+
+          dailyHours[dayName] += hours;
+        }
+
+        const totalHours = Object.values(dailyHours).reduce((sum, h) => sum + h, 0);
+
+        const entry = {
+          projectId: null,
+          projectCode: 'GENERAL',
+          projectName: 'General Work',
+          description: 'Auto-generated from attendance',
+          ...dailyHours,
+          totalHours: Math.round(totalHours * 100) / 100,
+          isBillable: true,
+        };
+
+        let timesheet = await Timesheet.findOne({
+          tenantId,
+          employeeId: employee._id,
+          weekStartDate: week.start,
+        });
+
+        if (timesheet) {
+          timesheet.entries = [entry];
+          timesheet.totalHours = totalHours;
+          timesheet.regularHours = Math.min(totalHours, 40);
+          timesheet.overtimeHours = Math.max(0, totalHours - 40);
+          await timesheet.save();
+          results.totalUpdated++;
+        } else {
+          timesheet = new Timesheet({
+            tenantId,
+            employeeId: employee._id,
+            weekStartDate: week.start,
+            weekEndDate: week.end,
+            weekNumber: week.weekNumber,
+            month: targetMonth,
+            year: targetYear,
+            periodType: 'weekly',
+            entries: [entry],
+            totalHours,
+            regularHours: Math.min(totalHours, 40),
+            overtimeHours: Math.max(0, totalHours - 40),
+            billableHours: totalHours,
+            nonBillableHours: 0,
+            status: 'draft',
+          });
+          await timesheet.save();
+          results.totalCreated++;
+        }
+      }
+
+      results.weeksProcessed++;
+    }
+
+    res.json({
+      success: true,
+      message: `Synced timesheets for ${results.weeksProcessed} weeks in ${targetMonth}/${targetYear}`,
+      data: results,
+    });
+  } catch (error: any) {
+    console.error('[Timesheet Service] Error syncing timesheets:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

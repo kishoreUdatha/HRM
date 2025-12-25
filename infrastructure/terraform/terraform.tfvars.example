@@ -1,0 +1,41 @@
+# ===========================================
+# HRM SaaS Platform - Terraform Variables
+# ===========================================
+# Copy this file to terraform.tfvars and update values
+
+# ===========================================
+# BASIC CONFIGURATION
+# ===========================================
+project_name = "hrm"
+environment  = "production"
+location     = "eastus"
+owner        = "HRM-Team"
+
+# ===========================================
+# AKS CONFIGURATION
+# ===========================================
+kubernetes_version    = "1.28.5"
+aks_system_node_count = 2
+aks_system_node_size  = "Standard_D4s_v3"
+aks_user_node_count   = 3
+aks_user_node_size    = "Standard_D4s_v3"
+
+# ===========================================
+# NETWORKING
+# ===========================================
+domain_name     = "hrm.yourdomain.com"
+create_dns_zone = false
+
+# ===========================================
+# MONITORING & ALERTS
+# ===========================================
+alert_email       = "ops@yourdomain.com"
+slack_webhook_url = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+
+# ===========================================
+# EXTERNAL SERVICES (Sensitive - use environment variables or Azure Key Vault)
+# ===========================================
+# openai_api_key      = ""  # Set via TF_VAR_openai_api_key environment variable
+# sendgrid_api_key    = ""  # Set via TF_VAR_sendgrid_api_key environment variable
+# razorpay_key_id     = ""  # Set via TF_VAR_razorpay_key_id environment variable
+# razorpay_key_secret = ""  # Set via TF_VAR_razorpay_key_secret environment variable

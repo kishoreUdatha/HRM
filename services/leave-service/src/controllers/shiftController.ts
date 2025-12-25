@@ -27,7 +27,10 @@ export const getShifts = async (req: Request, res: Response) => {
     const { isActive } = req.query;
     const query: any = { tenantId };
     if (isActive !== undefined) query.isActive = isActive === 'true';
-    const shifts = await Shift.find(query).sort({ name: 1 });
+    // Note: Removed MongoDB sort due to Azure Cosmos DB index requirements
+    // Sorting is done in-memory instead
+    const shiftsRaw = await Shift.find(query);
+    const shifts = [...shiftsRaw].sort((a, b) => ((a as any).name || '').localeCompare((b as any).name || ''));
     res.json({ success: true, data: shifts });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

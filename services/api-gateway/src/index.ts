@@ -24,13 +24,22 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
-      const allowedOrigins = [
+      const allowedOrigins: (string | RegExp)[] = [
         process.env.CLIENT_URL || 'http://localhost:5173',
         'http://localhost:5174',
         'http://localhost:5175',
         /\.hrm\.com$/,
         /^http:\/\/localhost:\d+$/,
+        // Azure production deployment
+        'http://135.171.160.105',
+        'https://135.171.160.105',
       ];
+
+      // Add additional allowed origins from environment variable
+      const additionalOrigins = process.env.ADDITIONAL_CORS_ORIGINS?.split(',').map(o => o.trim());
+      if (additionalOrigins) {
+        allowedOrigins.push(...additionalOrigins);
+      }
 
       if (!origin) return callback(null, true);
 
@@ -41,6 +50,7 @@ app.use(
       if (isAllowed) {
         callback(null, true);
       } else {
+        console.log(`CORS blocked origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },

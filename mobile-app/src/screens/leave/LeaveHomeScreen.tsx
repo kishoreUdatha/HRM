@@ -39,24 +39,22 @@ export default function LeaveHomeScreen() {
   const isDarkMode = useAuthStore(state => state.isDarkMode);
   const colors = isDarkMode ? Colors.dark : Colors.light;
 
-  // Leave balances are stored with employee._id
-  // Leave requests are stored with user._id (from token)
-  // We need to use different IDs for different queries
-  const employeeIdForBalance = employee?._id || user?.employeeId;
-  const userIdForRequests = user?._id || employee?.userId;
+  // Leave balances and requests use the same employee/user ID
+  // Use employee._id if available, otherwise fallback to user's employeeId or user._id
+  const effectiveEmployeeId = employee?._id || user?.employeeId || user?._id;
 
   const [activeTab, setActiveTab] = useState<'balance' | 'requests'>('balance');
 
   const {data: leaveBalance, isLoading: isLoadingBalance, refetch: refetchBalance} = useQuery({
-    queryKey: ['leaveBalance', employeeIdForBalance],
-    queryFn: () => leaveApi.getLeaveBalance(employeeIdForBalance || ''),
-    enabled: !!employeeIdForBalance,
+    queryKey: ['leaveBalance', effectiveEmployeeId],
+    queryFn: () => leaveApi.getLeaveBalance(effectiveEmployeeId || ''),
+    enabled: !!effectiveEmployeeId,
   });
 
   const {data: leaveRequests, isLoading: isLoadingRequests, refetch: refetchRequests} = useQuery({
-    queryKey: ['leaveRequests', userIdForRequests],
-    queryFn: () => leaveApi.getLeaveRequests({employeeId: userIdForRequests, limit: 20}),
-    enabled: !!userIdForRequests,
+    queryKey: ['leaveRequests', effectiveEmployeeId],
+    queryFn: () => leaveApi.getLeaveRequests({employeeId: effectiveEmployeeId, limit: 20}),
+    enabled: !!effectiveEmployeeId,
   });
 
   const isLoading = isLoadingBalance || isLoadingRequests;
@@ -205,10 +203,10 @@ export default function LeaveHomeScreen() {
                   </Text>
                   <View style={styles.balanceRow}>
                     <Text style={[styles.balanceAvailable, {color: colorSet.color}]}>
-                      {balance.available ?? balance.availableDays ?? 0}
+                      {balance.balance ?? balance.available ?? balance.availableDays ?? 0}
                     </Text>
                     <Text style={[styles.balanceTotal, {color: colors.textSecondary}]}>
-                      / {balance.total ?? balance.totalDays ?? 0}
+                      / {balance.entitled ?? balance.total ?? balance.totalDays ?? 0}
                     </Text>
                   </View>
                   <View style={styles.balanceDetails}>

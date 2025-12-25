@@ -19,7 +19,14 @@ export const getAllShifts = async (req: Request, res: Response): Promise<void> =
       query.isActive = true;
     }
 
-    const shifts = await Shift.find(query).sort({ isDefault: -1, name: 1 }).lean();
+    // Note: Removed MongoDB sort due to Azure Cosmos DB index requirements
+    // Sorting is done in-memory instead
+    const shifts = await Shift.find(query).lean();
+    shifts.sort((a, b) => {
+      // Sort by isDefault first (true first), then by name
+      if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
+      return (a.name || '').localeCompare(b.name || '');
+    });
 
     // Get employee counts for all shifts
     const shiftIds = shifts.map(s => s._id);

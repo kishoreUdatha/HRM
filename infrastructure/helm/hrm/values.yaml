@@ -1,0 +1,281 @@
+# ===========================================
+# HRM Helm Chart Values
+# ===========================================
+
+global:
+  environment: production
+  imagePullSecrets: []
+  storageClass: managed-premium
+
+# Azure Container Registry
+acr:
+  loginServer: hrmproductionacr.azurecr.io
+  imagePullSecret: acr-secret
+
+# Image settings
+image:
+  tag: latest
+  pullPolicy: Always
+
+# Common labels
+commonLabels:
+  app.kubernetes.io/name: hrm
+  app.kubernetes.io/managed-by: helm
+
+# Namespace
+namespace: hrm-production
+
+# ===========================================
+# API Gateway
+# ===========================================
+apiGateway:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: hrm/api-gateway
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilization: 70
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# ===========================================
+# Auth Service
+# ===========================================
+authService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: hrm/auth-service
+  service:
+    port: 3001
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+# ===========================================
+# Core Services Configuration
+# ===========================================
+services:
+  tenantService:
+    enabled: true
+    port: 3002
+    replicas: 2
+  employeeService:
+    enabled: true
+    port: 3003
+    replicas: 2
+  attendanceService:
+    enabled: true
+    port: 3004
+    replicas: 2
+  leaveService:
+    enabled: true
+    port: 3005
+    replicas: 2
+  payrollService:
+    enabled: true
+    port: 3006
+    replicas: 2
+  notificationService:
+    enabled: true
+    port: 3007
+    replicas: 2
+  reportsService:
+    enabled: true
+    port: 3008
+    replicas: 2
+  websocketService:
+    enabled: true
+    port: 3009
+    replicas: 2
+  chatService:
+    enabled: true
+    port: 3010
+    replicas: 2
+  analyticsService:
+    enabled: true
+    port: 3011
+    replicas: 2
+  documentService:
+    enabled: true
+    port: 3012
+    replicas: 2
+  integrationService:
+    enabled: true
+    port: 3013
+    replicas: 2
+  engagementService:
+    enabled: true
+    port: 3014
+    replicas: 2
+  aiChatbotService:
+    enabled: true
+    port: 3015
+    replicas: 2
+  aiMlService:
+    enabled: true
+    port: 3016
+    replicas: 2
+  workforceService:
+    enabled: true
+    port: 3017
+    replicas: 2
+  recruitmentService:
+    enabled: true
+    port: 3018
+    replicas: 2
+  localizationService:
+    enabled: true
+    port: 3019
+    replicas: 2
+  benefitsService:
+    enabled: true
+    port: 3020
+    replicas: 2
+  onboardingService:
+    enabled: true
+    port: 3021
+    replicas: 2
+  complianceService:
+    enabled: true
+    port: 3022
+    replicas: 2
+  expenseService:
+    enabled: true
+    port: 3023
+    replicas: 2
+  timesheetService:
+    enabled: true
+    port: 3024
+    replicas: 2
+  assetService:
+    enabled: true
+    port: 3025
+    replicas: 2
+  grievanceService:
+    enabled: true
+    port: 3026
+    replicas: 2
+  billingService:
+    enabled: true
+    port: 3027
+    replicas: 2
+
+# ===========================================
+# Frontend
+# ===========================================
+frontend:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: hrm/frontend
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "25m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+# ===========================================
+# RabbitMQ (Bitnami Chart)
+# ===========================================
+rabbitmq:
+  enabled: true
+  auth:
+    username: hrm_admin
+    existingPasswordSecret: hrm-secrets
+    existingSecretPasswordKey: RABBITMQ_PASSWORD
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: managed-premium
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+# ===========================================
+# Ingress Configuration
+# ===========================================
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: hrm.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 80
+    - host: api.hrm.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: api-gateway
+          port: 3000
+  tls:
+    - secretName: hrm-tls-secret
+      hosts:
+        - hrm.yourdomain.com
+        - api.hrm.yourdomain.com
+
+# ===========================================
+# External Services (Azure)
+# ===========================================
+externalServices:
+  mongodb:
+    # Azure Cosmos DB connection string from secret
+    connectionStringSecret: hrm-secrets
+    connectionStringKey: MONGODB_URI
+  redis:
+    # Azure Cache for Redis
+    connectionStringSecret: hrm-secrets
+    connectionStringKey: REDIS_URL
+  storage:
+    # Azure Blob Storage
+    connectionStringSecret: hrm-secrets
+    connectionStringKey: AZURE_STORAGE_CONNECTION_STRING
+
+# ===========================================
+# Monitoring & Observability
+# ===========================================
+monitoring:
+  enabled: true
+  applicationInsights:
+    enabled: true
+    instrumentationKeySecret: hrm-secrets
+    instrumentationKeyKey: APPINSIGHTS_INSTRUMENTATIONKEY
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 30s

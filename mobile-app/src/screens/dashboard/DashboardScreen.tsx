@@ -91,7 +91,7 @@ export default function DashboardScreen() {
 
   const quickActions: QuickAction[] = [
     {
-      icon: 'calendar-plus-outline',
+      icon: 'calendar-plus',
       label: 'Apply Leave',
       color: colors.actionLeave,
       bgColor: colors.actionLeaveBg,
@@ -282,7 +282,7 @@ export default function DashboardScreen() {
               </View>
               <Text style={[styles.cardTitle, {color: colors.text}]}>Leave Balance</Text>
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate('ApplyLeave')}>
+            <TouchableOpacity onPress={() => navigation.navigate('Leave')}>
               <Text style={[styles.cardLink, {color: colors.primary}]}>View All</Text>
             </TouchableOpacity>
           </View>
@@ -291,12 +291,12 @@ export default function DashboardScreen() {
             {(leaveBalance?.data?.data?.balances || leaveBalance?.data?.balances || [])?.slice(0, 4).map((balance: any, index: number) => {
               const colorSet = leaveTypeColors[index % leaveTypeColors.length];
               return (
-                <View key={index} style={[styles.leaveItem, {backgroundColor: colorSet.bg}]}>
+                <View key={balance._id || index} style={[styles.leaveItem, {backgroundColor: colorSet.bg}]}>
                   <Text style={[styles.leaveDays, {color: colorSet.color}]}>
-                    {balance.available ?? balance.availableDays ?? 0}
+                    {balance.balance ?? balance.available ?? balance.availableDays ?? 0}
                   </Text>
                   <Text style={[styles.leaveType, {color: colorSet.color}]} numberOfLines={1}>
-                    {balance.leaveType?.name || balance.leaveTypeId?.name || 'Leave'}
+                    {balance.leaveTypeId?.name || balance.leaveType?.name || 'Leave'}
                   </Text>
                 </View>
               );

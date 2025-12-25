@@ -27,7 +27,10 @@ export default function LeaveDetailScreen() {
   const cancelMutation = useMutation({
     mutationFn: () => leaveApi.cancelLeaveRequest(leaveId),
     onSuccess: () => {
+      // Invalidate both the detail and list queries to update the status
+      queryClient.invalidateQueries({queryKey: ['leaveRequest', leaveId]});
       queryClient.invalidateQueries({queryKey: ['leaveRequests']});
+      queryClient.invalidateQueries({queryKey: ['leaveBalance']});
       Alert.alert('Success', 'Leave request cancelled', [{text: 'OK', onPress: () => navigation.goBack()}]);
     },
   });

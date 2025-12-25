@@ -30,4 +30,8 @@ router.get('/:tenantId/time-entries', timesheetController.getTimeEntries);
 router.get('/:tenantId/stats', timesheetController.getTimesheetStats);
 router.get('/:tenantId/utilization', timesheetController.getUtilizationReport);
 
+// Generate/Sync from Attendance
+router.post('/:tenantId/timesheets/generate-from-attendance', timesheetController.generateTimesheetsFromAttendance);
+router.post('/:tenantId/timesheets/sync-from-attendance', timesheetController.syncTimesheetsFromAttendance);
+
 export default router;

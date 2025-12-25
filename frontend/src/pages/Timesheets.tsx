@@ -157,8 +157,8 @@ const Timesheets: React.FC = () => {
       setTimesheets(fetchedTimesheets);
     } catch (error) {
       console.error('Failed to fetch timesheets:', error);
-      // Use mock data for demo
-      generateMockTimesheets();
+      // Show empty state instead of mock data
+      setTimesheets([]);
     } finally {
       setIsLoading(false);
     }
@@ -170,135 +170,9 @@ const Timesheets: React.FC = () => {
       setProjects(response.data.data?.projects || response.data.projects || []);
     } catch (error) {
       console.error('Failed to fetch projects:', error);
-      // Mock projects
-      setProjects([
-        { _id: '1', name: 'Project Alpha', code: 'ALPHA', client: 'Acme Corp', color: '#3B82F6', budgetHours: 500, isActive: true },
-        { _id: '2', name: 'Project Beta', code: 'BETA', client: 'Tech Solutions', color: '#10B981', budgetHours: 300, isActive: true },
-        { _id: '3', name: 'Project Gamma', code: 'GAMMA', client: 'Global Inc', color: '#8B5CF6', budgetHours: 400, isActive: true },
-        { _id: '4', name: 'Internal Development', code: 'INTERNAL', client: 'Internal', color: '#F59E0B', budgetHours: 200, isActive: true },
-        { _id: '5', name: 'Client Support', code: 'SUPPORT', client: 'Various', color: '#EF4444', budgetHours: 150, isActive: true },
-      ]);
+      // Show empty state instead of mock data
+      setProjects([]);
     }
-  };
-
-  const generateMockTimesheets = () => {
-    const mockTimesheets: Timesheet[] = [];
-
-    // For employees (non-admin), only generate their own timesheet
-    if (!canViewAllTimesheets && user) {
-      const projectEntries = [
-        { projectCode: 'ALPHA', projectName: 'Project Alpha', description: 'Development tasks' },
-        { projectCode: 'BETA', projectName: 'Project Beta', description: 'Testing and QA' },
-      ];
-
-      const entries: TimesheetEntry[] = projectEntries.map(p => ({
-        ...p,
-        monday: Math.floor(Math.random() * 2) + 7,
-        tuesday: Math.floor(Math.random() * 2) + 7,
-        wednesday: Math.floor(Math.random() * 2) + 7,
-        thursday: Math.floor(Math.random() * 2) + 7,
-        friday: Math.floor(Math.random() * 2) + 7,
-        saturday: 0,
-        sunday: 0,
-        totalHours: 0,
-      }));
-
-      entries.forEach(e => {
-        e.totalHours = e.monday + e.tuesday + e.wednesday + e.thursday + e.friday + e.saturday + e.sunday;
-      });
-
-      const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
-
-      mockTimesheets.push({
-        _id: `ts-${user._id}`,
-        employeeId: user._id,
-        employee: {
-          _id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          employeeCode: 'EMP00001',
-          email: user.email,
-        },
-        weekStartDate: '2025-12-15',
-        weekEndDate: '2025-12-21',
-        weekNumber: selectedWeek,
-        month: 12,
-        year: 2025,
-        entries,
-        totalHours,
-        regularHours: Math.min(totalHours, 40),
-        overtimeHours: Math.max(totalHours - 40, 0),
-        status: 'draft',
-      });
-
-      setTimesheets(mockTimesheets);
-      return;
-    }
-
-    // For admin/HR, generate mock data for multiple employees
-    const names = [
-      { firstName: 'Patricia', lastName: 'Edwards', code: 'EMP00001' },
-      { firstName: 'Margaret', lastName: 'Rodriguez', code: 'EMP00002' },
-      { firstName: 'Stephanie', lastName: 'Flores', code: 'EMP00003' },
-      { firstName: 'Matthew', lastName: 'Campbell', code: 'EMP00004' },
-      { firstName: 'Carol', lastName: 'Flores', code: 'EMP00005' },
-      { firstName: 'John', lastName: 'Smith', code: 'EMP00006' },
-      { firstName: 'Emily', lastName: 'Johnson', code: 'EMP00007' },
-      { firstName: 'Michael', lastName: 'Brown', code: 'EMP00008' },
-    ];
-
-    const statuses: Array<'draft' | 'submitted' | 'approved' | 'rejected'> = ['draft', 'submitted', 'approved', 'approved'];
-    const projectEntries = [
-      { projectCode: 'ALPHA', projectName: 'Project Alpha', description: 'Development tasks' },
-      { projectCode: 'BETA', projectName: 'Project Beta', description: 'Testing and QA' },
-      { projectCode: 'SUPPORT', projectName: 'Client Support', description: 'Customer issues' },
-    ];
-
-    names.forEach((emp, idx) => {
-      const entries: TimesheetEntry[] = projectEntries.slice(0, Math.floor(Math.random() * 2) + 2).map(p => ({
-        ...p,
-        monday: Math.floor(Math.random() * 4) + 4,
-        tuesday: Math.floor(Math.random() * 4) + 4,
-        wednesday: Math.floor(Math.random() * 4) + 4,
-        thursday: Math.floor(Math.random() * 4) + 4,
-        friday: Math.floor(Math.random() * 4) + 4,
-        saturday: Math.random() < 0.3 ? Math.floor(Math.random() * 4) : 0,
-        sunday: 0,
-        totalHours: 0,
-      }));
-
-      entries.forEach(e => {
-        e.totalHours = e.monday + e.tuesday + e.wednesday + e.thursday + e.friday + e.saturday + e.sunday;
-      });
-
-      const totalHours = entries.reduce((sum, e) => sum + e.totalHours, 0);
-
-      mockTimesheets.push({
-        _id: `ts-${idx}`,
-        employeeId: `emp-${idx}`,
-        employee: {
-          _id: `emp-${idx}`,
-          firstName: emp.firstName,
-          lastName: emp.lastName,
-          employeeCode: emp.code,
-          email: `${emp.firstName.toLowerCase()}.${emp.lastName.toLowerCase()}@company.com`,
-        },
-        weekStartDate: '2025-12-15',
-        weekEndDate: '2025-12-21',
-        weekNumber: selectedWeek,
-        month: 12,
-        year: 2025,
-        entries,
-        totalHours,
-        regularHours: Math.min(totalHours, 40),
-        overtimeHours: Math.max(totalHours - 40, 0),
-        status: statuses[idx % statuses.length],
-        submittedAt: statuses[idx % statuses.length] !== 'draft' ? new Date().toISOString() : undefined,
-        approvedAt: statuses[idx % statuses.length] === 'approved' ? new Date().toISOString() : undefined,
-      });
-    });
-
-    setTimesheets(mockTimesheets);
   };
 
   const handleApprove = async (id: string) => {
@@ -307,10 +181,6 @@ const Timesheets: React.FC = () => {
       fetchTimesheets();
     } catch (error) {
       console.error('Failed to approve timesheet:', error);
-      // Update locally for demo
-      setTimesheets(prev => prev.map(ts =>
-        ts._id === id ? { ...ts, status: 'approved' as const, approvedAt: new Date().toISOString() } : ts
-      ));
     }
   };
 
@@ -320,9 +190,6 @@ const Timesheets: React.FC = () => {
       fetchTimesheets();
     } catch (error) {
       console.error('Failed to reject timesheet:', error);
-      setTimesheets(prev => prev.map(ts =>
-        ts._id === id ? { ...ts, status: 'rejected' as const } : ts
-      ));
     }
   };
 

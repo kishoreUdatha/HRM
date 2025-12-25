@@ -1,0 +1,2067 @@
+# ===========================================
+# HRM All Microservices Deployment
+# ===========================================
+
+# Auth Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3001
+      targetPort: 3001
+  selector:
+    app: auth-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: auth-service
+          image: ${ACR_LOGIN_SERVER}/hrm/auth-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3001"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: JWT_ACCESS_SECRET
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: JWT_REFRESH_SECRET
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Tenant Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tenant-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3002
+      targetPort: 3002
+  selector:
+    app: tenant-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tenant-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tenant-service
+  template:
+    metadata:
+      labels:
+        app: tenant-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: tenant-service
+          image: ${ACR_LOGIN_SERVER}/hrm/tenant-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3002
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3002"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3002
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Employee Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: employee-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3003
+      targetPort: 3003
+  selector:
+    app: employee-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: employee-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: employee-service
+  template:
+    metadata:
+      labels:
+        app: employee-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: employee-service
+          image: ${ACR_LOGIN_SERVER}/hrm/employee-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3003
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3003"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3003
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3003
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Attendance Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: attendance-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3004
+      targetPort: 3004
+  selector:
+    app: attendance-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: attendance-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: attendance-service
+  template:
+    metadata:
+      labels:
+        app: attendance-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: attendance-service
+          image: ${ACR_LOGIN_SERVER}/hrm/attendance-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3004
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3004"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3004
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Leave Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: leave-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3005
+      targetPort: 3005
+  selector:
+    app: leave-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leave-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: leave-service
+  template:
+    metadata:
+      labels:
+        app: leave-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: leave-service
+          image: ${ACR_LOGIN_SERVER}/hrm/leave-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3005
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3005"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3005
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3005
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Payroll Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payroll-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3006
+      targetPort: 3006
+  selector:
+    app: payroll-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payroll-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payroll-service
+  template:
+    metadata:
+      labels:
+        app: payroll-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: payroll-service
+          image: ${ACR_LOGIN_SERVER}/hrm/payroll-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3006
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3006"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3006
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3006
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Notification Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3007
+      targetPort: 3007
+  selector:
+    app: notification-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: notification-service
+          image: ${ACR_LOGIN_SERVER}/hrm/notification-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3007
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3007"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+            - name: SMTP_HOST
+              value: "smtp.sendgrid.net"
+            - name: SMTP_PORT
+              value: "587"
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: SMTP_USER
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: SMTP_PASS
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3007
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3007
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Reports Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reports-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3008
+      targetPort: 3008
+  selector:
+    app: reports-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reports-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: reports-service
+  template:
+    metadata:
+      labels:
+        app: reports-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: reports-service
+          image: ${ACR_LOGIN_SERVER}/hrm/reports-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3008
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3008"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3008
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3008
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# WebSocket Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: websocket-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3009
+      targetPort: 3009
+  selector:
+    app: websocket-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: websocket-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: websocket-service
+  template:
+    metadata:
+      labels:
+        app: websocket-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: websocket-service
+          image: ${ACR_LOGIN_SERVER}/hrm/websocket-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3009
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3009"
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: REDIS_URL
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: JWT_ACCESS_SECRET
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3009
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3009
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Chat Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3010
+      targetPort: 3010
+  selector:
+    app: chat-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chat-service
+  template:
+    metadata:
+      labels:
+        app: chat-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: chat-service
+          image: ${ACR_LOGIN_SERVER}/hrm/chat-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3010
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3010"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3010
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3010
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Analytics Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3011
+      targetPort: 3011
+  selector:
+    app: analytics-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: analytics-service
+          image: ${ACR_LOGIN_SERVER}/hrm/analytics-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3011
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3011"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3011
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3011
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Document Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: document-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3012
+      targetPort: 3012
+  selector:
+    app: document-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: document-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: document-service
+  template:
+    metadata:
+      labels:
+        app: document-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: document-service
+          image: ${ACR_LOGIN_SERVER}/hrm/document-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3012
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3012"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+            - name: AZURE_STORAGE_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: AZURE_STORAGE_CONNECTION_STRING
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3012
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3012
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Integration Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: integration-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3013
+      targetPort: 3013
+  selector:
+    app: integration-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: integration-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: integration-service
+  template:
+    metadata:
+      labels:
+        app: integration-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: integration-service
+          image: ${ACR_LOGIN_SERVER}/hrm/integration-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3013
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3013"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3013
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3013
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Engagement Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: engagement-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3014
+      targetPort: 3014
+  selector:
+    app: engagement-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: engagement-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: engagement-service
+  template:
+    metadata:
+      labels:
+        app: engagement-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: engagement-service
+          image: ${ACR_LOGIN_SERVER}/hrm/engagement-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3014
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3014"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3014
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3014
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# AI Chatbot Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-chatbot-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3015
+      targetPort: 3015
+  selector:
+    app: ai-chatbot-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-chatbot-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-chatbot-service
+  template:
+    metadata:
+      labels:
+        app: ai-chatbot-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: ai-chatbot-service
+          image: ${ACR_LOGIN_SERVER}/hrm/ai-chatbot-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3015
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3015"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: REDIS_URL
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: OPENAI_API_KEY
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3015
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3015
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# AI ML Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-ml-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3016
+      targetPort: 3016
+  selector:
+    app: ai-ml-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-ml-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-ml-service
+  template:
+    metadata:
+      labels:
+        app: ai-ml-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: ai-ml-service
+          image: ${ACR_LOGIN_SERVER}/hrm/ai-ml-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3016
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3016"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: OPENAI_API_KEY
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3016
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3016
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Workforce Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: workforce-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3017
+      targetPort: 3017
+  selector:
+    app: workforce-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workforce-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: workforce-service
+  template:
+    metadata:
+      labels:
+        app: workforce-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: workforce-service
+          image: ${ACR_LOGIN_SERVER}/hrm/workforce-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3017
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3017"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3017
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3017
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Recruitment Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recruitment-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3018
+      targetPort: 3018
+  selector:
+    app: recruitment-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recruitment-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: recruitment-service
+  template:
+    metadata:
+      labels:
+        app: recruitment-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: recruitment-service
+          image: ${ACR_LOGIN_SERVER}/hrm/recruitment-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3018
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3018"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3018
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3018
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Localization Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: localization-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3019
+      targetPort: 3019
+  selector:
+    app: localization-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localization-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: localization-service
+  template:
+    metadata:
+      labels:
+        app: localization-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: localization-service
+          image: ${ACR_LOGIN_SERVER}/hrm/localization-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3019
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3019"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3019
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3019
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Benefits Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: benefits-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3020
+      targetPort: 3020
+  selector:
+    app: benefits-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: benefits-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: benefits-service
+  template:
+    metadata:
+      labels:
+        app: benefits-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: benefits-service
+          image: ${ACR_LOGIN_SERVER}/hrm/benefits-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3020
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3020"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3020
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3020
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Onboarding Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: onboarding-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3021
+      targetPort: 3021
+  selector:
+    app: onboarding-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onboarding-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: onboarding-service
+  template:
+    metadata:
+      labels:
+        app: onboarding-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: onboarding-service
+          image: ${ACR_LOGIN_SERVER}/hrm/onboarding-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3021
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3021"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3021
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3021
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Compliance Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: compliance-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3022
+      targetPort: 3022
+  selector:
+    app: compliance-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliance-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: compliance-service
+  template:
+    metadata:
+      labels:
+        app: compliance-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: compliance-service
+          image: ${ACR_LOGIN_SERVER}/hrm/compliance-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3022
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3022"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3022
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3022
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Expense Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: expense-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3023
+      targetPort: 3023
+  selector:
+    app: expense-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: expense-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: expense-service
+  template:
+    metadata:
+      labels:
+        app: expense-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: expense-service
+          image: ${ACR_LOGIN_SERVER}/hrm/expense-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3023
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3023"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3023
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3023
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Timesheet Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: timesheet-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3024
+      targetPort: 3024
+  selector:
+    app: timesheet-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: timesheet-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: timesheet-service
+  template:
+    metadata:
+      labels:
+        app: timesheet-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: timesheet-service
+          image: ${ACR_LOGIN_SERVER}/hrm/timesheet-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3024
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3024"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3024
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3024
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Asset Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: asset-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3025
+      targetPort: 3025
+  selector:
+    app: asset-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: asset-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: asset-service
+  template:
+    metadata:
+      labels:
+        app: asset-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: asset-service
+          image: ${ACR_LOGIN_SERVER}/hrm/asset-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3025
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3025"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3025
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3025
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Grievance Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grievance-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3026
+      targetPort: 3026
+  selector:
+    app: grievance-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grievance-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: grievance-service
+  template:
+    metadata:
+      labels:
+        app: grievance-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: grievance-service
+          image: ${ACR_LOGIN_SERVER}/hrm/grievance-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3026
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3026"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3026
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3026
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Billing Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: billing-service
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3027
+      targetPort: 3027
+  selector:
+    app: billing-service
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing-service
+  namespace: hrm-production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: billing-service
+  template:
+    metadata:
+      labels:
+        app: billing-service
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: billing-service
+          image: ${ACR_LOGIN_SERVER}/hrm/billing-service:${IMAGE_TAG}
+          ports:
+            - containerPort: 3027
+          envFrom:
+            - configMapRef:
+                name: hrm-config
+          env:
+            - name: PORT
+              value: "3027"
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: MONGODB_URI
+            - name: RABBITMQ_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RABBITMQ_URL
+            - name: RAZORPAY_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RAZORPAY_KEY_ID
+            - name: RAZORPAY_KEY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RAZORPAY_KEY_SECRET
+            - name: RAZORPAY_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hrm-secrets
+                  key: RAZORPAY_WEBHOOK_SECRET
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3027
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3027
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+# Frontend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: hrm-production
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: frontend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: hrm-production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      serviceAccountName: hrm-service-account
+      containers:
+        - name: frontend
+          image: ${ACR_LOGIN_SERVER}/hrm/frontend:${IMAGE_TAG}
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "25m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
