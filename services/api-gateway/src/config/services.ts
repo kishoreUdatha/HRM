@@ -313,7 +313,7 @@ export const services: ServiceConfig[] = [
     name: 'onboarding-service',
     url: process.env.ONBOARDING_SERVICE_URL || 'http://localhost:3021',
     pathPrefix: '/api/onboarding',
-    targetPath: '',
+    targetPath: '/api',
     healthCheck: '/health',
     timeout: 30000,
     requiresAuth: true,
