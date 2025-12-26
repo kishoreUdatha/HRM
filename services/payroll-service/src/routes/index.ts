@@ -44,20 +44,12 @@ router.get(
 // Get payroll summary
 router.get('/summary', payrollController.getPayrollSummary);
 
-// Get payroll by ID
-router.get('/:id', payrollController.getPayrollById);
-
-// Process payroll
-router.patch('/:id/process', payrollController.processPayroll);
-
-// Mark payroll as paid
-router.patch('/:id/pay', payrollController.markAsPaid);
-
 // ==================== SALARY STRUCTURE ROUTES ====================
+// Note: These must come BEFORE /:id route to avoid matching
 
 // Create salary structure
 router.post(
-  '/structures',
+  '/salary-structures',
   [
     body('name').notEmpty().trim().withMessage('Name is required'),
     body('code').notEmpty().trim().withMessage('Code is required'),
@@ -66,18 +58,26 @@ router.post(
 );
 
 // Get salary structures
-router.get('/structures', salaryController.getSalaryStructures);
+router.get('/salary-structures', salaryController.getSalaryStructures);
 
 // Seed default salary structure
-router.post('/structures/seed', salaryController.seedSalaryStructure);
+router.post('/salary-structures/seed', salaryController.seedSalaryStructure);
 
 // Get salary structure by ID
-router.get('/structures/:id', salaryController.getSalaryStructureById);
+router.get('/salary-structures/:id', salaryController.getSalaryStructureById);
 
 // Update salary structure
-router.put('/structures/:id', salaryController.updateSalaryStructure);
+router.put('/salary-structures/:id', salaryController.updateSalaryStructure);
 
 // Delete salary structure
+router.delete('/salary-structures/:id', salaryController.deleteSalaryStructure);
+
+// Legacy routes for backwards compatibility
+router.post('/structures', salaryController.createSalaryStructure);
+router.get('/structures', salaryController.getSalaryStructures);
+router.post('/structures/seed', salaryController.seedSalaryStructure);
+router.get('/structures/:id', salaryController.getSalaryStructureById);
+router.put('/structures/:id', salaryController.updateSalaryStructure);
 router.delete('/structures/:id', salaryController.deleteSalaryStructure);
 
 // ==================== EMPLOYEE SALARY ROUTES ====================
@@ -101,22 +101,32 @@ router.get('/employee-salary/:employeeId', salaryController.getEmployeeSalary);
 router.put('/employee-salary/:id', salaryController.updateEmployeeSalary);
 
 // ==================== ADVANCED PAYROLL ROUTES ====================
+// NOTE: These must come BEFORE /:id route to avoid matching
 
 // Tax Configuration
 router.get('/tax-config/:countryCode', advancedPayrollController.getTaxConfiguration);
 router.put('/tax-config/:configId', advancedPayrollController.updateTaxConfiguration);
 router.post('/tax-calculation-preview', advancedPayrollController.getTaxCalculationPreview);
 
-// Payroll Batch
+// Payroll Batch - must come before /:id
 router.post('/batches', advancedPayrollController.createPayrollBatch);
 router.get('/batches', advancedPayrollController.getPayrollBatches);
 router.post('/batches/:batchId/process', advancedPayrollController.processPayrollBatch);
 router.post('/batches/:batchId/approve', advancedPayrollController.approvePayrollBatch);
 router.post('/batches/:batchId/pay', advancedPayrollController.markBatchAsPaid);
-
-// Payslip & Bank File Generation
-router.post('/:payrollId/payslip', advancedPayrollController.generatePayslip);
 router.post('/batches/:batchId/bank-file', advancedPayrollController.generateBankFile);
+
+// Process payroll - must come before /:id
+router.patch('/:id/process', payrollController.processPayroll);
+
+// Mark payroll as paid - must come before /:id
+router.patch('/:id/pay', payrollController.markAsPaid);
+
+// Payslip Generation - must come before /:id
+router.post('/:payrollId/payslip', advancedPayrollController.generatePayslip);
+
+// Get payroll by ID - MUST BE LAST among simple /:id routes
+router.get('/:id', payrollController.getPayrollById);
 
 // ==================== TAX DECLARATION ROUTES ====================
 

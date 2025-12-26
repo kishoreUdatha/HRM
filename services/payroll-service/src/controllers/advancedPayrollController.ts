@@ -240,7 +240,8 @@ export const getPayrollBatches = async (req: Request, res: Response): Promise<vo
     if (year) query.year = Number(year);
     if (status) query.status = status;
 
-    const batches = await PayrollBatch.find(query).sort({ year: -1, month: -1 }).skip((Number(page) - 1) * Number(limit)).limit(Number(limit)).lean();
+    // Use createdAt sort for Cosmos DB compatibility (multi-field sort not supported)
+    const batches = await PayrollBatch.find(query).sort({ createdAt: -1 }).skip((Number(page) - 1) * Number(limit)).limit(Number(limit)).lean();
     const total = await PayrollBatch.countDocuments(query);
     res.json({ success: true, data: batches, pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / Number(limit)) } });
   } catch (error: any) {
