@@ -378,70 +378,60 @@ export const getOrgStats = async (req: Request, res: Response): Promise<void> =>
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
 
-    const [
-      totalEmployees,
-      departmentCount,
-      avgSpanOfControl,
-      maxDepth,
-      employeesWithNoManager,
-      employeesWithNoReports
-    ] = await Promise.all([
+    // Get basic counts first
+    const [totalEmployees, departmentCount, employeesWithNoManager] = await Promise.all([
       Employee.countDocuments({ tenantId, status: 'active' }),
       Department.countDocuments({ tenantId, isActive: true }),
-      Employee.aggregate([
-        { $match: { tenantId: new mongoose.Types.ObjectId(tenantId), status: 'active' } },
-        {
-          $lookup: {
-            from: 'employees',
-            let: { empId: '$_id' },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ['$reportingManagerId', '$$empId'] },
-                  status: 'active',
-                  tenantId: new mongoose.Types.ObjectId(tenantId),
-                },
-              },
-            ],
-            as: 'directReports',
-          },
-        },
-        { $match: { 'directReports.0': { $exists: true } } },
-        { $group: { _id: null, avgReports: { $avg: { $size: '$directReports' } } } },
-      ]),
-      calculateOrgDepth(tenantId),
       Employee.countDocuments({ tenantId, status: 'active', reportingManagerId: { $exists: false } }),
-      Employee.aggregate([
-        { $match: { tenantId: new mongoose.Types.ObjectId(tenantId), status: 'active' } },
-        {
-          $lookup: {
-            from: 'employees',
-            let: { empId: '$_id' },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $eq: ['$reportingManagerId', '$$empId'] },
-                  status: 'active',
-                },
-              },
-            ],
-            as: 'directReports',
-          },
-        },
-        { $match: { directReports: { $size: 0 } } },
-        { $count: 'count' },
-      ]),
     ]);
+
+    // Calculate span of control and individual contributors using application logic
+    // (Cosmos DB doesn't support $let in $lookup)
+    const employees = await Employee.find({ tenantId, status: 'active' })
+      .select('_id reportingManagerId')
+      .lean();
+
+    // Count direct reports for each manager
+    const managerReportCounts = new Map<string, number>();
+    const allEmployeeIds = new Set<string>();
+
+    employees.forEach(emp => {
+      allEmployeeIds.add(emp._id.toString());
+      if (emp.reportingManagerId) {
+        const managerId = emp.reportingManagerId.toString();
+        managerReportCounts.set(managerId, (managerReportCounts.get(managerId) || 0) + 1);
+      }
+    });
+
+    // Calculate average span of control (only for managers who have reports)
+    let totalReports = 0;
+    let managersWithReports = 0;
+    managerReportCounts.forEach((count) => {
+      totalReports += count;
+      managersWithReports++;
+    });
+    const avgSpanOfControl = managersWithReports > 0 ? (totalReports / managersWithReports).toFixed(1) : 0;
+
+    // Count individual contributors (employees with no direct reports)
+    let individualContributors = 0;
+    allEmployeeIds.forEach(empId => {
+      if (!managerReportCounts.has(empId)) {
+        individualContributors++;
+      }
+    });
+
+    // Calculate org depth
+    const maxDepth = await calculateOrgDepth(tenantId);
 
     res.status(200).json({
       success: true,
       data: {
         totalEmployees,
         departmentCount,
-        averageSpanOfControl: avgSpanOfControl[0]?.avgReports?.toFixed(1) || 0,
+        averageSpanOfControl: avgSpanOfControl,
         organizationDepth: maxDepth,
         employeesWithNoManager,
-        individualContributors: employeesWithNoReports[0]?.count || 0,
+        individualContributors,
       },
     });
   } catch (error) {
