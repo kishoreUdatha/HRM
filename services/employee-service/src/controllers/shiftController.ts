@@ -19,8 +19,8 @@ export const getAllShifts = async (req: Request, res: Response): Promise<void> =
       query.isActive = true;
     }
 
-    // Note: Removed MongoDB sort due to Azure Cosmos DB index requirements
-    // Sorting is done in-memory instead
+    // Note: Using in-memory sorting for consistent results
+    // MongoDB Atlas: Can also use .sort({ name: 1 }) if index is created
     const shifts = await Shift.find(query).lean();
     shifts.sort((a, b) => {
       // Sort by isDefault first (true first), then by name

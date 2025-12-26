@@ -45,9 +45,9 @@ sudo apt-get install docker.io
 - Active Azure subscription with Owner or Contributor role
 - Sufficient quota for:
   - Azure Kubernetes Service (AKS) nodes
-  - Azure Cosmos DB
   - Azure Cache for Redis
   - Azure Container Registry
+
 
 ### Required Secrets & API Keys
 
@@ -82,10 +82,10 @@ sudo apt-get install docker.io
 │  └───────────────────────────────────────────────────────────────┘
 │                                  │                                │
 │  ┌───────────────────────────────┼───────────────────────────────┐
-│  │                    Azure Managed Services                     │
+│  │                    Managed Services                           │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐   │
-│  │  │ Cosmos DB   │  │ Redis Cache │  │ Blob Storage        │   │
-│  │  │ (MongoDB)   │  │             │  │                     │   │
+│  │  │  MongoDB    │  │ Redis Cache │  │ Blob Storage        │   │
+│  │  │  (in AKS)   │  │   (Azure)   │  │     (Azure)         │   │
 │  │  └─────────────┘  └─────────────┘  └─────────────────────┘   │
 │  └───────────────────────────────────────────────────────────────┘
 │                                                                   │
@@ -186,6 +186,8 @@ alert_email       = "ops@yourdomain.com"
 slack_webhook_url = "https://hooks.slack.com/services/..."
 ```
 
+**Note:** MongoDB is deployed internally within the AKS cluster for cost optimization.
+
 ### 2. Initialize and Apply Terraform
 
 ```bash
@@ -245,11 +247,14 @@ kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/
 # Apply namespaces
 kubectl apply -f infrastructure/kubernetes/base/namespace.yaml
 
+# Deploy MongoDB first
+kubectl apply -f infrastructure/kubernetes/base/mongodb.yaml
+
 # Create secrets (update values first!)
 # Option 1: Using kubectl
 kubectl create secret generic hrm-secrets \
   --namespace hrm-production \
-  --from-literal=MONGODB_URI="your-cosmos-connection-string" \
+  --from-literal=MONGODB_URI="mongodb://root:HRM_MongoDB_2024_Secure!@mongodb.hrm-production.svc.cluster.local:27017/?authSource=admin" \
   --from-literal=REDIS_URL="your-redis-connection-string" \
   --from-literal=JWT_ACCESS_SECRET="$(openssl rand -base64 64)" \
   --from-literal=JWT_REFRESH_SECRET="$(openssl rand -base64 64)" \
@@ -408,17 +413,19 @@ az monitor metrics alert create \
 
 ### 1. Automated MongoDB Backups
 
-Cosmos DB has continuous backup enabled. For additional backups:
+MongoDB is deployed within the AKS cluster. For manual backups stored in Azure:
 
 ```bash
 # Set environment variables
-export MONGODB_URI="your-cosmos-connection"
+export MONGODB_URI="mongodb://root:HRM_MongoDB_2024_Secure!@mongodb.hrm-production.svc.cluster.local:27017/?authSource=admin"
 export AZURE_STORAGE_ACCOUNT="hrmprodstorage"
 export AZURE_STORAGE_KEY="your-storage-key"
 
-# Run backup
+# Run backup (from within the cluster or port-forward)
 ./scripts/backup/backup-mongodb.sh
 ```
+
+**Note:** For production, configure scheduled CronJobs for automated backups.
 
 ### 2. Schedule Backups (Kubernetes CronJob)
 
@@ -563,8 +570,13 @@ kubectl rollout undo deployment/api-gateway -n hrm-production
 | Resource Group | hrm-production-rg | Container for all resources |
 | AKS Cluster | hrm-production-aks | Kubernetes cluster |
 | ACR | hrmproductionacr | Docker image registry |
-| Cosmos DB | hrm-production-cosmos | MongoDB database |
 | Redis Cache | hrm-production-redis | Caching layer |
 | Key Vault | hrm-production-kv | Secrets management |
 | Storage Account | hrmprodstorage | Blob storage for documents |
 | App Insights | hrm-production-appinsights | Monitoring |
+
+### Internal Services (in AKS)
+
+| Service | Type | Purpose |
+|---------|------|---------|
+| MongoDB | StatefulSet | Primary database (cost-optimized) |

@@ -180,26 +180,23 @@ az containerapp update \
 
 ## Database Setup
 
-### Option 1: Azure Cosmos DB (MongoDB API)
-```bash
-# Create Cosmos DB account
-az cosmosdb create \
-  --name hrm-cosmosdb \
-  --resource-group hrm-rg \
-  --kind MongoDB \
-  --server-version 4.2
+### Internal MongoDB (Cost-Optimized)
 
-# Get connection string
-az cosmosdb keys list \
-  --name hrm-cosmosdb \
-  --resource-group hrm-rg \
-  --type connection-strings
-```
+HRM uses MongoDB deployed within the AKS cluster for cost optimization:
 
-### Option 2: MongoDB Atlas
-1. Create a MongoDB Atlas cluster
-2. Whitelist Azure Container Apps IPs
-3. Get connection string
+1. Deploy MongoDB StatefulSet in your AKS cluster:
+   ```bash
+   kubectl apply -f infrastructure/kubernetes/base/mongodb.yaml
+   ```
+
+2. The MongoDB connection string for internal services:
+   ```
+   mongodb://root:HRM_MongoDB_2024_Secure!@mongodb.hrm-production.svc.cluster.local:27017/?authSource=admin
+   ```
+
+3. For Container Apps, you can connect to the AKS MongoDB via:
+   - VNet integration with AKS
+   - Or expose MongoDB via LoadBalancer (not recommended for production)
 
 ## Scaling Configuration
 

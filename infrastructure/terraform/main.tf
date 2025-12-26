@@ -93,7 +93,8 @@ resource "azurerm_subnet" "database" {
   virtual_network_name = azurerm_virtual_network.hrm.name
   address_prefixes     = ["10.2.0.0/24"]
 
-  service_endpoints = ["Microsoft.AzureCosmosDB"]
+  # MongoDB Atlas is used instead of Azure Cosmos DB
+  # No Azure service endpoints needed for external MongoDB Atlas
 }
 
 # ===========================================
@@ -197,85 +198,23 @@ resource "azurerm_role_assignment" "aks_acr" {
 }
 
 # ===========================================
-# AZURE COSMOS DB (MongoDB API)
+# MONGODB (Internal - Deployed in AKS)
 # ===========================================
-
-resource "azurerm_cosmosdb_account" "hrm" {
-  name                = "${var.project_name}-${var.environment}-cosmos"
-  location            = azurerm_resource_group.hrm.location
-  resource_group_name = azurerm_resource_group.hrm.name
-  offer_type          = "Standard"
-  kind                = "MongoDB"
-
-  enable_automatic_failover         = true
-  is_virtual_network_filter_enabled = true
-
-  capabilities {
-    name = "EnableMongo"
-  }
-
-  capabilities {
-    name = "MongoDBv3.4"
-  }
-
-
-  consistency_policy {
-    consistency_level       = "Session"
-    max_interval_in_seconds = 5
-    max_staleness_prefix    = 100
-  }
-
-  geo_location {
-    location          = azurerm_resource_group.hrm.location
-    failover_priority = 0
-  }
-
-  virtual_network_rule {
-    id = azurerm_subnet.database.id
-  }
-
-  backup {
-    type = "Continuous"
-  }
-
-  tags = local.common_tags
-}
-
-# Create MongoDB databases for each service
-resource "azurerm_cosmosdb_mongo_database" "databases" {
-  for_each = toset([
-    "hrm_auth",
-    "hrm_tenants",
-    "hrm_employees",
-    "hrm_attendance",
-    "hrm_leaves",
-    "hrm_payroll",
-    "hrm_notifications",
-    "hrm_reports",
-    "hrm_chat",
-    "hrm_analytics",
-    "hrm_documents",
-    "hrm_integrations",
-    "hrm_engagement",
-    "hrm_chatbot",
-    "hrm_ai_ml",
-    "hrm_recruitment",
-    "hrm_localization",
-    "hrm_benefits",
-    "hrm_onboarding",
-    "hrm_compliance",
-    "hrm_expenses",
-    "hrm_timesheets",
-    "hrm_assets",
-    "hrm_grievances",
-    "hrm_billing",
-    "hrm_workforce"
-  ])
-
-  name                = each.key
-  resource_group_name = azurerm_resource_group.hrm.name
-  account_name        = azurerm_cosmosdb_account.hrm.name
-}
+# MongoDB is deployed as a StatefulSet within the AKS cluster using Bitnami Helm chart.
+# This replaces Azure Cosmos DB for cost-effectiveness and full MongoDB compatibility.
+#
+# Deployment steps:
+# 1. Deploy MongoDB using Helm: helm install mongodb bitnami/mongodb -n hrm-production
+# 2. The connection string is automatically configured in Kubernetes secrets
+# 3. Services connect via: mongodb://mongodb.hrm-production.svc.cluster.local:27017
+#
+# Required databases (created automatically by services on first connection):
+# - hrm_auth, hrm_tenants, hrm_employees, hrm_attendance, hrm_leaves
+# - hrm_payroll, hrm_notifications, hrm_reports, hrm_chat, hrm_analytics
+# - hrm_documents, hrm_integrations, hrm_engagement, hrm_chatbot, hrm_ai_ml
+# - hrm_recruitment, hrm_localization, hrm_benefits, hrm_onboarding
+# - hrm_compliance, hrm_expenses, hrm_timesheets, hrm_assets
+# - hrm_grievances, hrm_billing, hrm_workforce
 
 # ===========================================
 # AZURE CACHE FOR REDIS
@@ -425,11 +364,9 @@ resource "azurerm_key_vault_secret" "rabbitmq_password" {
   key_vault_id = azurerm_key_vault.hrm.id
 }
 
-resource "azurerm_key_vault_secret" "mongodb_connection" {
-  name         = "mongodb-connection-string"
-  value        = azurerm_cosmosdb_account.hrm.primary_mongodb_connection_string
-  key_vault_id = azurerm_key_vault.hrm.id
-}
+# MongoDB connection string is managed via Kubernetes secrets
+# since MongoDB is deployed within the AKS cluster.
+# The connection string format: mongodb://root:password@mongodb.hrm-production.svc.cluster.local:27017
 
 resource "azurerm_key_vault_secret" "redis_connection" {
   name         = "redis-connection-string"

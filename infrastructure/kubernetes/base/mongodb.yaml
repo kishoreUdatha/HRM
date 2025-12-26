@@ -1,0 +1,156 @@
+# ===========================================
+# MongoDB StatefulSet for HRM Platform
+# Deployed within AKS cluster (replaces Azure Cosmos DB)
+# ===========================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongodb-secret
+  namespace: hrm-production
+  labels:
+    app: mongodb
+type: Opaque
+stringData:
+  mongodb-root-password: "HRM_MongoDB_2024_Secure!"
+  mongodb-passwords: "hrm_app_password_2024"
+  mongodb-replica-set-key: "HRM_ReplicaSet_Key_2024"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongodb-init-scripts
+  namespace: hrm-production
+data:
+  init-databases.js: |
+    // Create databases and users for HRM services
+    const databases = [
+      'hrm_auth', 'hrm_tenants', 'hrm_employees', 'hrm_attendance', 'hrm_leaves',
+      'hrm_payroll', 'hrm_notifications', 'hrm_reports', 'hrm_chat', 'hrm_analytics',
+      'hrm_documents', 'hrm_integrations', 'hrm_engagement', 'hrm_chatbot', 'hrm_ai_ml',
+      'hrm_recruitment', 'hrm_localization', 'hrm_benefits', 'hrm_onboarding',
+      'hrm_compliance', 'hrm_expenses', 'hrm_timesheets', 'hrm_assets',
+      'hrm_grievances', 'hrm_billing', 'hrm_workforce'
+    ];
+
+    databases.forEach(function(dbName) {
+      db = db.getSiblingDB(dbName);
+      db.createCollection('_init');
+      print('Created database: ' + dbName);
+    });
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: hrm-production
+  labels:
+    app: mongodb
+spec:
+  type: ClusterIP
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongodb
+  selector:
+    app: mongodb
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-headless
+  namespace: hrm-production
+  labels:
+    app: mongodb
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 27017
+      targetPort: 27017
+      name: mongodb
+  selector:
+    app: mongodb
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  namespace: hrm-production
+  labels:
+    app: mongodb
+spec:
+  serviceName: mongodb-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      securityContext:
+        fsGroup: 1001
+      containers:
+        - name: mongodb
+          image: mongo:7.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 1001
+            runAsNonRoot: true
+          ports:
+            - containerPort: 27017
+              name: mongodb
+          env:
+            - name: MONGO_INITDB_ROOT_USERNAME
+              value: "root"
+            - name: MONGO_INITDB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: mongodb-root-password
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          livenessProbe:
+            exec:
+              command:
+                - mongosh
+                - --eval
+                - "db.adminCommand('ping')"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command:
+                - mongosh
+                - --eval
+                - "db.adminCommand('ping')"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          volumeMounts:
+            - name: mongodb-data
+              mountPath: /data/db
+            - name: init-scripts
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init-scripts
+          configMap:
+            name: mongodb-init-scripts
+  volumeClaimTemplates:
+    - metadata:
+        name: mongodb-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: default
+        resources:
+          requests:
+            storage: 8Gi

@@ -69,25 +69,11 @@ output "aks_cluster_fqdn" {
 }
 
 # ===========================================
-# COSMOS DB (MongoDB)
+# MONGODB (Internal - Deployed in AKS)
 # ===========================================
-
-output "cosmosdb_endpoint" {
-  description = "Cosmos DB endpoint"
-  value       = azurerm_cosmosdb_account.hrm.endpoint
-}
-
-output "cosmosdb_connection_string" {
-  description = "Cosmos DB MongoDB connection string"
-  value       = azurerm_cosmosdb_account.hrm.primary_mongodb_connection_string
-  sensitive   = true
-}
-
-output "cosmosdb_primary_key" {
-  description = "Cosmos DB primary key"
-  value       = azurerm_cosmosdb_account.hrm.primary_key
-  sensitive   = true
-}
+# MongoDB is deployed within the AKS cluster using Bitnami Helm chart.
+# Connection string: mongodb://root:password@mongodb.hrm-production.svc.cluster.local:27017
+# Get password: kubectl get secret mongodb -n hrm-production -o jsonpath="{.data.mongodb-root-password}" | base64 -d
 
 # ===========================================
 # AZURE CACHE FOR REDIS

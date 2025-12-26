@@ -249,11 +249,12 @@ ingress:
         - api.hrm.yourdomain.com
 
 # ===========================================
-# External Services (Azure)
+# Database & External Services
 # ===========================================
 externalServices:
   mongodb:
-    # Azure Cosmos DB connection string from secret
+    # Internal MongoDB deployed in AKS cluster (cost-optimized)
+    # Connection: mongodb://root:password@mongodb.hrm-production.svc.cluster.local:27017
     connectionStringSecret: hrm-secrets
     connectionStringKey: MONGODB_URI
   redis:
@@ -264,6 +265,28 @@ externalServices:
     # Azure Blob Storage
     connectionStringSecret: hrm-secrets
     connectionStringKey: AZURE_STORAGE_CONNECTION_STRING
+
+# ===========================================
+# Internal MongoDB (Ultra Cost-Optimized)
+# Uses minimal resources, scales with cluster autoscaler
+# ===========================================
+mongodb:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    rootPassword: "HRM_MongoDB_2024_Secure!"
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClass: default
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "250m"
 
 # ===========================================
 # Monitoring & Observability
