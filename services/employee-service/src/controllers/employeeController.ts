@@ -77,7 +77,7 @@ export const getAllEmployees = async (
   }
 };
 
-// Get employee by ID
+// Get employee by ID (also supports lookup by userId)
 export const getEmployeeById = async (
   req: Request,
   res: Response,
@@ -87,12 +87,23 @@ export const getEmployeeById = async (
     const tenantId = req.headers['x-tenant-id'] as string;
     const { id } = req.params;
 
-    const employee = await Employee.findOne({
+    // First try to find by employee _id
+    let employee = await Employee.findOne({
       _id: id,
       tenantId,
     })
       .populate('departmentId', 'name code')
       .populate('reportingManagerId', 'firstName lastName email');
+
+    // If not found, try to find by userId (for mobile app compatibility)
+    if (!employee) {
+      employee = await Employee.findOne({
+        userId: id,
+        tenantId,
+      })
+        .populate('departmentId', 'name code')
+        .populate('reportingManagerId', 'firstName lastName email');
+    }
 
     if (!employee) {
       res.status(404).json({ success: false, message: 'Employee not found' });

@@ -4,3 +4,4 @@ export * from './attendanceApi';
 export * from './leaveApi';
 export * from './payrollApi';
 export * from './timesheetApi';
+export * from './employeeApi';

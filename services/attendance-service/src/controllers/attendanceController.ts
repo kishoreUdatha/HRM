@@ -217,7 +217,18 @@ export const checkIn = async (req: Request, res: Response): Promise<void> => {
     const userId = req.headers['x-user-id'] as string;
     const { employeeId, location, notes } = req.body;
 
-    const targetEmployeeId = employeeId || userId;
+    // If employeeId is provided, use it directly; otherwise look up employee by userId
+    let targetEmployeeId = employeeId;
+    if (!targetEmployeeId && userId) {
+      const employee = await getEmployeeByUserIdOrEmail(userId, tenantId);
+      if (employee) {
+        targetEmployeeId = employee._id.toString();
+        console.log('[Attendance Service] Check-in: Resolved userId to employeeId:', targetEmployeeId);
+      } else {
+        targetEmployeeId = userId; // Fallback to userId
+      }
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -290,7 +301,18 @@ export const checkOut = async (req: Request, res: Response): Promise<void> => {
     const userId = req.headers['x-user-id'] as string;
     const { employeeId, location, notes } = req.body;
 
-    const targetEmployeeId = employeeId || userId;
+    // If employeeId is provided, use it directly; otherwise look up employee by userId
+    let targetEmployeeId = employeeId;
+    if (!targetEmployeeId && userId) {
+      const employee = await getEmployeeByUserIdOrEmail(userId, tenantId);
+      if (employee) {
+        targetEmployeeId = employee._id.toString();
+        console.log('[Attendance Service] Check-out: Resolved userId to employeeId:', targetEmployeeId);
+      } else {
+        targetEmployeeId = userId; // Fallback to userId
+      }
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -430,7 +452,13 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
     const query: Record<string, unknown> = { tenantId };
 
     if (employeeId) {
-      query.employeeId = employeeId;
+      // Try to get employee by userId if the provided ID doesn't match an employee
+      let actualEmployeeId = employeeId as string;
+      const employee = await getEmployeeByUserIdOrEmail(employeeId as string, tenantId);
+      if (employee) {
+        actualEmployeeId = employee._id.toString();
+      }
+      query.employeeId = actualEmployeeId;
     } else if (filteredEmployeeIds) {
       query.employeeId = { $in: filteredEmployeeIds.map(id => new mongoose.Types.ObjectId(id)) };
     }
@@ -556,7 +584,13 @@ export const getAttendanceSummary = async (req: Request, res: Response): Promise
     };
 
     if (employeeId) {
-      query.employeeId = employeeId;
+      // Try to get employee by userId if the provided ID doesn't match an employee
+      let actualEmployeeId = employeeId as string;
+      const employee = await getEmployeeByUserIdOrEmail(employeeId as string, tenantId);
+      if (employee) {
+        actualEmployeeId = employee._id.toString();
+      }
+      query.employeeId = actualEmployeeId;
     }
 
     const records = await Attendance.find(query).lean();

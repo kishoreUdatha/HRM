@@ -293,28 +293,28 @@ export default function AttendanceHomeScreen() {
             <View style={[styles.summaryItem, {backgroundColor: summaryColors[0].bg}]}>
               <Icon name={summaryColors[0].icon} size={24} color={summaryColors[0].color} />
               <Text style={[styles.summaryValue, {color: summaryColors[0].color}]}>
-                {summary?.data?.presentDays || 0}
+                {summary?.data?.data?.summary?.present || summary?.data?.summary?.present || 0}
               </Text>
               <Text style={[styles.summaryLabel, {color: summaryColors[0].color}]}>Present</Text>
             </View>
             <View style={[styles.summaryItem, {backgroundColor: summaryColors[1].bg}]}>
               <Icon name={summaryColors[1].icon} size={24} color={summaryColors[1].color} />
               <Text style={[styles.summaryValue, {color: summaryColors[1].color}]}>
-                {summary?.data?.absentDays || 0}
+                {summary?.data?.data?.summary?.absent || summary?.data?.summary?.absent || 0}
               </Text>
               <Text style={[styles.summaryLabel, {color: summaryColors[1].color}]}>Absent</Text>
             </View>
             <View style={[styles.summaryItem, {backgroundColor: summaryColors[2].bg}]}>
               <Icon name={summaryColors[2].icon} size={24} color={summaryColors[2].color} />
               <Text style={[styles.summaryValue, {color: summaryColors[2].color}]}>
-                {summary?.data?.lateDays || 0}
+                {summary?.data?.data?.summary?.late || summary?.data?.summary?.late || 0}
               </Text>
               <Text style={[styles.summaryLabel, {color: summaryColors[2].color}]}>Late</Text>
             </View>
             <View style={[styles.summaryItem, {backgroundColor: summaryColors[3].bg}]}>
               <Icon name={summaryColors[3].icon} size={24} color={summaryColors[3].color} />
               <Text style={[styles.summaryValue, {color: summaryColors[3].color}]}>
-                {summary?.data?.leaveDays || 0}
+                {summary?.data?.data?.summary?.onLeave || summary?.data?.summary?.onLeave || 0}
               </Text>
               <Text style={[styles.summaryLabel, {color: summaryColors[3].color}]}>Leave</Text>
             </View>
@@ -324,14 +324,14 @@ export default function AttendanceHomeScreen() {
             <View style={[styles.hoursItem, {backgroundColor: colors.surfaceVariant}]}>
               <Icon name="clock-outline" size={20} color={colors.primary} />
               <Text style={[styles.hoursValue, {color: colors.text}]}>
-                {summary?.data?.totalWorkHours?.toFixed(0) || 0}h
+                {(summary?.data?.data?.summary?.totalWorkHours || summary?.data?.summary?.totalWorkHours || 0).toFixed(1)}h
               </Text>
               <Text style={[styles.hoursLabel, {color: colors.textSecondary}]}>Work Hours</Text>
             </View>
             <View style={[styles.hoursItem, {backgroundColor: colors.surfaceVariant}]}>
               <Icon name="clock-plus-outline" size={20} color="#8B5CF6" />
               <Text style={[styles.hoursValue, {color: colors.text}]}>
-                {summary?.data?.totalOvertimeHours?.toFixed(0) || 0}h
+                {(summary?.data?.data?.summary?.totalOvertimeHours || summary?.data?.summary?.totalOvertimeHours || 0).toFixed(1)}h
               </Text>
               <Text style={[styles.hoursLabel, {color: colors.textSecondary}]}>Overtime</Text>
             </View>

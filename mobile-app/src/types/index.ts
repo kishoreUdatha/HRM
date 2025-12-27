@@ -54,6 +54,15 @@ export interface AuthTokens {
 }
 
 // Employee Types
+export interface EmployeeSalary {
+  basic: number;
+  hra: number;
+  allowances: number;
+  deductions: number;
+  netSalary: number;
+  currency: string;
+}
+
 export interface Employee {
   _id: string;
   tenantId: string;
@@ -78,6 +87,7 @@ export interface Employee {
   employmentType: 'full-time' | 'part-time' | 'contract' | 'intern';
   status: 'active' | 'inactive' | 'terminated' | 'on-leave';
   shiftId?: string;
+  salary?: EmployeeSalary;
   createdAt: string;
   updatedAt: string;
 }
@@ -161,15 +171,18 @@ export interface LeaveRequest {
   tenantId: string;
   employeeId: string;
   employee?: Employee;
-  leaveTypeId: string;
+  leaveTypeId: string | { _id: string; name: string; code: string };
   leaveType?: LeaveType;
   startDate: string;
   endDate: string;
-  totalDays: number;
+  days?: number; // API returns 'days' field
+  totalDays?: number; // Alternative field name
+  isHalfDay?: boolean;
   reason: string;
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   approverId?: string;
   approver?: User;
+  approvedBy?: string;
   approvedAt?: string;
   rejectionReason?: string;
   attachments?: string[];
