@@ -2,9 +2,9 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IPayrollAudit extends Document {
   tenantId: string;
-  entityType: 'payroll' | 'paystub' | 'salary' | 'loan' | 'reimbursement' | 'bonus' | 'tax_declaration' | 'form16' | 'salary_revision' | 'batch' | 'statutory_compliance';
+  entityType: 'payroll' | 'paystub' | 'salary' | 'loan' | 'reimbursement' | 'bonus' | 'tax_declaration' | 'form16' | 'salary_revision' | 'batch' | 'statutory_compliance' | 'investment_declaration' | 'leave_encashment';
   entityId: string;
-  action: 'create' | 'update' | 'delete' | 'approve' | 'reject' | 'process' | 'pay' | 'cancel' | 'generate' | 'submit' | 'disburse' | 'close';
+  action: 'create' | 'update' | 'delete' | 'approve' | 'reject' | 'process' | 'pay' | 'cancel' | 'generate' | 'submit' | 'disburse' | 'close' | 'lock' | 'verify';
   performedBy: string;
   performedByName?: string;
   performedByRole?: string;
@@ -29,6 +29,9 @@ export interface IPayrollAudit extends Document {
     comments?: string;
     type?: string;
     quarter?: number | string;
+    count?: number;
+    totalDeclared?: number;
+    totalVerified?: number;
   };
   sessionId?: string;
   requestId?: string;
@@ -39,13 +42,13 @@ const PayrollAuditSchema = new Schema({
   tenantId: { type: String, required: true, index: true },
   entityType: {
     type: String,
-    enum: ['payroll', 'paystub', 'salary', 'loan', 'reimbursement', 'bonus', 'tax_declaration', 'form16', 'salary_revision', 'batch', 'statutory_compliance'],
+    enum: ['payroll', 'paystub', 'salary', 'loan', 'reimbursement', 'bonus', 'tax_declaration', 'form16', 'salary_revision', 'batch', 'statutory_compliance', 'investment_declaration', 'leave_encashment'],
     required: true
   },
   entityId: { type: String, required: true, index: true },
   action: {
     type: String,
-    enum: ['create', 'update', 'delete', 'approve', 'reject', 'process', 'pay', 'cancel', 'generate', 'submit', 'disburse', 'close'],
+    enum: ['create', 'update', 'delete', 'approve', 'reject', 'process', 'pay', 'cancel', 'generate', 'submit', 'disburse', 'close', 'lock', 'verify'],
     required: true
   },
   performedBy: { type: String, required: true, index: true },

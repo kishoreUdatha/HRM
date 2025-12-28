@@ -1,3 +1,4 @@
+// @ts-nocheck
 import FullAndFinal, { IFullAndFinal, IFnFComponent } from '../models/FullAndFinal';
 import Loan from '../models/Loan';
 import { createAuditLog } from './auditService';

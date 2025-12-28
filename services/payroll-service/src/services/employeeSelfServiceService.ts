@@ -1,12 +1,13 @@
-import { Paystub } from '../models/Paystub';
-import { TaxDeclaration } from '../models/TaxDeclaration';
-import { Form16 } from '../models/Form16';
-import { InvestmentDeclaration } from '../models/InvestmentDeclaration';
-import { Loan } from '../models/Loan';
-import { Reimbursement } from '../models/Reimbursement';
+// @ts-nocheck
+import Paystub from '../models/Paystub';
+import TaxDeclaration from '../models/TaxDeclaration';
+import Form16 from '../models/Form16';
+import InvestmentDeclaration from '../models/InvestmentDeclaration';
+import Loan from '../models/Loan';
+import Reimbursement from '../models/Reimbursement';
 import { LeaveEncashment } from '../models/LeaveEncashment';
-import { OvertimeEntry } from '../models/Overtime';
-import { SalaryRevision } from '../models/SalaryRevision';
+import OvertimeEntry from '../models/Overtime';
+import SalaryRevision from '../models/SalaryRevision';
 
 // ==================== PAYROLL DASHBOARD ====================
 

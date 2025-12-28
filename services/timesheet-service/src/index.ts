@@ -16,13 +16,13 @@ app.use(express.json());
 // Connect to MongoDB
 connectDB();
 
-// Routes
-app.use('/api', routes);
-
-// Health check
+// Health check - must be before routes to avoid /:id matching
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', service: 'timesheet-service' });
 });
+
+// Routes - mounted at root since API gateway strips /api/timesheets prefix
+app.use('/', routes);
 
 app.listen(PORT, () => {
   console.log(`Timesheet Service running on port ${PORT}`);

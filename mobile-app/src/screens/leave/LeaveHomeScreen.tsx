@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useCallback} from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   FlatList,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useQuery} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -49,15 +49,27 @@ export default function LeaveHomeScreen() {
     queryKey: ['leaveBalance', effectiveEmployeeId],
     queryFn: () => leaveApi.getLeaveBalance(effectiveEmployeeId || ''),
     enabled: !!effectiveEmployeeId,
+    staleTime: 0, // Always consider data stale
+    refetchOnMount: 'always', // Refetch on screen focus
   });
 
   const {data: leaveRequests, isLoading: isLoadingRequests, refetch: refetchRequests} = useQuery({
     queryKey: ['leaveRequests', effectiveEmployeeId],
     queryFn: () => leaveApi.getLeaveRequests({employeeId: effectiveEmployeeId, limit: 20}),
     enabled: !!effectiveEmployeeId,
+    staleTime: 0, // Always consider data stale
+    refetchOnMount: 'always', // Refetch on screen focus
   });
 
   const isLoading = isLoadingBalance || isLoadingRequests;
+
+  // Refetch data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refetchBalance();
+      refetchRequests();
+    }, [refetchBalance, refetchRequests])
+  );
 
   const handleRefresh = () => {
     refetchBalance();
@@ -81,40 +93,57 @@ export default function LeaveHomeScreen() {
 
   const renderLeaveItem = ({item, index}: {item: LeaveRequest; index: number}) => {
     const statusColors = getStatusColor(item.status);
+    const colorSet = leaveColors[index % leaveColors.length];
+    const daysCount = item.days || item.totalDays || 1;
+    const startDate = new Date(item.startDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
+    const endDate = new Date(item.endDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
+
     return (
       <TouchableOpacity
         style={[styles.leaveItem, {backgroundColor: colors.card}]}
         onPress={() => navigation.navigate('LeaveDetail', {leaveId: item._id})}>
+        {/* Header: Leave Type & Status */}
         <View style={styles.leaveHeader}>
-          <View style={styles.leaveTypeRow}>
-            <View style={[styles.leaveTypeIcon, {backgroundColor: leaveColors[index % leaveColors.length].bg}]}>
-              <Icon name="calendar-check-outline" size={20} color={leaveColors[index % leaveColors.length].color} />
-            </View>
-            <Text style={[styles.leaveType, {color: colors.text}]}>
-              {item.leaveType?.name || item.leaveTypeId?.name || 'Leave'}
-            </Text>
+          <View style={[styles.leaveTypeIcon, {backgroundColor: colorSet.bg}]}>
+            <Icon name="calendar-check-outline" size={20} color={colorSet.color} />
           </View>
+          <Text style={[styles.leaveType, {color: colors.text}]} numberOfLines={1}>
+            {item.leaveType?.name || item.leaveTypeId?.name || 'Leave'}
+          </Text>
           <View style={[styles.statusBadge, {backgroundColor: statusColors.bg}]}>
             <Text style={[styles.statusText, {color: statusColors.color}]}>
               {item.status.toUpperCase()}
             </Text>
           </View>
         </View>
-        <View style={styles.leaveDates}>
-          <Icon name="calendar-range" size={16} color={colors.textSecondary} />
-          <Text style={[styles.dateText, {color: colors.textSecondary}]}>
-            {new Date(item.startDate).toLocaleDateString()} -{' '}
-            {new Date(item.endDate).toLocaleDateString()}
-          </Text>
-          <View style={[styles.daysBadge, {backgroundColor: colors.primary + '20'}]}>
-            <Text style={[styles.daysText, {color: colors.primary}]}>
-              {item.totalDays} {item.totalDays === 1 ? 'day' : 'days'}
+
+        {/* Details Row */}
+        <View style={styles.leaveDetails}>
+          {/* Date */}
+          <View style={styles.detailItem}>
+            <Icon name="calendar-range" size={14} color={colors.textSecondary} />
+            <Text style={[styles.detailText, {color: colors.textSecondary}]}>
+              {item.startDate === item.endDate ? startDate : `${startDate} - ${endDate}`}
+            </Text>
+          </View>
+          {/* Days */}
+          <View style={[styles.daysBadge, {backgroundColor: colorSet.bg}]}>
+            <Icon name="clock-outline" size={12} color={colorSet.color} />
+            <Text style={[styles.daysText, {color: colorSet.color}]}>
+              {daysCount} {daysCount === 1 ? 'Day' : 'Days'}
             </Text>
           </View>
         </View>
-        <Text style={[styles.reason, {color: colors.textSecondary}]} numberOfLines={1}>
-          {item.reason}
-        </Text>
+
+        {/* Reason */}
+        {item.reason ? (
+          <View style={styles.reasonRow}>
+            <Icon name="note-text-outline" size={14} color={colors.textSecondary} />
+            <Text style={[styles.reason, {color: colors.textSecondary}]} numberOfLines={1}>
+              {item.reason}
+            </Text>
+          </View>
+        ) : null}
       </TouchableOpacity>
     );
   };
@@ -391,35 +420,31 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   leaveItem: {
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.xl,
-    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.sm,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: {width: 0, height: 1},
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   leaveHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  leaveTypeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginBottom: Spacing.sm,
   },
   leaveTypeIcon: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: Spacing.sm,
   },
   leaveType: {
-    fontSize: FontSizes.lg,
+    flex: 1,
+    fontSize: FontSizes.md,
     fontWeight: '600',
   },
   statusBadge: {
@@ -431,27 +456,40 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.xs,
     fontWeight: '600',
   },
-  leaveDates: {
+  leaveDetails: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.sm,
+    justifyContent: 'space-between',
   },
-  dateText: {
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  detailText: {
     fontSize: FontSizes.sm,
-    marginLeft: Spacing.xs,
-    flex: 1,
   },
   daysBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: 4,
     borderRadius: BorderRadius.sm,
+    gap: 4,
   },
   daysText: {
     fontSize: FontSizes.xs,
     fontWeight: '600',
   },
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Spacing.sm,
+    gap: 4,
+  },
   reason: {
     fontSize: FontSizes.sm,
+    flex: 1,
   },
   emptyState: {
     alignItems: 'center',

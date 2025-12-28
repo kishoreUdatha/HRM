@@ -18,26 +18,32 @@ interface Notification {
   _id: string;
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'maintenance' | 'feature' | 'update';
+  type: 'info' | 'warning' | 'maintenance' | 'feature' | 'billing';
   targetAudience: 'all' | 'plan_specific' | 'tenant_specific';
   targetPlans?: string[];
   targetTenants?: string[];
-  status: 'draft' | 'scheduled' | 'sent' | 'expired';
+  status: 'draft' | 'scheduled' | 'sent' | 'expired' | 'cancelled';
   scheduledAt?: string;
   sentAt?: string;
   expiresAt?: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  dismissible?: boolean;
+  actionUrl?: string;
+  actionLabel?: string;
   createdAt: string;
 }
 
 interface FormData {
   title: string;
   message: string;
-  type: 'info' | 'warning' | 'maintenance' | 'feature' | 'update';
+  type: 'info' | 'warning' | 'maintenance' | 'feature' | 'billing';
   targetAudience: 'all' | 'plan_specific' | 'tenant_specific';
   targetPlans: string[];
-  priority: 'low' | 'medium' | 'high';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
   scheduledAt: string;
+  dismissible: boolean;
+  actionUrl: string;
+  actionLabel: string;
 }
 
 const PlatformNotifications: React.FC = () => {
@@ -51,8 +57,11 @@ const PlatformNotifications: React.FC = () => {
     type: 'info',
     targetAudience: 'all',
     targetPlans: [],
-    priority: 'medium',
+    priority: 'normal',
     scheduledAt: '',
+    dismissible: true,
+    actionUrl: '',
+    actionLabel: '',
   });
 
   useEffect(() => {
@@ -157,8 +166,11 @@ const PlatformNotifications: React.FC = () => {
       type: 'info',
       targetAudience: 'all',
       targetPlans: [],
-      priority: 'medium',
+      priority: 'normal',
       scheduledAt: '',
+      dismissible: true,
+      actionUrl: '',
+      actionLabel: '',
     });
   };
 
@@ -172,6 +184,9 @@ const PlatformNotifications: React.FC = () => {
       targetPlans: notification.targetPlans || [],
       priority: notification.priority,
       scheduledAt: notification.scheduledAt || '',
+      dismissible: notification.dismissible ?? true,
+      actionUrl: notification.actionUrl || '',
+      actionLabel: notification.actionLabel || '',
     });
   };
 
@@ -206,12 +221,13 @@ const PlatformNotifications: React.FC = () => {
   const getPriorityBadge = (priority: string) => {
     const styles: Record<string, string> = {
       low: 'bg-gray-100 text-gray-600',
-      medium: 'bg-blue-100 text-blue-700',
-      high: 'bg-red-100 text-red-700',
+      normal: 'bg-blue-100 text-blue-700',
+      high: 'bg-orange-100 text-orange-700',
+      urgent: 'bg-red-100 text-red-700',
     };
 
     return (
-      <span className={`px-2 py-1 rounded text-xs font-medium ${styles[priority]}`}>
+      <span className={`px-2 py-1 rounded text-xs font-medium ${styles[priority] || 'bg-gray-100 text-gray-600'}`}>
         {priority.charAt(0).toUpperCase() + priority.slice(1)}
       </span>
     );
@@ -365,7 +381,7 @@ const PlatformNotifications: React.FC = () => {
                       <option value="warning">Warning</option>
                       <option value="maintenance">Maintenance</option>
                       <option value="feature">New Feature</option>
-                      <option value="update">Update</option>
+                      <option value="billing">Billing</option>
                     </select>
                   </div>
                   <div>
@@ -376,8 +392,9 @@ const PlatformNotifications: React.FC = () => {
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                     >
                       <option value="low">Low</option>
-                      <option value="medium">Medium</option>
+                      <option value="normal">Normal</option>
                       <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
                     </select>
                   </div>
                 </div>
@@ -439,6 +456,44 @@ const PlatformNotifications: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Action URL (optional)
+                    </label>
+                    <input
+                      type="url"
+                      value={formData.actionUrl}
+                      onChange={(e) => setFormData({ ...formData, actionUrl: e.target.value })}
+                      placeholder="https://..."
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Action Label (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.actionLabel}
+                      onChange={(e) => setFormData({ ...formData, actionLabel: e.target.value })}
+                      placeholder="Learn More"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="dismissible"
+                    checked={formData.dismissible}
+                    onChange={(e) => setFormData({ ...formData, dismissible: e.target.checked })}
+                    className="rounded text-purple-600"
+                  />
+                  <label htmlFor="dismissible" className="text-sm text-gray-700">
+                    Allow users to dismiss this notification
+                  </label>
                 </div>
               </div>
               <div className="flex gap-3 p-6 border-t border-gray-100">

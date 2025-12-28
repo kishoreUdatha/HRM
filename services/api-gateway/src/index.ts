@@ -1,15 +1,15 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { createProxyMiddleware, Options } from 'http-proxy-middleware';
-import dotenv from 'dotenv';
 
 import { services, getServiceByPath } from './config/services';
 import { authenticateToken, extractTenant, AuthRequest } from './middleware/auth';
 import { apiLimiter, authLimiter } from './middleware/rateLimiter';
-
-dotenv.config();
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;

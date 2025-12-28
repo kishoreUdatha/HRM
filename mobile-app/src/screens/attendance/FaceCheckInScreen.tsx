@@ -18,6 +18,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {Camera, useCameraDevice, useCameraPermission} from 'react-native-vision-camera';
 import Geolocation from '@react-native-community/geolocation';
 import RNFS from 'react-native-fs';
+import {useQueryClient} from '@tanstack/react-query';
 
 import {useAuthStore, useEmployee} from '../../store/authStore';
 import {attendanceApi, VerifyFaceResponse} from '../../api/attendanceApi';
@@ -34,6 +35,7 @@ export default function FaceCheckInScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
   const employee = useEmployee();
+  const queryClient = useQueryClient();
   const isDarkMode = useAuthStore(state => state.isDarkMode);
   const colors = isDarkMode ? Colors.dark : Colors.light;
 
@@ -269,6 +271,12 @@ export default function FaceCheckInScreen() {
           ? `Goodbye, ${matchedEmployee.employeeName.split(' ')[0]}! See you tomorrow!`
           : `Thank you, ${matchedEmployee.employeeName.split(' ')[0]}! Have a productive day!`));
         setVerificationState('success');
+
+        // Invalidate attendance queries to refresh data immediately
+        queryClient.invalidateQueries({queryKey: ['todayAttendance']});
+        queryClient.invalidateQueries({queryKey: ['attendanceSummary']});
+        queryClient.invalidateQueries({queryKey: ['attendanceRecords']});
+        queryClient.invalidateQueries({queryKey: ['attendance']});
 
         // Animate success icon
         Animated.spring(successScale, {

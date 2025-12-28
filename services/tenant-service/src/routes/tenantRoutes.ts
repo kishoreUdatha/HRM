@@ -108,6 +108,14 @@ router.get('/admin/settings', requireSuperAdmin, platformAdmin.getSystemSettings
 router.put('/admin/settings', requireSuperAdmin, platformAdmin.updateSystemSettings);
 router.post('/admin/maintenance', requireSuperAdmin, platformAdmin.toggleMaintenanceMode);
 
+// Plan Management
+router.get('/admin/plans', requireSuperAdmin, platformAdmin.getPlans);
+router.get('/admin/features', requireSuperAdmin, platformAdmin.getAvailableFeatures);
+router.put('/admin/plans/:planName', requireSuperAdmin, platformAdmin.updatePlan);
+router.post('/admin/plans/:planName/features', requireSuperAdmin, platformAdmin.addPlanFeature);
+router.delete('/admin/plans/:planName/features', requireSuperAdmin, platformAdmin.removePlanFeature);
+router.put('/admin/plans/:planName/features', requireSuperAdmin, platformAdmin.updatePlanFeatures);
+
 // Tenant notifications (for tenant users to get platform announcements)
 router.get('/notifications', platformAdmin.getTenantNotifications);
 

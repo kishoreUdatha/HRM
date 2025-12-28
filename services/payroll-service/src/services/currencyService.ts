@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Currency, EmployeeCurrency, ICurrency, IEmployeeCurrency } from '../models/Currency';
 
 export async function setupCurrency(

@@ -1,7 +1,7 @@
-import React from 'react';
+import React, {useCallback} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -18,11 +18,20 @@ export default function LeaveDetailScreen() {
   const colors = isDarkMode ? Colors.dark : Colors.light;
   const {leaveId} = route.params;
 
-  const {data: leave, isLoading, isError} = useQuery({
+  const {data: leave, isLoading, isError, refetch} = useQuery({
     queryKey: ['leaveRequest', leaveId],
     queryFn: () => leaveApi.getLeaveRequestById(leaveId),
     enabled: !!leaveId,
+    staleTime: 0, // Always consider data stale to fetch fresh data
+    refetchOnMount: 'always', // Refetch whenever component mounts
   });
+
+  // Refetch data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const cancelMutation = useMutation({
     mutationFn: () => leaveApi.cancelLeaveRequest(leaveId),
@@ -112,19 +121,39 @@ export default function LeaveDetailScreen() {
               </View>
               <View style={styles.row}>
                 <Text style={[styles.label, {color: colors.textSecondary}]}>Duration</Text>
-                <Text style={[styles.value, {color: colors.text}]}>{request.days || request.totalDays || 1} day{(request.days || request.totalDays || 1) > 1 ? 's' : ''}</Text>
+                <Text style={[styles.value, {color: colors.text}]}>{request.days || request.totalDays || 1} {(request.days || request.totalDays || 1) === 1 ? 'Day' : 'Days'}</Text>
               </View>
               <View style={styles.row}>
                 <Text style={[styles.label, {color: colors.textSecondary}]}>Dates</Text>
                 <Text style={[styles.value, {color: colors.text}]}>
-                  {formatDate(request.startDate)} - {formatDate(request.endDate)}
+                  {formatDate(request.startDate)}{request.startDate !== request.endDate ? ` - ${formatDate(request.endDate)}` : ''}
                 </Text>
               </View>
-              <View style={styles.row}>
-                <Text style={[styles.label, {color: colors.textSecondary}]}>Reason</Text>
-                <Text style={[styles.value, {color: colors.text}]}>{request.reason || 'No reason provided'}</Text>
-              </View>
             </View>
+
+            {/* Reason Section */}
+            <View style={[styles.reasonCard, {backgroundColor: colors.card, borderColor: colors.cardBorder}]}>
+              <View style={styles.reasonHeader}>
+                <Icon name="note-text-outline" size={18} color={colors.primary} />
+                <Text style={[styles.reasonTitle, {color: colors.text}]}>Reason</Text>
+              </View>
+              <Text style={[styles.reasonText, {color: colors.textSecondary}]}>
+                {request.reason || 'No reason provided'}
+              </Text>
+            </View>
+
+            {/* Rejection Reason Section */}
+            {request.status === 'rejected' && request.rejectionReason && (
+              <View style={[styles.rejectionCard, {backgroundColor: colors.error + '10', borderColor: colors.error + '30'}]}>
+                <View style={styles.reasonHeader}>
+                  <Icon name="close-circle-outline" size={18} color={colors.error} />
+                  <Text style={[styles.reasonTitle, {color: colors.error}]}>Rejection Reason</Text>
+                </View>
+                <Text style={[styles.reasonText, {color: colors.error}]}>
+                  {request.rejectionReason}
+                </Text>
+              </View>
+            )}
 
             {request.status === 'pending' && (
               <TouchableOpacity
@@ -158,11 +187,37 @@ const styles = StyleSheet.create({
   headerSpacer: {width: 24},
   content: {flex: 1, padding: Spacing.lg},
   card: {padding: Spacing.lg, borderRadius: BorderRadius.lg, borderWidth: 1},
-  row: {flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.md},
+  row: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md},
   label: {fontSize: FontSizes.md},
   value: {fontSize: FontSizes.md, fontWeight: '600', flex: 1, textAlign: 'right'},
   statusBadge: {paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: BorderRadius.xs},
   statusText: {fontSize: FontSizes.sm, fontWeight: '600'},
+  reasonCard: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginTop: Spacing.md,
+  },
+  rejectionCard: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginTop: Spacing.md,
+  },
+  reasonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  reasonTitle: {
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+  },
+  reasonText: {
+    fontSize: FontSizes.md,
+    lineHeight: 22,
+  },
   cancelButton: {
     marginTop: Spacing.lg,
     paddingVertical: Spacing.md,

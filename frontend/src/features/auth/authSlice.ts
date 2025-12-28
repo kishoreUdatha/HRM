@@ -15,7 +15,7 @@ const initialState: AuthState = {
   user: null,
   tenant: null,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true, // Start with loading true to prevent rendering before auth check
   error: null,
 };
 

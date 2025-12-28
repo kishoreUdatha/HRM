@@ -83,16 +83,38 @@ const EmployeeLeaveView: React.FC<{ user: any }> = ({ user }) => {
         setFormData((prev) => ({ ...prev, leaveTypeId: types[0]._id }));
       }
 
-      // Try to fetch leave balances from API
-      try {
-        const balanceResponse = await api.get('/leaves/balances/my');
-        if (balanceResponse.data.data?.balances) {
-          setLeaveBalances(balanceResponse.data.data.balances);
-        } else {
-          // Generate mock balances if API doesn't return data
+      // Fetch leave balances using the correct endpoint
+      const employeeId = user?.employeeId || user?._id;
+      if (employeeId) {
+        try {
+          const balanceResponse = await api.get(`/leaves/balance/${employeeId}`);
+          if (balanceResponse.data.success && balanceResponse.data.data?.balances) {
+            // Map the API response to the expected format
+            const balances = balanceResponse.data.data.balances.map((b: any) => ({
+              leaveTypeId: b.leaveTypeId?._id || b.leaveTypeId,
+              leaveTypeName: b.leaveTypeId?.name || 'Unknown',
+              allocated: b.entitled || 0,
+              used: b.used || 0,
+              pending: b.pending || 0,
+              available: b.balance || 0,
+            }));
+            // Deduplicate by leaveTypeId - keep only one entry per leave type
+            const deduplicatedBalances = balances.reduce((acc: LeaveBalance[], curr: LeaveBalance) => {
+              const existing = acc.find(b => b.leaveTypeId === curr.leaveTypeId);
+              if (!existing) {
+                acc.push(curr);
+              }
+              return acc;
+            }, []);
+            setLeaveBalances(deduplicatedBalances);
+          } else {
+            generateMockBalances(types);
+          }
+        } catch (err) {
+          console.error('Failed to fetch leave balances:', err);
           generateMockBalances(types);
         }
-      } catch {
+      } else {
         generateMockBalances(types);
       }
     } catch (error) {

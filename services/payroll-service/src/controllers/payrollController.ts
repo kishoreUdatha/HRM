@@ -306,6 +306,15 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
     const userId = req.headers['x-user-id'] as string;
     const { month, year, employeeIds } = req.body;
 
+    // Validate employeeIds is an array
+    if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'employeeIds must be a non-empty array',
+      });
+      return;
+    }
+
     const results = { success: 0, failed: 0, errors: [] as string[] };
 
     for (const employeeId of employeeIds) {

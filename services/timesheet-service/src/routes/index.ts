@@ -3,35 +3,35 @@ import * as timesheetController from '../controllers/timesheetController';
 
 const router = Router();
 
-// Projects
-router.post('/:tenantId/projects', timesheetController.createProject);
-router.get('/:tenantId/projects', timesheetController.getProjects);
-router.get('/:tenantId/projects/:id', timesheetController.getProjectById);
-router.put('/:tenantId/projects/:id', timesheetController.updateProject);
-router.post('/:tenantId/projects/:id/members', timesheetController.addProjectMember);
+// Projects (tenant ID from x-tenant-id header)
+router.post('/projects', timesheetController.createProject);
+router.get('/projects', timesheetController.getProjects);
+router.get('/projects/:id', timesheetController.getProjectById);
+router.put('/projects/:id', timesheetController.updateProject);
+router.post('/projects/:id/members', timesheetController.addProjectMember);
 
-// Timesheets
-router.get('/:tenantId/timesheets', timesheetController.getTimesheets);
-router.get('/:tenantId/timesheets/current', timesheetController.getOrCreateTimesheet);
-router.get('/:tenantId/timesheets/:id', timesheetController.getTimesheetById);
-router.post('/:tenantId/timesheets/:id/entries', timesheetController.addTimesheetEntry);
-router.put('/:tenantId/timesheets/:id/entries/:entryId', timesheetController.updateTimesheetEntry);
-router.delete('/:tenantId/timesheets/:id/entries/:entryId', timesheetController.deleteTimesheetEntry);
-router.post('/:tenantId/timesheets/:id/submit', timesheetController.submitTimesheet);
-router.post('/:tenantId/timesheets/:id/approve', timesheetController.approveTimesheet);
-router.post('/:tenantId/timesheets/:id/reject', timesheetController.rejectTimesheet);
+// Timesheets (tenant ID from x-tenant-id header)
+router.get('/', timesheetController.getTimesheets);
+router.get('/current', timesheetController.getOrCreateTimesheet);
+router.get('/:id', timesheetController.getTimesheetById);
+router.post('/:id/entries', timesheetController.addTimesheetEntry);
+router.put('/:id/entries/:entryId', timesheetController.updateTimesheetEntry);
+router.delete('/:id/entries/:entryId', timesheetController.deleteTimesheetEntry);
+router.post('/:id/submit', timesheetController.submitTimesheet);
+router.post('/:id/approve', timesheetController.approveTimesheet);
+router.post('/:id/reject', timesheetController.rejectTimesheet);
 
 // Time Entries (Timer)
-router.post('/:tenantId/time-entries/start', timesheetController.startTimer);
-router.post('/:tenantId/time-entries/:id/stop', timesheetController.stopTimer);
-router.get('/:tenantId/time-entries', timesheetController.getTimeEntries);
+router.post('/time-entries/start', timesheetController.startTimer);
+router.post('/time-entries/:id/stop', timesheetController.stopTimer);
+router.get('/time-entries', timesheetController.getTimeEntries);
 
 // Reports
-router.get('/:tenantId/stats', timesheetController.getTimesheetStats);
-router.get('/:tenantId/utilization', timesheetController.getUtilizationReport);
+router.get('/stats', timesheetController.getTimesheetStats);
+router.get('/utilization', timesheetController.getUtilizationReport);
 
 // Generate/Sync from Attendance
-router.post('/:tenantId/timesheets/generate-from-attendance', timesheetController.generateTimesheetsFromAttendance);
-router.post('/:tenantId/timesheets/sync-from-attendance', timesheetController.syncTimesheetsFromAttendance);
+router.post('/generate-from-attendance', timesheetController.generateTimesheetsFromAttendance);
+router.post('/sync-from-attendance', timesheetController.syncTimesheetsFromAttendance);
 
 export default router;

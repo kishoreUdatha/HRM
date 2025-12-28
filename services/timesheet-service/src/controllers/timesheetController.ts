@@ -80,10 +80,18 @@ const getWeekDates = (date: Date): { start: Date; end: Date } => {
   return { start, end };
 };
 
+// Helper to get tenant ID from header
+const getTenantId = (req: Request): string | null => {
+  return req.headers['x-tenant-id'] as string || null;
+};
+
 // Project Controllers
 export const createProject = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
     const project = new Project({
       ...req.body,
       tenantId,
@@ -98,7 +106,10 @@ export const createProject = async (req: Request, res: Response) => {
 
 export const getProjects = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
     const { status, employeeId, isActive } = req.query;
 
     const query: any = { tenantId };
@@ -154,7 +165,11 @@ export const getProjects = async (req: Request, res: Response) => {
 
 export const getProjectById = async (req: Request, res: Response) => {
   try {
-    const { tenantId, id } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { id } = req.params;
     const project = await Project.findOne({ _id: id, tenantId }).lean();
 
     if (!project) {
@@ -199,7 +214,11 @@ export const getProjectById = async (req: Request, res: Response) => {
 
 export const updateProject = async (req: Request, res: Response) => {
   try {
-    const { tenantId, id } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { id } = req.params;
     const project = await Project.findOneAndUpdate(
       { _id: id, tenantId },
       req.body,
@@ -216,7 +235,11 @@ export const updateProject = async (req: Request, res: Response) => {
 
 export const addProjectMember = async (req: Request, res: Response) => {
   try {
-    const { tenantId, id } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { id } = req.params;
     const memberData = req.body;
 
     const project = await Project.findOneAndUpdate(
@@ -237,7 +260,10 @@ export const addProjectMember = async (req: Request, res: Response) => {
 // Timesheet Controllers
 export const getOrCreateTimesheet = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
     const { employeeId, date } = req.query;
 
     const { start, end } = getWeekDates(new Date(date as string));
@@ -269,12 +295,18 @@ export const getOrCreateTimesheet = async (req: Request, res: Response) => {
 
 export const getTimesheets = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
-    const { employeeId, status, startDate, endDate, page = 1, limit = 20 } = req.query;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { employeeId, status, startDate, endDate, weekNumber, month, year, page = 1, limit = 20 } = req.query;
 
     const query: any = { tenantId };
     if (employeeId) query.employeeId = employeeId;
     if (status) query.status = status;
+    if (weekNumber) query.weekNumber = Number(weekNumber);
+    if (month) query.month = Number(month);
+    if (year) query.year = Number(year);
     if (startDate && endDate) {
       query.weekStartDate = {
         $gte: new Date(startDate as string),
@@ -324,7 +356,11 @@ export const getTimesheets = async (req: Request, res: Response) => {
 
 export const getTimesheetById = async (req: Request, res: Response) => {
   try {
-    const { tenantId, id } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { id } = req.params;
     const timesheet = await Timesheet.findOne({ _id: id, tenantId })
       .populate('entries.projectId', 'name code')
       .lean();
@@ -354,7 +390,11 @@ export const getTimesheetById = async (req: Request, res: Response) => {
 
 export const addTimesheetEntry = async (req: Request, res: Response) => {
   try {
-    const { tenantId, id } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { id } = req.params;
     const entryData = req.body;
 
     const timesheet = await Timesheet.findOne({ _id: id, tenantId, status: 'draft' });
@@ -395,7 +435,11 @@ export const addTimesheetEntry = async (req: Request, res: Response) => {
 
 export const updateTimesheetEntry = async (req: Request, res: Response) => {
   try {
-    const { tenantId, id, entryId } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { id, entryId } = req.params;
     const updateData = req.body;
 
     const timesheet = await Timesheet.findOne({ _id: id, tenantId, status: 'draft' });
@@ -419,7 +463,11 @@ export const updateTimesheetEntry = async (req: Request, res: Response) => {
 
 export const deleteTimesheetEntry = async (req: Request, res: Response) => {
   try {
-    const { tenantId, id, entryId } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { id, entryId } = req.params;
 
     const timesheet = await Timesheet.findOne({ _id: id, tenantId, status: 'draft' });
     if (!timesheet) {
@@ -437,7 +485,11 @@ export const deleteTimesheetEntry = async (req: Request, res: Response) => {
 
 export const submitTimesheet = async (req: Request, res: Response) => {
   try {
-    const { tenantId, id } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { id } = req.params;
 
     const timesheet = await Timesheet.findOneAndUpdate(
       { _id: id, tenantId, status: 'draft' },
@@ -460,7 +512,11 @@ export const submitTimesheet = async (req: Request, res: Response) => {
 
 export const approveTimesheet = async (req: Request, res: Response) => {
   try {
-    const { tenantId, id } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { id } = req.params;
     const { approvedBy, comments } = req.body;
 
     const timesheet = await Timesheet.findOneAndUpdate(
@@ -486,7 +542,11 @@ export const approveTimesheet = async (req: Request, res: Response) => {
 
 export const rejectTimesheet = async (req: Request, res: Response) => {
   try {
-    const { tenantId, id } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { id } = req.params;
     const { rejectedBy, reason } = req.body;
 
     const timesheet = await Timesheet.findOneAndUpdate(
@@ -512,7 +572,10 @@ export const rejectTimesheet = async (req: Request, res: Response) => {
 // Time Entry Controllers (for timer-based tracking)
 export const startTimer = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
     const { employeeId, projectId, taskId, description, isBillable } = req.body;
 
     // Stop any running timers
@@ -542,7 +605,11 @@ export const startTimer = async (req: Request, res: Response) => {
 
 export const stopTimer = async (req: Request, res: Response) => {
   try {
-    const { tenantId, id } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
+    const { id } = req.params;
 
     const entry = await TimeEntry.findOne({ _id: id, tenantId, status: 'running' });
     if (!entry) {
@@ -561,7 +628,10 @@ export const stopTimer = async (req: Request, res: Response) => {
 
 export const getTimeEntries = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
     const { employeeId, projectId, startDate, endDate } = req.query;
 
     const query: any = { tenantId };
@@ -587,7 +657,10 @@ export const getTimeEntries = async (req: Request, res: Response) => {
 // Reports & Stats
 export const getTimesheetStats = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
     const { startDate, endDate, employeeId } = req.query;
 
     const dateFilter: any = {};
@@ -674,7 +747,10 @@ export const getTimesheetStats = async (req: Request, res: Response) => {
 
 export const getUtilizationReport = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
     const { startDate, endDate } = req.query;
 
     const utilization = await Timesheet.aggregate([
@@ -815,7 +891,10 @@ const getDayOfWeek = (date: Date): string => {
 // Generate timesheets from attendance records
 export const generateTimesheetsFromAttendance = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
     const { startDate, endDate, weekNumber, month, year } = req.query;
 
     let weekStart: Date;
@@ -1009,7 +1088,10 @@ export const generateTimesheetsFromAttendance = async (req: Request, res: Respon
 // Sync all timesheets for current month from attendance
 export const syncTimesheetsFromAttendance = async (req: Request, res: Response) => {
   try {
-    const { tenantId } = req.params;
+    const tenantId = getTenantId(req);
+    if (!tenantId) {
+      return res.status(400).json({ success: false, message: 'Tenant ID required' });
+    }
     const { month, year } = req.query;
 
     const targetMonth = month ? Number(month) : new Date().getMonth() + 1;

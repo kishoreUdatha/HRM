@@ -18,15 +18,16 @@ interface ServiceHealth {
   responseTime: number;
   uptime: number;
   lastChecked: string;
-  details?: string;
+  url?: string;
+  error?: string;
 }
 
 interface SystemHealthData {
-  overall: 'healthy' | 'degraded' | 'unhealthy';
+  status: 'healthy' | 'degraded' | 'unhealthy';
   services: ServiceHealth[];
   metrics: {
-    totalRequests24h: number;
-    averageResponseTime: number;
+    totalRequests: number;
+    avgResponseTime: number;
     errorRate: number;
     activeConnections: number;
   };
@@ -35,6 +36,9 @@ interface SystemHealthData {
     memory: number;
     disk: number;
   };
+  maintenanceMode?: boolean;
+  uptime?: number;
+  timestamp?: string;
 }
 
 const SystemHealth: React.FC = () => {
@@ -66,33 +70,7 @@ const SystemHealth: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to fetch health:', error);
-      // Set mock data for demo
-      setHealth({
-        overall: 'healthy',
-        services: [
-          { name: 'API Gateway', status: 'healthy', responseTime: 45, uptime: 99.99, lastChecked: new Date().toISOString() },
-          { name: 'Auth Service', status: 'healthy', responseTime: 32, uptime: 99.95, lastChecked: new Date().toISOString() },
-          { name: 'Tenant Service', status: 'healthy', responseTime: 28, uptime: 99.98, lastChecked: new Date().toISOString() },
-          { name: 'Employee Service', status: 'healthy', responseTime: 55, uptime: 99.92, lastChecked: new Date().toISOString() },
-          { name: 'Leave Service', status: 'healthy', responseTime: 38, uptime: 99.97, lastChecked: new Date().toISOString() },
-          { name: 'Attendance Service', status: 'healthy', responseTime: 42, uptime: 99.94, lastChecked: new Date().toISOString() },
-          { name: 'Payroll Service', status: 'healthy', responseTime: 68, uptime: 99.91, lastChecked: new Date().toISOString() },
-          { name: 'MongoDB', status: 'healthy', responseTime: 12, uptime: 99.99, lastChecked: new Date().toISOString() },
-          { name: 'Redis', status: 'healthy', responseTime: 3, uptime: 99.99, lastChecked: new Date().toISOString() },
-          { name: 'RabbitMQ', status: 'healthy', responseTime: 8, uptime: 99.98, lastChecked: new Date().toISOString() },
-        ],
-        metrics: {
-          totalRequests24h: 1458923,
-          averageResponseTime: 42,
-          errorRate: 0.02,
-          activeConnections: 234,
-        },
-        infrastructure: {
-          cpu: 35,
-          memory: 62,
-          disk: 48,
-        },
-      });
+      setHealth(null);
     } finally {
       setIsLoading(false);
     }
@@ -150,6 +128,22 @@ const SystemHealth: React.FC = () => {
     );
   }
 
+  if (!health) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64">
+        <HiExclamationCircle className="w-12 h-12 text-red-500 mb-4" />
+        <p className="text-gray-600">Failed to load system health data</p>
+        <button
+          onClick={fetchHealth}
+          className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+        >
+          <HiRefresh className="w-4 h-4" />
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -184,16 +178,16 @@ const SystemHealth: React.FC = () => {
           <div className="flex items-center gap-4">
             <div
               className={`w-16 h-16 rounded-xl flex items-center justify-center ${
-                health?.overall === 'healthy'
+                health?.status === 'healthy'
                   ? 'bg-green-100'
-                  : health?.overall === 'degraded'
+                  : health?.status === 'degraded'
                   ? 'bg-yellow-100'
                   : 'bg-red-100'
               }`}
             >
-              {health?.overall === 'healthy' ? (
+              {health?.status === 'healthy' ? (
                 <HiCheckCircle className="w-8 h-8 text-green-600" />
-              ) : health?.overall === 'degraded' ? (
+              ) : health?.status === 'degraded' ? (
                 <HiExclamationCircle className="w-8 h-8 text-yellow-600" />
               ) : (
                 <HiXCircle className="w-8 h-8 text-red-600" />
@@ -201,8 +195,8 @@ const SystemHealth: React.FC = () => {
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                System Status: {health?.overall?.charAt(0).toUpperCase()}
-                {health?.overall?.slice(1)}
+                System Status: {health?.status?.charAt(0).toUpperCase()}
+                {health?.status?.slice(1)}
               </h2>
               <p className="text-gray-500">
                 {health?.services?.filter((s) => s.status === 'healthy').length || 0} of{' '}
@@ -212,9 +206,17 @@ const SystemHealth: React.FC = () => {
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-500">Last updated</p>
-            <p className="font-medium text-gray-900">{new Date().toLocaleTimeString()}</p>
+            <p className="font-medium text-gray-900">
+              {health?.timestamp ? new Date(health.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}
+            </p>
           </div>
         </div>
+        {health?.maintenanceMode && (
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
+            <HiExclamationCircle className="w-5 h-5 text-yellow-600" />
+            <span className="text-yellow-800 font-medium">Maintenance Mode is Active</span>
+          </div>
+        )}
       </div>
 
       {/* Metrics */}
@@ -225,9 +227,9 @@ const SystemHealth: React.FC = () => {
               <HiChartBar className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Requests (24h)</p>
+              <p className="text-sm text-gray-500">Requests</p>
               <p className="text-xl font-bold text-gray-900">
-                {health?.metrics?.totalRequests24h?.toLocaleString() || 0}
+                {health?.metrics?.totalRequests?.toLocaleString() || 0}
               </p>
             </div>
           </div>
@@ -240,7 +242,7 @@ const SystemHealth: React.FC = () => {
             <div>
               <p className="text-sm text-gray-500">Avg Response</p>
               <p className="text-xl font-bold text-gray-900">
-                {health?.metrics?.averageResponseTime || 0}ms
+                {health?.metrics?.avgResponseTime || 0}ms
               </p>
             </div>
           </div>
@@ -286,9 +288,15 @@ const SystemHealth: React.FC = () => {
                   {getStatusIcon(service.status)}
                   <div>
                     <p className="font-medium text-gray-900">{service.name}</p>
-                    <p className="text-xs text-gray-500">
-                      Uptime: {service.uptime}%
-                    </p>
+                    {service.status === 'healthy' ? (
+                      <p className="text-xs text-gray-500">
+                        Uptime: {typeof service.uptime === 'number' ? service.uptime.toFixed(2) : service.uptime}%
+                      </p>
+                    ) : (
+                      <p className="text-xs text-red-500">
+                        {service.error || 'Service unavailable'}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="text-right">

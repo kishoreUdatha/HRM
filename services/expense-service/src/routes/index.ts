@@ -4,6 +4,7 @@ import * as expenseController from '../controllers/expenseController';
 const router = Router();
 
 // Categories
+router.post('/:tenantId/categories/seed', expenseController.seedCategories);
 router.post('/:tenantId/categories', expenseController.createCategory);
 router.get('/:tenantId/categories', expenseController.getCategories);
 router.put('/:tenantId/categories/:id', expenseController.updateCategory);

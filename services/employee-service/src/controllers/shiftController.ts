@@ -19,9 +19,8 @@ export const getAllShifts = async (req: Request, res: Response): Promise<void> =
       query.isActive = true;
     }
 
-    // Note: Using in-memory sorting for consistent results
-    // MongoDB Atlas: Can also use .sort({ name: 1 }) if index is created
-    const shifts = await Shift.find(query).lean();
+    // Using .sort({ name: 1 }) to leverage the tenantId_1_name_1 index (required for Cosmos DB)
+    const shifts = await Shift.find(query).sort({ name: 1 }).lean();
     shifts.sort((a, b) => {
       // Sort by isDefault first (true first), then by name
       if (a.isDefault !== b.isDefault) return a.isDefault ? -1 : 1;
@@ -297,7 +296,7 @@ export const getShiftStats = async (req: Request, res: Response): Promise<void> 
     const [totalShifts, activeShifts, shifts] = await Promise.all([
       Shift.countDocuments({ tenantId }),
       Shift.countDocuments({ tenantId, isActive: true }),
-      Shift.find({ tenantId, isActive: true }).lean(),
+      Shift.find({ tenantId, isActive: true }).sort({ name: 1 }).lean(),
     ]);
 
     // Get employee counts per shift

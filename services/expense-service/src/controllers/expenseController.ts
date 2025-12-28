@@ -3,6 +3,8 @@ import Expense from '../models/Expense';
 import ExpenseReport from '../models/ExpenseReport';
 import ExpenseCategory from '../models/ExpenseCategory';
 import TravelRequest from '../models/TravelRequest';
+// Import Employee model for populate() to work - this is a reference model
+import '../models/Employee';
 import mongoose from 'mongoose';
 
 // Helper to generate report number
@@ -532,6 +534,157 @@ export const approveTravelRequest = async (req: Request, res: Response) => {
     }
 
     res.json({ success: true, data: request });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Seed Default Categories
+export const seedCategories = async (req: Request, res: Response) => {
+  try {
+    const { tenantId } = req.params;
+    const userId = req.body.userId || req.headers['x-user-id'];
+
+    const defaultCategories = [
+      {
+        name: 'Travel',
+        code: 'TRAVEL',
+        description: 'Business travel expenses including flights, trains, and car rentals',
+        policy: {
+          maxAmount: 5000,
+          requiresReceipt: true,
+          receiptThreshold: 25,
+          requiresPreApproval: true,
+          preApprovalThreshold: 1000,
+          allowedPaymentMethods: ['card', 'corporate_card', 'bank_transfer'],
+        },
+      },
+      {
+        name: 'Accommodation',
+        code: 'ACCOMMODATION',
+        description: 'Hotel and lodging expenses',
+        policy: {
+          maxAmount: 500,
+          requiresReceipt: true,
+          receiptThreshold: 0,
+          requiresPreApproval: false,
+          allowedPaymentMethods: ['card', 'corporate_card', 'bank_transfer'],
+        },
+      },
+      {
+        name: 'Meals & Entertainment',
+        code: 'MEALS',
+        description: 'Business meals and client entertainment',
+        policy: {
+          maxAmount: 200,
+          requiresReceipt: true,
+          receiptThreshold: 25,
+          requiresPreApproval: false,
+          allowedPaymentMethods: ['cash', 'card', 'corporate_card'],
+        },
+      },
+      {
+        name: 'Transportation',
+        code: 'TRANSPORT',
+        description: 'Local transportation including taxis, rideshares, and public transit',
+        policy: {
+          maxAmount: 100,
+          requiresReceipt: true,
+          receiptThreshold: 10,
+          requiresPreApproval: false,
+          allowedPaymentMethods: ['cash', 'card', 'corporate_card'],
+        },
+      },
+      {
+        name: 'Office Supplies',
+        code: 'SUPPLIES',
+        description: 'Office supplies and small equipment',
+        policy: {
+          maxAmount: 200,
+          requiresReceipt: true,
+          receiptThreshold: 25,
+          requiresPreApproval: false,
+          allowedPaymentMethods: ['cash', 'card', 'corporate_card'],
+        },
+      },
+      {
+        name: 'Equipment',
+        code: 'EQUIPMENT',
+        description: 'Computer equipment and hardware',
+        policy: {
+          maxAmount: 2000,
+          requiresReceipt: true,
+          receiptThreshold: 0,
+          requiresPreApproval: true,
+          preApprovalThreshold: 500,
+          allowedPaymentMethods: ['card', 'corporate_card', 'bank_transfer'],
+        },
+      },
+      {
+        name: 'Training & Education',
+        code: 'TRAINING',
+        description: 'Courses, certifications, and educational materials',
+        policy: {
+          maxAmount: 5000,
+          requiresReceipt: true,
+          receiptThreshold: 0,
+          requiresPreApproval: true,
+          preApprovalThreshold: 500,
+          allowedPaymentMethods: ['card', 'corporate_card', 'bank_transfer'],
+        },
+      },
+      {
+        name: 'Communications',
+        code: 'COMMUNICATIONS',
+        description: 'Phone bills, internet, and communication tools',
+        policy: {
+          maxAmount: 200,
+          requiresReceipt: true,
+          receiptThreshold: 0,
+          requiresPreApproval: false,
+          allowedPaymentMethods: ['card', 'corporate_card', 'bank_transfer'],
+        },
+      },
+      {
+        name: 'Other',
+        code: 'OTHER',
+        description: 'Miscellaneous business expenses',
+        policy: {
+          maxAmount: 500,
+          requiresReceipt: true,
+          receiptThreshold: 25,
+          requiresPreApproval: true,
+          preApprovalThreshold: 100,
+          allowedPaymentMethods: ['cash', 'card', 'corporate_card', 'bank_transfer', 'other'],
+        },
+      },
+    ];
+
+    const created: any[] = [];
+    const skipped: string[] = [];
+
+    for (const cat of defaultCategories) {
+      const existing = await ExpenseCategory.findOne({ tenantId, code: cat.code });
+      if (existing) {
+        skipped.push(cat.code);
+        continue;
+      }
+
+      const category = new ExpenseCategory({
+        ...cat,
+        tenantId,
+        createdBy: userId,
+        isActive: true,
+      });
+      await category.save();
+      created.push(category);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Created ${created.length} categories, skipped ${skipped.length} existing`,
+      data: { created, skipped },
+    });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
