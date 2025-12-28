@@ -9,6 +9,9 @@ import {
   HiCheckCircle,
   HiClock,
   HiExclamationCircle,
+  HiEye,
+  HiDownload,
+  HiX,
 } from 'react-icons/hi';
 import {
   AreaChart,
@@ -54,9 +57,33 @@ interface Invoice {
   tenantId: string;
   invoiceNumber: string;
   amount: number;
+  amountPaid: number;
+  amountDue: number;
+  currency: string;
   status: string;
+  billingPeriodStart: string;
+  billingPeriodEnd: string;
+  dueDate: string;
   paidAt?: string;
   createdAt: string;
+  lineItems: {
+    description: string;
+    quantity: number;
+    unitAmount: number;
+    amount: number;
+  }[];
+  tax?: {
+    name: string;
+    rate: number;
+    amount: number;
+  };
+  discount?: {
+    name: string;
+    type: string;
+    value: number;
+    amount: number;
+  };
+  notes?: string;
 }
 
 const COLORS = ['#8B5CF6', '#3B82F6', '#10B981', '#F59E0B'];
@@ -67,6 +94,8 @@ const BillingDashboard: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'subscriptions' | 'invoices'>('overview');
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -89,14 +118,30 @@ const BillingDashboard: React.FC = () => {
         }),
       ]);
 
-      if (revenueRes.status === 'fulfilled') {
+      // Set revenue data from API
+      if (revenueRes.status === 'fulfilled' && revenueRes.value.data?.data) {
         setRevenue(revenueRes.value.data.data);
+      } else if (revenueRes.status === 'fulfilled' && revenueRes.value.data) {
+        // Handle case where data is directly in response
+        setRevenue(revenueRes.value.data);
+      } else if (revenueRes.status === 'rejected') {
+        console.error('Failed to fetch revenue:', revenueRes.reason);
       }
+
+      // Set subscriptions data from API
       if (subsRes.status === 'fulfilled') {
-        setSubscriptions(subsRes.value.data.data || []);
+        const subsData = subsRes.value.data?.data || subsRes.value.data?.subscriptions || subsRes.value.data || [];
+        setSubscriptions(Array.isArray(subsData) ? subsData : []);
+      } else if (subsRes.status === 'rejected') {
+        console.error('Failed to fetch subscriptions:', subsRes.reason);
       }
+
+      // Set invoices data from API
       if (invoicesRes.status === 'fulfilled') {
-        setInvoices(invoicesRes.value.data.data || []);
+        const invoiceData = invoicesRes.value.data?.data || invoicesRes.value.data?.invoices || invoicesRes.value.data || [];
+        setInvoices(Array.isArray(invoiceData) ? invoiceData : []);
+      } else if (invoicesRes.status === 'rejected') {
+        console.error('Failed to fetch invoices:', invoicesRes.reason);
       }
     } catch (error) {
       console.error('Failed to fetch billing data:', error);
@@ -111,6 +156,44 @@ const BillingDashboard: React.FC = () => {
       currency: 'INR',
       minimumFractionDigits: 0,
     }).format(amount);
+  };
+
+  const handleViewInvoice = async (invoiceId: string) => {
+    const token = localStorage.getItem('superAdminAccessToken');
+    try {
+      const response = await api.get(`/billing/admin/invoices/${invoiceId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.data?.data) {
+        setSelectedInvoice(response.data.data);
+        setIsViewModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch invoice details:', error);
+    }
+  };
+
+  const handleDownloadInvoice = async (invoiceId: string, invoiceNumber?: string) => {
+    const token = localStorage.getItem('superAdminAccessToken');
+    try {
+      const response = await api.get(`/billing/admin/invoices/${invoiceId}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: 'blob',
+      });
+
+      // Create blob and download link for PDF
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${invoiceNumber || 'invoice'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download invoice:', error);
+    }
   };
 
   const planDistribution = revenue?.subscriptionsByPlan
@@ -436,6 +519,9 @@ const BillingDashboard: React.FC = () => {
                     <th className="text-left text-xs font-medium text-gray-500 uppercase px-6 py-3">
                       Date
                     </th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase px-6 py-3">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -448,11 +534,29 @@ const BillingDashboard: React.FC = () => {
                         {invoice.tenantId.substring(0, 8)}...
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {formatCurrency(invoice.amount)}
+                        {formatCurrency(invoice.amount / 100)}
                       </td>
                       <td className="px-6 py-4">{getStatusBadge(invoice.status)}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {new Date(invoice.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleViewInvoice(invoice._id)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="View Invoice"
+                          >
+                            <HiEye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDownloadInvoice(invoice._id, invoice.invoiceNumber)}
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Download Invoice"
+                          >
+                            <HiDownload className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -460,6 +564,159 @@ const BillingDashboard: React.FC = () => {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Invoice View Modal */}
+      {isViewModalOpen && selectedInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Invoice Details</h2>
+                <p className="text-sm text-gray-500">{selectedInvoice.invoiceNumber}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsViewModalOpen(false);
+                  setSelectedInvoice(null);
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <HiX className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Status and Dates */}
+              <div className="flex items-center justify-between">
+                {getStatusBadge(selectedInvoice.status)}
+                <span className="text-sm text-gray-500">
+                  Created: {new Date(selectedInvoice.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+
+              {/* Billing Period */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Billing Period</h3>
+                <p className="text-gray-900">
+                  {new Date(selectedInvoice.billingPeriodStart).toLocaleDateString()} -{' '}
+                  {new Date(selectedInvoice.billingPeriodEnd).toLocaleDateString()}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Due Date: {new Date(selectedInvoice.dueDate).toLocaleDateString()}
+                </p>
+                {selectedInvoice.paidAt && (
+                  <p className="text-sm text-green-600 mt-1">
+                    Paid On: {new Date(selectedInvoice.paidAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+
+              {/* Line Items */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Line Items</h3>
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left text-xs font-medium text-gray-500 uppercase px-4 py-2">
+                        Description
+                      </th>
+                      <th className="text-center text-xs font-medium text-gray-500 uppercase px-4 py-2">
+                        Qty
+                      </th>
+                      <th className="text-right text-xs font-medium text-gray-500 uppercase px-4 py-2">
+                        Unit Price
+                      </th>
+                      <th className="text-right text-xs font-medium text-gray-500 uppercase px-4 py-2">
+                        Amount
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {selectedInvoice.lineItems?.map((item, index) => (
+                      <tr key={index}>
+                        <td className="px-4 py-3 text-sm text-gray-900">{item.description}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 text-center">{item.quantity}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600 text-right">
+                          {formatCurrency(item.unitAmount / 100)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 text-right">
+                          {formatCurrency(item.amount / 100)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="border-t pt-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Subtotal</span>
+                    <span className="text-gray-900">{formatCurrency(selectedInvoice.amount / 100)}</span>
+                  </div>
+                  {selectedInvoice.tax && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">
+                        {selectedInvoice.tax.name} ({selectedInvoice.tax.rate}%)
+                      </span>
+                      <span className="text-gray-900">{formatCurrency(selectedInvoice.tax.amount / 100)}</span>
+                    </div>
+                  )}
+                  {selectedInvoice.discount && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">{selectedInvoice.discount.name}</span>
+                      <span className="text-green-600">-{formatCurrency(selectedInvoice.discount.amount / 100)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                    <span>Total</span>
+                    <span>{formatCurrency(selectedInvoice.amount / 100)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Amount Paid</span>
+                    <span className="text-green-600">{formatCurrency(selectedInvoice.amountPaid / 100)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-medium">
+                    <span className="text-gray-700">Amount Due</span>
+                    <span className={selectedInvoice.amountDue > 0 ? 'text-red-600' : 'text-green-600'}>
+                      {formatCurrency(selectedInvoice.amountDue / 100)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              {selectedInvoice.notes && (
+                <div className="bg-yellow-50 rounded-lg p-4">
+                  <h3 className="text-sm font-medium text-gray-700 mb-1">Notes</h3>
+                  <p className="text-sm text-gray-600">{selectedInvoice.notes}</p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setIsViewModalOpen(false);
+                    setSelectedInvoice(null);
+                  }}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => handleDownloadInvoice(selectedInvoice._id, selectedInvoice.invoiceNumber)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                >
+                  <HiDownload className="w-4 h-4" />
+                  Download
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

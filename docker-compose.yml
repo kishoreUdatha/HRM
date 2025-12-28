@@ -675,6 +675,8 @@ services:
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-rzp_test_placeholder}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-placeholder_secret}
       - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET:-webhook_secret}
+      - JWT_ACCESS_SECRET=hrm_saas_access_secret_2024
+      - JWT_REFRESH_SECRET=hrm_saas_refresh_secret_2024
     ports:
       - "3027:3027"
     depends_on:

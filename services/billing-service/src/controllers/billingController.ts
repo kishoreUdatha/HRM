@@ -583,6 +583,204 @@ export const getAllInvoices = async (req: Request, res: Response): Promise<void>
   }
 };
 
+// Get invoice by ID (admin)
+export const getAdminInvoiceById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const invoice = await Invoice.findById(id);
+
+    if (!invoice) {
+      res.status(404).json({
+        success: false,
+        message: 'Invoice not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: invoice,
+    });
+  } catch (error) {
+    console.error('Error fetching invoice:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch invoice',
+    });
+  }
+};
+
+// Download invoice as PDF (admin)
+export const downloadInvoicePdf = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const invoice = await Invoice.findById(id);
+
+    if (!invoice) {
+      res.status(404).json({
+        success: false,
+        message: 'Invoice not found',
+      });
+      return;
+    }
+
+    // Import puppeteer dynamically
+    const puppeteer = await import('puppeteer');
+
+    // Generate HTML invoice
+    const invoiceHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Invoice ${invoice.invoiceNumber}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+          .header { display: flex; justify-content: space-between; margin-bottom: 40px; }
+          .logo { font-size: 24px; font-weight: bold; color: #8B5CF6; }
+          .invoice-details { text-align: right; }
+          .invoice-number { font-size: 20px; font-weight: bold; }
+          .status { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
+          .status-paid { background: #D1FAE5; color: #065F46; }
+          .status-issued { background: #DBEAFE; color: #1E40AF; }
+          .status-draft { background: #F3F4F6; color: #374151; }
+          .billing-info { display: flex; justify-content: space-between; margin-bottom: 40px; }
+          .billing-section { width: 45%; }
+          .billing-section h3 { color: #6B7280; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th { background: #F9FAFB; text-align: left; padding: 12px; border-bottom: 2px solid #E5E7EB; font-size: 12px; text-transform: uppercase; color: #6B7280; }
+          td { padding: 12px; border-bottom: 1px solid #E5E7EB; }
+          .amount-col { text-align: right; }
+          .totals { margin-left: auto; width: 300px; }
+          .totals tr td { border: none; padding: 8px 12px; }
+          .totals .total-row { font-weight: bold; font-size: 18px; border-top: 2px solid #E5E7EB; }
+          .footer { margin-top: 60px; text-align: center; color: #9CA3AF; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">HRM Platform</div>
+          <div class="invoice-details">
+            <div class="invoice-number">${invoice.invoiceNumber}</div>
+            <div style="margin-top: 8px;">
+              <span class="status status-${invoice.status}">${invoice.status}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="billing-info">
+          <div class="billing-section">
+            <h3>Billing Period</h3>
+            <p>${new Date(invoice.billingPeriodStart).toLocaleDateString()} - ${new Date(invoice.billingPeriodEnd).toLocaleDateString()}</p>
+            <p style="margin-top: 10px;"><strong>Due Date:</strong> ${new Date(invoice.dueDate).toLocaleDateString()}</p>
+            ${invoice.paidAt ? `<p><strong>Paid On:</strong> ${new Date(invoice.paidAt).toLocaleDateString()}</p>` : ''}
+          </div>
+          <div class="billing-section">
+            <h3>Invoice Details</h3>
+            <p><strong>Invoice Date:</strong> ${new Date(invoice.createdAt).toLocaleDateString()}</p>
+            <p><strong>Currency:</strong> ${invoice.currency}</p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Qty</th>
+              <th class="amount-col">Unit Price</th>
+              <th class="amount-col">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${invoice.lineItems.map(item => `
+              <tr>
+                <td>${item.description}</td>
+                <td>${item.quantity}</td>
+                <td class="amount-col">${invoice.currency} ${(item.unitAmount / 100).toFixed(2)}</td>
+                <td class="amount-col">${invoice.currency} ${(item.amount / 100).toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <table class="totals">
+          <tr>
+            <td>Subtotal</td>
+            <td class="amount-col">${invoice.currency} ${(invoice.amount / 100).toFixed(2)}</td>
+          </tr>
+          ${invoice.tax ? `
+          <tr>
+            <td>${invoice.tax.name} (${invoice.tax.rate}%)</td>
+            <td class="amount-col">${invoice.currency} ${(invoice.tax.amount / 100).toFixed(2)}</td>
+          </tr>
+          ` : ''}
+          ${invoice.discount ? `
+          <tr>
+            <td>${invoice.discount.name}</td>
+            <td class="amount-col">-${invoice.currency} ${(invoice.discount.amount / 100).toFixed(2)}</td>
+          </tr>
+          ` : ''}
+          <tr class="total-row">
+            <td>Total</td>
+            <td class="amount-col">${invoice.currency} ${(invoice.amount / 100).toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td>Amount Paid</td>
+            <td class="amount-col">${invoice.currency} ${(invoice.amountPaid / 100).toFixed(2)}</td>
+          </tr>
+          <tr style="font-weight: bold;">
+            <td>Amount Due</td>
+            <td class="amount-col">${invoice.currency} ${(invoice.amountDue / 100).toFixed(2)}</td>
+          </tr>
+        </table>
+
+        ${invoice.notes ? `<p style="color: #6B7280; margin-top: 20px;"><strong>Notes:</strong> ${invoice.notes}</p>` : ''}
+
+        <div class="footer">
+          <p>Thank you for your business!</p>
+          <p>HRM Platform - Enterprise Human Resource Management</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Generate PDF using puppeteer
+    const browser = await puppeteer.default.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(invoiceHtml, { waitUntil: 'networkidle0' });
+
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: '20px',
+        right: '20px',
+        bottom: '20px',
+        left: '20px',
+      },
+    });
+
+    await browser.close();
+
+    // Return PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('Error generating invoice PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate invoice',
+    });
+  }
+};
+
 // Update tenant subscription (admin)
 export const updateTenantSubscription = async (req: Request, res: Response): Promise<void> => {
   try {

@@ -96,6 +96,12 @@ router.get('/admin/revenue', requireSuperAdmin, billingController.getRevenueAnal
 // Get all invoices
 router.get('/admin/invoices', requireSuperAdmin, billingController.getAllInvoices);
 
+// Get invoice by ID (admin)
+router.get('/admin/invoices/:id', requireSuperAdmin, billingController.getAdminInvoiceById);
+
+// Download invoice as PDF/HTML
+router.get('/admin/invoices/:id/download', requireSuperAdmin, billingController.downloadInvoicePdf);
+
 // Update tenant subscription
 router.put('/admin/tenants/:tenantId/subscription', requireSuperAdmin, billingController.updateTenantSubscription);
 
