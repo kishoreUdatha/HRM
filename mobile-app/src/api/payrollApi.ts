@@ -13,6 +13,8 @@ export interface YTDSummary {
   totalGross: number;
   totalDeductions: number;
   totalNet: number;
+  totalTax?: number;
+  monthsProcessed?: number;
   monthlyBreakdown: {
     month: number;
     gross: number;
@@ -24,6 +26,7 @@ export interface YTDSummary {
 export const payrollApi = {
   /**
    * Get payslip history for current employee
+   * Uses the new /payslips endpoint that returns processed/paid payrolls
    */
   async getPayslips(
     tenantId: string,
@@ -31,8 +34,22 @@ export const payrollApi = {
     params?: PayslipListParams
   ): Promise<ApiResponse<Payslip[]>> {
     const response = await apiClient.get<ApiResponse<Payslip[]>>(
-      `/payroll/${tenantId}/employees/${employeeId}/paystubs`,
+      `/payroll/${tenantId}/employees/${employeeId}/payslips`,
       {params}
+    );
+    return response.data;
+  },
+
+  /**
+   * Get specific payslip by ID
+   */
+  async getPayslipById(
+    tenantId: string,
+    employeeId: string,
+    payslipId: string
+  ): Promise<ApiResponse<Payslip>> {
+    const response = await apiClient.get<ApiResponse<Payslip>>(
+      `/payroll/${tenantId}/employees/${employeeId}/payslips/${payslipId}`
     );
     return response.data;
   },
@@ -47,13 +64,27 @@ export const payrollApi = {
     month: number
   ): Promise<ApiResponse<Payslip>> {
     const response = await apiClient.get<ApiResponse<Payslip>>(
-      `/payroll/${tenantId}/employees/${employeeId}/paystub/${year}/${month}`
+      `/payroll/${tenantId}/employees/${employeeId}/payslip/${year}/${month}`
     );
     return response.data;
   },
 
   /**
-   * Download payslip PDF
+   * Get payslip PDF download URL by ID
+   */
+  getPayslipDownloadUrl(tenantId: string, employeeId: string, payslipId: string): string {
+    return `/payroll/${tenantId}/employees/${employeeId}/payslips/${payslipId}/download`;
+  },
+
+  /**
+   * Get payslip PDF download URL by month/year
+   */
+  getPayslipDownloadUrlByPeriod(tenantId: string, employeeId: string, year: number, month: number): string {
+    return `/payroll/${tenantId}/employees/${employeeId}/payslip/${year}/${month}/download`;
+  },
+
+  /**
+   * Download payslip PDF (legacy - for paystub model)
    */
   async downloadPayslipPDF(paystubId: string): Promise<ApiResponse<{url: string}>> {
     const response = await apiClient.get<ApiResponse<{url: string}>>(
@@ -71,7 +102,7 @@ export const payrollApi = {
     year: number
   ): Promise<ApiResponse<YTDSummary>> {
     const response = await apiClient.get<ApiResponse<YTDSummary>>(
-      `/payroll/${tenantId}/employees/${employeeId}/ytd-summary/${year}`
+      `/payroll/${tenantId}/employees/${employeeId}/ytd/${year}`
     );
     return response.data;
   },
@@ -81,7 +112,7 @@ export const payrollApi = {
    */
   async getLatestPayslip(tenantId: string, employeeId: string): Promise<ApiResponse<Payslip>> {
     const response = await apiClient.get<ApiResponse<Payslip[]>>(
-      `/payroll/${tenantId}/employees/${employeeId}/paystubs`,
+      `/payroll/${tenantId}/employees/${employeeId}/payslips`,
       {params: {limit: 1}}
     );
     return {

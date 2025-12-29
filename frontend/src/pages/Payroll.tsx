@@ -96,9 +96,10 @@ const Payroll: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null);
   const [isPayslipOpen, setIsPayslipOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const payslipRef = useRef<HTMLDivElement>(null);
 
-  const { user } = useAppSelector((state) => state.auth);
+  const { user, tenant } = useAppSelector((state) => state.auth);
   const isAdmin = user?.role === 'admin' || user?.role === 'tenant_admin' || user?.role === 'hr';
 
   const months = [
@@ -181,6 +182,34 @@ const Payroll: React.FC = () => {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  };
+
+  const handleDownloadPDF = async (payroll: Payroll) => {
+    if (!payroll || !tenant?._id) return;
+
+    setIsDownloading(true);
+    try {
+      const response = await api.get(
+        `/payroll/${tenant._id}/employees/${payroll.employeeId}/payslips/${payroll._id}/download`,
+        { responseType: 'blob' }
+      );
+
+      // Create blob URL and trigger download
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Payslip_${getEmployeeCode(payroll)}_${months[payroll.month - 1]}_${payroll.year}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download payslip:', error);
+      alert('Failed to download payslip PDF. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const handlePrintPayslip = () => {
@@ -516,8 +545,10 @@ const Payroll: React.FC = () => {
               ) : (
                 filteredPayrolls.map((payroll, index) => {
                   const statusConfig = getStatusConfig(payroll.status);
+                  // Use compound key to ensure uniqueness even with potential duplicate IDs
+                  const uniqueKey = `${payroll._id}-${payroll.employeeId}-${payroll.month}-${payroll.year}-${index}`;
                   return (
-                    <tr key={payroll._id} className={`hover:bg-secondary-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-secondary-50/30'}`}>
+                    <tr key={uniqueKey} className={`hover:bg-secondary-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-secondary-50/30'}`}>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-md">
@@ -561,6 +592,16 @@ const Payroll: React.FC = () => {
                           >
                             <HiEye className="w-5 h-5" />
                           </button>
+                          {(payroll.status === 'processed' || payroll.status === 'paid') && (
+                            <button
+                              onClick={() => handleDownloadPDF(payroll)}
+                              disabled={isDownloading}
+                              className="p-2 text-secondary-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all disabled:opacity-50"
+                              title="Download PDF"
+                            >
+                              <HiDocumentDownload className="w-5 h-5" />
+                            </button>
+                          )}
                           {isAdmin && payroll.status === 'draft' && (
                             <button
                               onClick={() => handleProcess(payroll._id)}
@@ -669,6 +710,18 @@ const Payroll: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownloadPDF(selectedPayroll)}
+                  disabled={isDownloading}
+                  className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all text-white disabled:opacity-50"
+                  title="Download PDF"
+                >
+                  {isDownloading ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <HiDocumentDownload className="w-5 h-5" />
+                  )}
+                </button>
                 <button
                   onClick={handlePrintPayslip}
                   className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all text-white"
@@ -837,6 +890,18 @@ const Payroll: React.FC = () => {
                 className="px-4 py-2.5 text-secondary-700 bg-white border border-secondary-200 rounded-xl hover:bg-secondary-50 transition-all font-medium"
               >
                 Close
+              </button>
+              <button
+                onClick={() => handleDownloadPDF(selectedPayroll)}
+                disabled={isDownloading}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all font-medium shadow-lg shadow-emerald-500/25 disabled:opacity-50"
+              >
+                {isDownloading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <HiDocumentDownload className="w-5 h-5" />
+                )}
+                Download PDF
               </button>
               <button
                 onClick={handlePrintPayslip}

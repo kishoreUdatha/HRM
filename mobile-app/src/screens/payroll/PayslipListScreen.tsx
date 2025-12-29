@@ -1,11 +1,13 @@
-import React from 'react';
-import {View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl} from 'react-native';
+import React, {useState} from 'react';
+import {View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, Platform, ActivityIndicator} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useQuery} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
+import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 
 import {useAuthStore, useEmployee, useTenant} from '../../store/authStore';
 import {payrollApi} from '../../api/payrollApi';
@@ -14,6 +16,9 @@ import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList, Payslip} from '../../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+// API Base URL for direct downloads
+const API_BASE_URL = 'http://135.171.160.105/api';
 
 const monthColors = [
   {color: '#10B981', bg: '#D1FAE5'},
@@ -30,12 +35,38 @@ const monthColors = [
   {color: '#D946EF', bg: '#FAE8FF'},
 ];
 
+// Get financial years for picker (current and previous 2 years)
+const getFinancialYears = () => {
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1;
+
+  // Financial year in India runs from April to March
+  const currentFY = currentMonth >= 4 ? currentYear : currentYear - 1;
+
+  return [
+    {label: `FY ${currentFY}-${(currentFY + 1).toString().slice(-2)}`, startYear: currentFY, endYear: currentFY + 1},
+    {label: `FY ${currentFY - 1}-${currentFY.toString().slice(-2)}`, startYear: currentFY - 1, endYear: currentFY},
+    {label: `FY ${currentFY - 2}-${(currentFY - 1).toString().slice(-2)}`, startYear: currentFY - 2, endYear: currentFY - 1},
+  ];
+};
+
+const getMonthName = (month: number) => {
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return months[month - 1] || '';
+};
+
 export default function PayslipListScreen() {
   const navigation = useNavigation<NavigationProp>();
   const employee = useEmployee();
   const tenant = useTenant();
+  const tokens = useAuthStore(state => state.tokens);
   const isDarkMode = useAuthStore(state => state.isDarkMode);
   const colors = isDarkMode ? Colors.dark : Colors.light;
+
+  const financialYears = getFinancialYears();
+  const [selectedFY, setSelectedFY] = useState(0); // Index of selected FY
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const {data: payslips, isLoading, refetch} = useQuery({
     queryKey: ['payslips', tenant?._id, employee?._id],
@@ -44,11 +75,68 @@ export default function PayslipListScreen() {
   });
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'}).format(amount);
+    return new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(amount);
+  };
+
+  // Filter payslips by financial year (April to March)
+  const filterByFinancialYear = (payslipList: Payslip[]) => {
+    const fy = financialYears[selectedFY];
+    return payslipList.filter(p => {
+      // April-Dec of start year or Jan-March of end year
+      if (p.year === fy.startYear && p.month >= 4) return true;
+      if (p.year === fy.endYear && p.month <= 3) return true;
+      return false;
+    });
+  };
+
+  const handleDownload = async (payslip: Payslip) => {
+    if (!tenant?._id || !employee?._id) {
+      Alert.alert('Error', 'Unable to download payslip. Missing required data.');
+      return;
+    }
+
+    setDownloadingId(payslip._id);
+
+    try {
+      const downloadUrl = `${API_BASE_URL}${payrollApi.getPayslipDownloadUrl(tenant._id, employee._id, payslip._id)}`;
+      const fileName = `Payslip_${getMonthName(payslip.month)}_${payslip.year}.pdf`;
+      const downloadPath = Platform.OS === 'ios'
+        ? `${RNFS.DocumentDirectoryPath}/${fileName}`
+        : `${RNFS.DownloadDirectoryPath}/${fileName}`;
+
+      const downloadResult = await RNFS.downloadFile({
+        fromUrl: downloadUrl,
+        toFile: downloadPath,
+        headers: {
+          'Authorization': `Bearer ${tokens?.accessToken}`,
+          'X-Tenant-ID': tenant._id,
+        },
+      }).promise;
+
+      if (downloadResult.statusCode === 200) {
+        await Share.open({
+          url: Platform.OS === 'ios' ? downloadPath : `file://${downloadPath}`,
+          title: `Payslip - ${getMonthName(payslip.month)} ${payslip.year}`,
+          type: 'application/pdf',
+          filename: fileName,
+        });
+        Alert.alert('Success', `Payslip downloaded${Platform.OS === 'android' ? ' to Downloads' : ''}`);
+      } else {
+        throw new Error('Download failed');
+      }
+    } catch (error: any) {
+      if (!error.message?.includes('User did not share')) {
+        Alert.alert('Error', 'Failed to download payslip');
+      }
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const renderPayslip = ({item, index}: {item: Payslip; index: number}) => {
     const colorSet = monthColors[(item.month - 1) % monthColors.length];
+    const isDownloading = downloadingId === item._id;
+
     return (
       <TouchableOpacity
         style={[styles.payslipCard, {backgroundColor: colors.card}]}
@@ -64,9 +152,20 @@ export default function PayslipListScreen() {
             <Text style={[styles.netSalary, {color: colors.text}]}>{formatCurrency(item.netSalary)}</Text>
             <Text style={[styles.statusLabel, {color: colors.textSecondary}]}>Net Salary</Text>
           </View>
-          <View style={[styles.chevronContainer, {backgroundColor: colors.surfaceVariant}]}>
-            <Icon name="chevron-right" size={20} color={colors.textSecondary} />
-          </View>
+          <TouchableOpacity
+            style={[styles.downloadBtn, {backgroundColor: colorSet.bg}]}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleDownload(item);
+            }}
+            disabled={isDownloading}
+          >
+            {isDownloading ? (
+              <ActivityIndicator size="small" color={colorSet.color} />
+            ) : (
+              <Icon name="download" size={20} color={colorSet.color} />
+            )}
+          </TouchableOpacity>
         </View>
         <View style={styles.payslipDetails}>
           <View style={[styles.detailItem, {backgroundColor: '#D1FAE5'}]}>
@@ -88,11 +187,11 @@ export default function PayslipListScreen() {
     );
   };
 
-  // Calculate totals for header stats
-  const currentYear = new Date().getFullYear();
-  const currentYearPayslips = payslips?.data?.filter(p => p.year === currentYear) || [];
-  const totalEarnings = currentYearPayslips.reduce((sum, p) => sum + p.netSalary, 0);
-  const avgSalary = currentYearPayslips.length > 0 ? totalEarnings / currentYearPayslips.length : 0;
+  // Filter and calculate stats
+  const allPayslips = payslips?.data || [];
+  const filteredPayslips = filterByFinancialYear(allPayslips);
+  const totalEarnings = filteredPayslips.reduce((sum, p) => sum + p.netSalary, 0);
+  const avgSalary = filteredPayslips.length > 0 ? totalEarnings / filteredPayslips.length : 0;
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
@@ -105,6 +204,27 @@ export default function PayslipListScreen() {
         <Text style={styles.headerTitle}>Payslips</Text>
         <Text style={styles.headerSubtitle}>Your salary history</Text>
 
+        {/* Financial Year Picker */}
+        <View style={styles.fyPickerContainer}>
+          {financialYears.map((fy, index) => (
+            <TouchableOpacity
+              key={fy.label}
+              style={[
+                styles.fyPill,
+                selectedFY === index && styles.fyPillSelected,
+              ]}
+              onPress={() => setSelectedFY(index)}
+            >
+              <Text style={[
+                styles.fyPillText,
+                selectedFY === index && styles.fyPillTextSelected,
+              ]}>
+                {fy.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
@@ -112,10 +232,10 @@ export default function PayslipListScreen() {
               <Icon name="wallet" size={20} color="#10B981" />
             </View>
             <Text style={styles.statValue}>{formatCurrency(totalEarnings)}</Text>
-            <Text style={styles.statLabel}>{currentYear} Earnings</Text>
+            <Text style={styles.statLabel}>{financialYears[selectedFY].label} Earnings</Text>
           </View>
           <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
+            <View style={[styles.statIconContainer, {backgroundColor: '#DBEAFE'}]}>
               <Icon name="chart-line" size={20} color="#3B82F6" />
             </View>
             <Text style={styles.statValue}>{formatCurrency(avgSalary)}</Text>
@@ -125,7 +245,7 @@ export default function PayslipListScreen() {
       </LinearGradient>
 
       <FlatList
-        data={payslips?.data || []}
+        data={filteredPayslips}
         renderItem={renderPayslip}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContent}
@@ -136,7 +256,9 @@ export default function PayslipListScreen() {
             <View style={[styles.listHeaderIcon, {backgroundColor: '#D1FAE5'}]}>
               <Icon name="file-document-multiple" size={20} color="#10B981" />
             </View>
-            <Text style={[styles.listHeaderText, {color: colors.text}]}>Recent Payslips</Text>
+            <Text style={[styles.listHeaderText, {color: colors.text}]}>
+              {financialYears[selectedFY].label} Payslips ({filteredPayslips.length})
+            </Text>
           </View>
         }
         ListEmptyComponent={
@@ -144,9 +266,9 @@ export default function PayslipListScreen() {
             <View style={[styles.emptyIconContainer, {backgroundColor: '#D1FAE5'}]}>
               <Icon name="cash-remove" size={48} color="#10B981" />
             </View>
-            <Text style={[styles.emptyText, {color: colors.text}]}>No payslips available</Text>
+            <Text style={[styles.emptyText, {color: colors.text}]}>No payslips for {financialYears[selectedFY].label}</Text>
             <Text style={[styles.emptySubtext, {color: colors.textSecondary}]}>
-              Your payslips will appear here once processed
+              Payslips will appear here once processed
             </Text>
           </View>
         }
@@ -175,7 +297,30 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 4,
+    marginBottom: Spacing.sm,
+  },
+  fyPickerContainer: {
+    flexDirection: 'row',
     marginBottom: Spacing.lg,
+    gap: Spacing.xs,
+  },
+  fyPill: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  fyPillSelected: {
+    backgroundColor: '#FFFFFF',
+  },
+  fyPillText: {
+    fontSize: FontSizes.sm,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500',
+  },
+  fyPillTextSelected: {
+    color: '#10B981',
+    fontWeight: '600',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -275,10 +420,10 @@ const styles = StyleSheet.create({
   statusLabel: {
     fontSize: FontSizes.sm,
   },
-  chevronContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  downloadBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },

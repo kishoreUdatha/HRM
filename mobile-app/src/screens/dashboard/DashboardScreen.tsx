@@ -46,17 +46,9 @@ const getWorkingDaysInMonth = (year: number, month: number): number => {
   return workingDays;
 };
 
-// Helper function to format currency
-const formatCurrency = (amount: number, currency: string = 'USD'): string => {
-  const symbols: Record<string, string> = {
-    USD: '$',
-    EUR: '\u20AC',
-    GBP: '\u00A3',
-    INR: '\u20B9',
-    JPY: '\u00A5',
-  };
-  const symbol = symbols[currency] || currency;
-  return `${symbol}${amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+// Helper function to format currency - defaults to INR
+const formatCurrency = (amount: number, _currency: string = 'INR'): string => {
+  return new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(amount);
 };
 
 export default function DashboardScreen() {
@@ -183,7 +175,7 @@ export default function DashboardScreen() {
       overtimeHours,
       dailyRate,
       hourlyRate,
-      currency: salaryData.currency || 'USD',
+      currency: salaryData.currency || 'INR',
       todayHours: todayRecordHours,
     };
   };

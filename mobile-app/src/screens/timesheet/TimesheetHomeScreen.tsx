@@ -25,17 +25,9 @@ const getWeekDates = (date: Date) => {
   return {start: monday, end: sunday};
 };
 
-// Helper to format currency
-const formatCurrency = (amount: number, currency: string = 'INR'): string => {
-  const symbols: Record<string, string> = {
-    USD: '$',
-    EUR: '\u20AC',
-    GBP: '\u00A3',
-    INR: '\u20B9',
-    JPY: '\u00A5',
-  };
-  const symbol = symbols[currency] || currency;
-  return `${symbol}${amount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+// Helper to format currency - always use INR
+const formatCurrency = (amount: number, _currency: string = 'INR'): string => {
+  return new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(amount);
 };
 
 export default function TimesheetHomeScreen() {

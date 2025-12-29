@@ -3,6 +3,125 @@ import { validationResult } from 'express-validator';
 import Payroll from '../models/Payroll';
 import EmployeeSalary from '../models/EmployeeSalary';
 import SalaryStructure from '../models/SalaryStructure';
+import { generatePayslipPDF } from '../services/payslipService';
+
+const EMPLOYEE_SERVICE_URL = process.env.EMPLOYEE_SERVICE_URL || 'http://employee-service:3003';
+const TENANT_SERVICE_URL = process.env.TENANT_SERVICE_URL || 'http://tenant-service:3002';
+
+// Helper to fetch tenant data from tenant service
+async function fetchTenantData(tenantId: string): Promise<{
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
+} | null> {
+  try {
+    const response = await fetch(`${TENANT_SERVICE_URL}/${tenantId}`, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as Record<string, unknown>;
+    const tenant = (data.data || data.tenant || data) as Record<string, unknown>;
+    return {
+      name: String(tenant.name || tenant.companyName || 'Company'),
+      address: tenant.address ? String(tenant.address) : undefined,
+      city: tenant.city ? String(tenant.city) : undefined,
+      state: tenant.state ? String(tenant.state) : undefined,
+      country: tenant.country ? String(tenant.country) : undefined,
+      pincode: tenant.pincode || tenant.zipCode ? String(tenant.pincode || tenant.zipCode) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Helper to fetch full employee details from employee service
+async function fetchFullEmployeeData(tenantId: string, employeeId: string): Promise<{
+  firstName: string;
+  lastName: string;
+  employeeCode: string;
+  email?: string;
+  department?: string;
+  designation?: string;
+  dateOfJoining?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  panNumber?: string;
+  uanNumber?: string;
+} | null> {
+  try {
+    const response = await fetch(`${EMPLOYEE_SERVICE_URL}/employees/${employeeId}`, {
+      headers: {
+        'x-tenant-id': tenantId,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as Record<string, unknown>;
+    const emp = (data.data || data.employee || data) as Record<string, unknown>;
+
+    // Handle nested bank details
+    const bankDetails = emp.bankDetails as Record<string, unknown> | undefined;
+
+    return {
+      firstName: String(emp.firstName || ''),
+      lastName: String(emp.lastName || ''),
+      employeeCode: String(emp.employeeCode || emp.employeeId || employeeId),
+      email: emp.email ? String(emp.email) : undefined,
+      department: emp.department && typeof emp.department === 'object'
+        ? String((emp.department as Record<string, unknown>).name || '')
+        : emp.departmentName ? String(emp.departmentName) : undefined,
+      designation: emp.designation || emp.jobTitle || emp.position
+        ? String(emp.designation || emp.jobTitle || emp.position)
+        : undefined,
+      dateOfJoining: emp.dateOfJoining || emp.joiningDate || emp.hireDate
+        ? new Date(String(emp.dateOfJoining || emp.joiningDate || emp.hireDate)).toLocaleDateString('en-IN')
+        : undefined,
+      bankName: bankDetails?.bankName ? String(bankDetails.bankName) :
+                emp.bankName ? String(emp.bankName) : undefined,
+      bankAccountNumber: bankDetails?.accountNumber ? String(bankDetails.accountNumber) :
+                         emp.bankAccountNumber || emp.accountNumber ? String(emp.bankAccountNumber || emp.accountNumber) : undefined,
+      panNumber: emp.panNumber || emp.pan ? String(emp.panNumber || emp.pan) : undefined,
+      uanNumber: emp.uanNumber || emp.uan ? String(emp.uanNumber || emp.uan) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Helper to fetch employee data from employee service (simplified version for payroll generation)
+async function fetchEmployeeData(tenantId: string, employeeId: string): Promise<{
+  firstName: string;
+  lastName: string;
+  employeeCode: string;
+  email?: string;
+  department?: string;
+} | null> {
+  try {
+    const response = await fetch(`${EMPLOYEE_SERVICE_URL}/employees/${employeeId}`, {
+      headers: {
+        'x-tenant-id': tenantId,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as Record<string, unknown>;
+    const emp = (data.data || data.employee || data) as Record<string, unknown>;
+    return {
+      firstName: String(emp.firstName || ''),
+      lastName: String(emp.lastName || ''),
+      employeeCode: String(emp.employeeCode || emp.employeeId || employeeId),
+      email: emp.email ? String(emp.email) : undefined,
+      department: emp.department && typeof emp.department === 'object'
+        ? String((emp.department as Record<string, unknown>).name || '')
+        : emp.departmentName ? String(emp.departmentName) : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
 
 // Generate payroll for an employee
 export const generatePayroll = async (req: Request, res: Response): Promise<void> => {
@@ -304,15 +423,21 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     const userId = req.headers['x-user-id'] as string;
-    const { month, year, employeeIds } = req.body;
+    const { month, year, employeeIds: providedEmployeeIds } = req.body;
 
-    // Validate employeeIds is an array
+    // If no employeeIds provided, get all employees with active salary configurations
+    let employeeIds = providedEmployeeIds;
     if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
-      res.status(400).json({
-        success: false,
-        message: 'employeeIds must be a non-empty array',
-      });
-      return;
+      const activeSalaries = await EmployeeSalary.find({ tenantId, isActive: true }).select('employeeId').lean();
+      employeeIds = activeSalaries.map(s => s.employeeId.toString());
+
+      if (employeeIds.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: 'No employees with salary configurations found. Please assign salary structures to employees first.',
+        });
+        return;
+      }
     }
 
     const results = { success: 0, failed: 0, errors: [] as string[] };
@@ -364,9 +489,17 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
           }
         }
 
+        // Fetch employee data for snapshot
+        const employeeData = await fetchEmployeeData(tenantId, employeeId);
+
         const payroll = new Payroll({
           tenantId,
           employeeId,
+          employee: employeeData || {
+            firstName: 'Employee',
+            lastName: employeeId.slice(-6),
+            employeeCode: employeeId,
+          },
           month,
           year,
           payPeriodStart,
@@ -453,3 +586,528 @@ function getWorkingDays(startDate: Date, endDate: Date): number {
   }
   return count;
 }
+
+// ==================== EMPLOYEE SELF-SERVICE ENDPOINTS ====================
+
+// Get payslips for employee (self-service) - returns processed/paid payrolls only
+export const getEmployeePayslips = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.params.tenantId || req.headers['x-tenant-id'] as string;
+    const { employeeId } = req.params;
+    const { page = 1, limit = 12, year, status } = req.query;
+
+    if (!employeeId) {
+      res.status(400).json({ success: false, message: 'Employee ID is required' });
+      return;
+    }
+
+    // Build query - only show processed or paid payrolls to employees
+    const query: Record<string, unknown> = {
+      tenantId,
+      employeeId,
+      status: { $in: ['processed', 'paid'] } // Only show finalized payrolls
+    };
+
+    // Filter by year if provided
+    if (year) {
+      query.year = Number(year);
+    }
+
+    // Allow further filtering by status if specified
+    if (status && (status === 'processed' || status === 'paid')) {
+      query.status = status;
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [payrolls, total] = await Promise.all([
+      Payroll.find(query)
+        .sort({ year: -1, month: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      Payroll.countDocuments(query),
+    ]);
+
+    // Transform to mobile app expected format
+    const payslips = payrolls.map(payroll => ({
+      _id: payroll._id,
+      tenantId: payroll.tenantId,
+      employeeId: payroll.employeeId,
+      employee: payroll.employee ? {
+        firstName: payroll.employee.firstName,
+        lastName: payroll.employee.lastName,
+        employeeCode: payroll.employee.employeeCode,
+        email: payroll.employee.email,
+        department: payroll.employee.department,
+      } : undefined,
+      month: payroll.month,
+      year: payroll.year,
+      basicSalary: payroll.baseSalary,
+      earnings: payroll.earnings.map(e => ({
+        name: e.name,
+        code: e.code,
+        amount: e.amount,
+        type: 'fixed' as const,
+        isRecurring: true,
+      })),
+      deductions: payroll.deductions.map(d => ({
+        name: d.name,
+        code: d.code,
+        amount: d.amount,
+        type: 'fixed' as const,
+        isRecurring: true,
+      })),
+      grossSalary: payroll.grossSalary,
+      totalDeductions: payroll.totalDeductions,
+      netSalary: payroll.netSalary,
+      status: payroll.status === 'processed' ? 'approved' : payroll.status, // Map 'processed' to 'approved' for mobile
+      paidAt: payroll.paidAt,
+      payPeriodStart: payroll.payPeriodStart,
+      payPeriodEnd: payroll.payPeriodEnd,
+      workingDays: payroll.workingDays,
+      presentDays: payroll.presentDays,
+      leaveDays: payroll.leaveDays,
+      lopDays: payroll.lopDays,
+      createdAt: payroll.createdAt,
+      updatedAt: payroll.updatedAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: payslips,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / Number(limit)),
+      },
+    });
+  } catch (error) {
+    console.error('[Payroll Service] Get employee payslips error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch payslips',
+    });
+  }
+};
+
+// Get specific payslip for employee by month/year
+export const getEmployeePayslipByPeriod = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.params.tenantId || req.headers['x-tenant-id'] as string;
+    const { employeeId, year, month } = req.params;
+
+    if (!employeeId || !year || !month) {
+      res.status(400).json({ success: false, message: 'Employee ID, year and month are required' });
+      return;
+    }
+
+    const payroll = await Payroll.findOne({
+      tenantId,
+      employeeId,
+      year: Number(year),
+      month: Number(month),
+      status: { $in: ['processed', 'paid'] } // Only show finalized payrolls
+    }).lean();
+
+    if (!payroll) {
+      res.status(404).json({ success: false, message: 'Payslip not found' });
+      return;
+    }
+
+    // Transform to mobile app expected format
+    const payslip = {
+      _id: payroll._id,
+      tenantId: payroll.tenantId,
+      employeeId: payroll.employeeId,
+      employee: payroll.employee ? {
+        firstName: payroll.employee.firstName,
+        lastName: payroll.employee.lastName,
+        employeeCode: payroll.employee.employeeCode,
+        email: payroll.employee.email,
+        department: payroll.employee.department,
+      } : undefined,
+      month: payroll.month,
+      year: payroll.year,
+      basicSalary: payroll.baseSalary,
+      earnings: payroll.earnings.map(e => ({
+        name: e.name,
+        code: e.code,
+        amount: e.amount,
+        type: 'fixed' as const,
+        isRecurring: true,
+      })),
+      deductions: payroll.deductions.map(d => ({
+        name: d.name,
+        code: d.code,
+        amount: d.amount,
+        type: 'fixed' as const,
+        isRecurring: true,
+      })),
+      grossSalary: payroll.grossSalary,
+      totalDeductions: payroll.totalDeductions,
+      netSalary: payroll.netSalary,
+      status: payroll.status === 'processed' ? 'approved' : payroll.status,
+      paidAt: payroll.paidAt,
+      payPeriodStart: payroll.payPeriodStart,
+      payPeriodEnd: payroll.payPeriodEnd,
+      workingDays: payroll.workingDays,
+      presentDays: payroll.presentDays,
+      leaveDays: payroll.leaveDays,
+      lopDays: payroll.lopDays,
+      incomeTax: payroll.incomeTax,
+      taxableIncome: payroll.taxableIncome,
+      overtimeHours: payroll.overtimeHours,
+      overtimePay: payroll.overtimePay,
+      notes: payroll.notes,
+      createdAt: payroll.createdAt,
+      updatedAt: payroll.updatedAt,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: payslip,
+    });
+  } catch (error) {
+    console.error('[Payroll Service] Get employee payslip error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch payslip',
+    });
+  }
+};
+
+// Get specific payslip by ID for employee (self-service)
+export const getEmployeePayslipById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.params.tenantId || req.headers['x-tenant-id'] as string;
+    const { employeeId, payslipId } = req.params;
+
+    if (!employeeId || !payslipId) {
+      res.status(400).json({ success: false, message: 'Employee ID and Payslip ID are required' });
+      return;
+    }
+
+    const payroll = await Payroll.findOne({
+      _id: payslipId,
+      tenantId,
+      employeeId,
+      status: { $in: ['processed', 'paid'] } // Only show finalized payrolls
+    }).lean();
+
+    if (!payroll) {
+      res.status(404).json({ success: false, message: 'Payslip not found' });
+      return;
+    }
+
+    // Transform to mobile app expected format
+    const payslip = {
+      _id: payroll._id,
+      tenantId: payroll.tenantId,
+      employeeId: payroll.employeeId,
+      employee: payroll.employee ? {
+        firstName: payroll.employee.firstName,
+        lastName: payroll.employee.lastName,
+        employeeCode: payroll.employee.employeeCode,
+        email: payroll.employee.email,
+        department: payroll.employee.department,
+      } : undefined,
+      month: payroll.month,
+      year: payroll.year,
+      basicSalary: payroll.baseSalary,
+      earnings: payroll.earnings.map(e => ({
+        name: e.name,
+        code: e.code,
+        amount: e.amount,
+        type: 'fixed' as const,
+        isRecurring: true,
+      })),
+      deductions: payroll.deductions.map(d => ({
+        name: d.name,
+        code: d.code,
+        amount: d.amount,
+        type: 'fixed' as const,
+        isRecurring: true,
+      })),
+      grossSalary: payroll.grossSalary,
+      totalDeductions: payroll.totalDeductions,
+      netSalary: payroll.netSalary,
+      status: payroll.status === 'processed' ? 'approved' : payroll.status,
+      paidAt: payroll.paidAt,
+      payPeriodStart: payroll.payPeriodStart,
+      payPeriodEnd: payroll.payPeriodEnd,
+      workingDays: payroll.workingDays,
+      presentDays: payroll.presentDays,
+      leaveDays: payroll.leaveDays,
+      lopDays: payroll.lopDays,
+      incomeTax: payroll.incomeTax,
+      taxableIncome: payroll.taxableIncome,
+      overtimeHours: payroll.overtimeHours,
+      overtimePay: payroll.overtimePay,
+      notes: payroll.notes,
+      createdAt: payroll.createdAt,
+      updatedAt: payroll.updatedAt,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: payslip,
+    });
+  } catch (error) {
+    console.error('[Payroll Service] Get employee payslip by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch payslip',
+    });
+  }
+};
+
+// Get YTD summary for employee
+export const getEmployeeYTDSummary = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.params.tenantId || req.headers['x-tenant-id'] as string;
+    const { employeeId, year } = req.params;
+
+    if (!employeeId || !year) {
+      res.status(400).json({ success: false, message: 'Employee ID and year are required' });
+      return;
+    }
+
+    const payrolls = await Payroll.find({
+      tenantId,
+      employeeId,
+      year: Number(year),
+      status: { $in: ['processed', 'paid'] }
+    }).sort({ month: 1 }).lean();
+
+    const monthlyBreakdown = payrolls.map(p => ({
+      month: p.month,
+      gross: p.grossSalary,
+      deductions: p.totalDeductions,
+      net: p.netSalary,
+    }));
+
+    const summary = {
+      year: Number(year),
+      totalGross: payrolls.reduce((sum, p) => sum + p.grossSalary, 0),
+      totalDeductions: payrolls.reduce((sum, p) => sum + p.totalDeductions, 0),
+      totalNet: payrolls.reduce((sum, p) => sum + p.netSalary, 0),
+      totalTax: payrolls.reduce((sum, p) => sum + (p.incomeTax || 0), 0),
+      monthsProcessed: payrolls.length,
+      monthlyBreakdown,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: summary,
+    });
+  } catch (error) {
+    console.error('[Payroll Service] Get YTD summary error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch YTD summary',
+    });
+  }
+};
+
+// Download payslip PDF for employee (by payslip ID)
+export const downloadPayslipPDF = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.params.tenantId || req.headers['x-tenant-id'] as string;
+    const { employeeId, payslipId } = req.params;
+
+    if (!employeeId || !payslipId) {
+      res.status(400).json({ success: false, message: 'Employee ID and Payslip ID are required' });
+      return;
+    }
+
+    const payroll = await Payroll.findOne({
+      _id: payslipId,
+      tenantId,
+      employeeId,
+      status: { $in: ['processed', 'paid'] }
+    }).lean();
+
+    if (!payroll) {
+      res.status(404).json({ success: false, message: 'Payslip not found' });
+      return;
+    }
+
+    // Fetch tenant and employee data in parallel
+    const [tenantData, employeeData] = await Promise.all([
+      fetchTenantData(tenantId),
+      fetchFullEmployeeData(tenantId, employeeId),
+    ]);
+
+    // Build company address
+    const addressParts = [
+      tenantData?.address,
+      tenantData?.city,
+      tenantData?.state,
+      tenantData?.pincode,
+      tenantData?.country,
+    ].filter(Boolean);
+    const companyAddress = addressParts.length > 0 ? addressParts.join(', ') : 'Address not available';
+
+    // Format dates
+    const payPeriodStart = new Date(payroll.payPeriodStart);
+    const payPeriodEnd = new Date(payroll.payPeriodEnd);
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    // Prepare payslip data for PDF generation
+    const payslipData = {
+      companyName: tenantData?.name || 'Company',
+      companyAddress: companyAddress,
+      employeeName: employeeData
+        ? `${employeeData.firstName} ${employeeData.lastName}`
+        : payroll.employee
+          ? `${payroll.employee.firstName} ${payroll.employee.lastName}`
+          : 'Employee',
+      employeeId: payroll.employeeId.toString(),
+      employeeCode: employeeData?.employeeCode || payroll.employee?.employeeCode || payroll.employeeId.toString(),
+      email: employeeData?.email || payroll.employee?.email,
+      designation: employeeData?.designation || 'Employee',
+      department: employeeData?.department || payroll.employee?.department || 'Department',
+      dateOfJoining: employeeData?.dateOfJoining || 'Not available',
+      bankName: employeeData?.bankName || 'Bank',
+      bankAccountNumber: employeeData?.bankAccountNumber || 'XXXXXXXX',
+      panNumber: employeeData?.panNumber,
+      uanNumber: employeeData?.uanNumber,
+      month: payroll.month,
+      year: payroll.year,
+      payPeriodStart: payPeriodStart.toLocaleDateString('en-IN'),
+      payPeriodEnd: payPeriodEnd.toLocaleDateString('en-IN'),
+      workingDays: payroll.workingDays || 0,
+      presentDays: payroll.presentDays || 0,
+      leaveDays: payroll.leaveDays || 0,
+      lopDays: payroll.lopDays || 0,
+      basicSalary: payroll.baseSalary || 0,
+      earnings: payroll.earnings.map(e => ({ name: e.name, amount: e.amount })),
+      deductions: payroll.deductions.map(d => ({ name: d.name, amount: d.amount })),
+      grossSalary: payroll.grossSalary,
+      totalDeductions: payroll.totalDeductions,
+      netSalary: payroll.netSalary,
+      overtimeHours: payroll.overtimeHours || 0,
+      overtimePay: payroll.overtimePay || 0,
+      paymentReference: payroll.paymentReference,
+    };
+
+    const pdfBuffer = await generatePayslipPDF(payslipData);
+
+    // Set response headers for PDF download
+    const fileName = `Payslip_${employeeData?.employeeCode || payroll.employee?.employeeCode || employeeId}_${months[payroll.month - 1]}_${payroll.year}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('[Payroll Service] Download payslip PDF error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate payslip PDF',
+    });
+  }
+};
+
+// Download payslip PDF by month/year
+export const downloadPayslipByPeriodPDF = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.params.tenantId || req.headers['x-tenant-id'] as string;
+    const { employeeId, year, month } = req.params;
+
+    if (!employeeId || !year || !month) {
+      res.status(400).json({ success: false, message: 'Employee ID, year and month are required' });
+      return;
+    }
+
+    const payroll = await Payroll.findOne({
+      tenantId,
+      employeeId,
+      year: Number(year),
+      month: Number(month),
+      status: { $in: ['processed', 'paid'] }
+    }).lean();
+
+    if (!payroll) {
+      res.status(404).json({ success: false, message: 'Payslip not found for the specified period' });
+      return;
+    }
+
+    // Fetch tenant and employee data in parallel
+    const [tenantData, employeeData] = await Promise.all([
+      fetchTenantData(tenantId),
+      fetchFullEmployeeData(tenantId, employeeId),
+    ]);
+
+    // Build company address
+    const addressParts = [
+      tenantData?.address,
+      tenantData?.city,
+      tenantData?.state,
+      tenantData?.pincode,
+      tenantData?.country,
+    ].filter(Boolean);
+    const companyAddress = addressParts.length > 0 ? addressParts.join(', ') : 'Address not available';
+
+    // Format dates
+    const payPeriodStart = new Date(payroll.payPeriodStart);
+    const payPeriodEnd = new Date(payroll.payPeriodEnd);
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    // Prepare payslip data for PDF generation
+    const payslipData = {
+      companyName: tenantData?.name || 'Company',
+      companyAddress: companyAddress,
+      employeeName: employeeData
+        ? `${employeeData.firstName} ${employeeData.lastName}`
+        : payroll.employee
+          ? `${payroll.employee.firstName} ${payroll.employee.lastName}`
+          : 'Employee',
+      employeeId: payroll.employeeId.toString(),
+      employeeCode: employeeData?.employeeCode || payroll.employee?.employeeCode || payroll.employeeId.toString(),
+      email: employeeData?.email || payroll.employee?.email,
+      designation: employeeData?.designation || 'Employee',
+      department: employeeData?.department || payroll.employee?.department || 'Department',
+      dateOfJoining: employeeData?.dateOfJoining || 'Not available',
+      bankName: employeeData?.bankName || 'Bank',
+      bankAccountNumber: employeeData?.bankAccountNumber || 'XXXXXXXX',
+      panNumber: employeeData?.panNumber,
+      uanNumber: employeeData?.uanNumber,
+      month: payroll.month,
+      year: payroll.year,
+      payPeriodStart: payPeriodStart.toLocaleDateString('en-IN'),
+      payPeriodEnd: payPeriodEnd.toLocaleDateString('en-IN'),
+      workingDays: payroll.workingDays || 0,
+      presentDays: payroll.presentDays || 0,
+      leaveDays: payroll.leaveDays || 0,
+      lopDays: payroll.lopDays || 0,
+      basicSalary: payroll.baseSalary || 0,
+      earnings: payroll.earnings.map(e => ({ name: e.name, amount: e.amount })),
+      deductions: payroll.deductions.map(d => ({ name: d.name, amount: d.amount })),
+      grossSalary: payroll.grossSalary,
+      totalDeductions: payroll.totalDeductions,
+      netSalary: payroll.netSalary,
+      overtimeHours: payroll.overtimeHours || 0,
+      overtimePay: payroll.overtimePay || 0,
+      paymentReference: payroll.paymentReference,
+    };
+
+    const pdfBuffer = await generatePayslipPDF(payslipData);
+
+    // Set response headers for PDF download
+    const fileName = `Payslip_${employeeData?.employeeCode || payroll.employee?.employeeCode || employeeId}_${months[payroll.month - 1]}_${payroll.year}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error('[Payroll Service] Download payslip by period PDF error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate payslip PDF',
+    });
+  }
+};

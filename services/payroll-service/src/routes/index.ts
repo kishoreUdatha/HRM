@@ -209,4 +209,25 @@ router.get('/:tenantId/paystubs/stats/:year/:month', taxController.getMonthlyPay
 // Compare paystubs between periods
 router.get('/:tenantId/employees/:employeeId/paystubs/compare', taxController.comparePaystubsEndpoint);
 
+// ==================== EMPLOYEE SELF-SERVICE PAYSLIP ROUTES ====================
+// These return data from Payroll model (generated via bulk/single payroll generation)
+
+// Get payslips for employee (from Payroll model - processed/paid only)
+router.get('/:tenantId/employees/:employeeId/payslips', payrollController.getEmployeePayslips);
+
+// Get specific payslip by ID
+router.get('/:tenantId/employees/:employeeId/payslips/:payslipId', payrollController.getEmployeePayslipById);
+
+// Get specific payslip by month/year
+router.get('/:tenantId/employees/:employeeId/payslip/:year/:month', payrollController.getEmployeePayslipByPeriod);
+
+// Get YTD summary for employee
+router.get('/:tenantId/employees/:employeeId/ytd/:year', payrollController.getEmployeeYTDSummary);
+
+// Download payslip PDF by ID
+router.get('/:tenantId/employees/:employeeId/payslips/:payslipId/download', payrollController.downloadPayslipPDF);
+
+// Download payslip PDF by month/year
+router.get('/:tenantId/employees/:employeeId/payslip/:year/:month/download', payrollController.downloadPayslipByPeriodPDF);
+
 export default router;
