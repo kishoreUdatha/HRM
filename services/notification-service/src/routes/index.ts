@@ -16,12 +16,15 @@ router.get(
   notificationController.getNotifications
 );
 
+// Get unread notification count
+router.get('/unread-count', notificationController.getUnreadCount);
+
 // Create notification
 router.post(
   '/',
   [
-    body('userId').notEmpty().withMessage('User ID is required'),
-    body('category').notEmpty().withMessage('Category is required'),
+    body('userId').optional(),
+    body('category').optional(),
     body('title').notEmpty().trim().withMessage('Title is required'),
     body('message').notEmpty().withMessage('Message is required'),
   ],

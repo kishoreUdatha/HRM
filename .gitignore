@@ -127,3 +127,7 @@ azure.json
 # Debug
 *.debug
 .fusebox/
+
+# Local test files
+test-*.js
+test-*.ps1

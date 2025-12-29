@@ -569,14 +569,66 @@ export const getTodayStatus = async (req: Request, res: Response): Promise<void>
   }
 };
 
+// Get my today status (self-service using user ID from headers)
+export const getMyTodayStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const userId = req.headers['x-user-id'] as string;
+
+    if (!userId) {
+      res.status(400).json({
+        success: false,
+        message: 'User ID not found in headers',
+      });
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Look up employee by userId
+    const employee = await getEmployeeByUserIdOrEmail(userId, tenantId);
+
+    let attendance = null;
+    if (employee) {
+      attendance = await Attendance.findOne({
+        tenantId,
+        employeeId: employee._id.toString(),
+        date: today,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        attendance,
+        employee: employee ? { _id: employee._id, firstName: employee.firstName, lastName: employee.lastName } : null,
+        isCheckedIn: !!attendance?.checkIn,
+        isCheckedOut: !!attendance?.checkOut,
+      },
+    });
+  } catch (error) {
+    console.error('[Attendance Service] Get my today status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch today status',
+    });
+  }
+};
+
 // Get attendance summary/stats
 export const getAttendanceSummary = async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     const { employeeId, month, year } = req.query;
 
-    const startDate = new Date(Number(year), Number(month) - 1, 1);
-    const endDate = new Date(Number(year), Number(month), 0);
+    // Default to current month/year if not provided
+    const currentDate = new Date();
+    const targetMonth = month ? Number(month) : currentDate.getMonth() + 1;
+    const targetYear = year ? Number(year) : currentDate.getFullYear();
+
+    const startDate = new Date(targetYear, targetMonth - 1, 1);
+    const endDate = new Date(targetYear, targetMonth, 0);
 
     const query: Record<string, unknown> = {
       tenantId,

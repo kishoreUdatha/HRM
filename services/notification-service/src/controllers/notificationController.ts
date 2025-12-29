@@ -49,6 +49,27 @@ export const getNotifications = async (req: Request, res: Response): Promise<voi
   }
 };
 
+// Get unread notification count
+export const getUnreadCount = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const userId = req.headers['x-user-id'] as string;
+
+    const unreadCount = await Notification.countDocuments({ tenantId, userId, isRead: false });
+
+    res.status(200).json({
+      success: true,
+      data: { unreadCount },
+    });
+  } catch (error) {
+    console.error('[Notification Service] Get unread count error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch unread count',
+    });
+  }
+};
+
 // Mark notification as read
 export const markAsRead = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -114,7 +135,18 @@ export const createNotification = async (req: Request, res: Response): Promise<v
     }
 
     const tenantId = req.headers['x-tenant-id'] as string;
-    const notification = new Notification({ ...req.body, tenantId });
+    const headerUserId = req.headers['x-user-id'] as string;
+
+    // Use userId from body, or fall back to header
+    const userId = req.body.userId || headerUserId;
+    const category = req.body.category || 'system';
+
+    const notification = new Notification({
+      ...req.body,
+      tenantId,
+      userId,
+      category,
+    });
     await notification.save();
 
     res.status(201).json({

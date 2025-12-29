@@ -59,6 +59,9 @@ router.get(
   attendanceController.getAttendance
 );
 
+// Get my today's status (self-service)
+router.get('/today/me', attendanceController.getMyTodayStatus);
+
 // Get today's status for an employee
 router.get('/today/:employeeId', attendanceController.getTodayStatus);
 
@@ -66,8 +69,8 @@ router.get('/today/:employeeId', attendanceController.getTodayStatus);
 router.get(
   '/summary',
   [
-    query('month').isInt({ min: 1, max: 12 }),
-    query('year').isInt({ min: 2000 }),
+    query('month').optional().isInt({ min: 1, max: 12 }),
+    query('year').optional().isInt({ min: 2000 }),
   ],
   attendanceController.getAttendanceSummary
 );
