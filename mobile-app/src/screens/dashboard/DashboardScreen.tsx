@@ -46,9 +46,33 @@ const getWorkingDaysInMonth = (year: number, month: number): number => {
   return workingDays;
 };
 
-// Helper function to format currency - defaults to INR
+// Helper function to format currency - defaults to INR (Hermes-safe)
 const formatCurrency = (amount: number, _currency: string = 'INR'): string => {
-  return new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(amount);
+  const num = Number(amount);
+  if (!isFinite(num) || isNaN(num)) {
+    return '₹0';
+  }
+  // Manual Indian number formatting (Hermes-safe, no Intl dependency)
+  const absNum = Math.abs(Math.round(num));
+  const numStr = absNum.toString();
+  let result = '';
+  const len = numStr.length;
+
+  if (len <= 3) {
+    result = numStr;
+  } else {
+    // Last 3 digits
+    result = numStr.slice(-3);
+    let remaining = numStr.slice(0, -3);
+    // Add remaining digits in groups of 2
+    while (remaining.length > 0) {
+      const chunk = remaining.slice(-2);
+      result = chunk + ',' + result;
+      remaining = remaining.slice(0, -2);
+    }
+  }
+
+  return num < 0 ? `-₹${result}` : `₹${result}`;
 };
 
 export default function DashboardScreen() {
@@ -124,7 +148,12 @@ export default function DashboardScreen() {
     // So attendanceSummary = {success: true, data: {summary: {...}, records: [...]}}
     const summaryData = attendanceSummary?.data?.data?.summary || attendanceSummary?.data?.summary;
 
+    // Debug logging
+    console.log('[Dashboard] salaryData:', JSON.stringify(salaryData));
+    console.log('[Dashboard] summaryData:', JSON.stringify(summaryData));
+
     if (!salaryData || !salaryData.basic) {
+      console.log('[Dashboard] No salary data found');
       return null;
     }
 
@@ -156,14 +185,27 @@ export default function DashboardScreen() {
     const totalWorkHours = todayData?.checkOut ? summaryWorkHours : summaryWorkHours + todayRecordHours;
     const overtimeHours = summaryData?.totalOvertimeHours || 0;
 
-    // Calculate earnings based on hours worked
-    const hoursBasedEarnings = totalWorkHours * hourlyRate;
-    const overtimeEarnings = overtimeHours * hourlyRate * 0.5; // Extra 0.5x for overtime (already counted in base)
-    const currentEarnings = hoursBasedEarnings + overtimeEarnings;
+    // Calculate earnings based on days worked (consistent with payroll calculation)
+    const daysBasedEarnings = effectiveDaysWorked * dailyRate;
+    const overtimeEarnings = overtimeHours * hourlyRate * 0.5; // Extra 0.5x for overtime
+    const currentEarnings = daysBasedEarnings + overtimeEarnings;
 
-    // Projected monthly earnings
+    // Projected monthly earnings (assuming full attendance for remaining days)
     const daysRemaining = Math.max(0, workingDaysInMonth - effectiveDaysWorked);
     const projectedEarnings = currentEarnings + (daysRemaining * dailyRate);
+
+    console.log('[Dashboard] Calculation:', {
+      monthlySalary,
+      workingDaysInMonth,
+      dailyRate,
+      hourlyRate,
+      presentDays,
+      halfDays,
+      effectiveDaysWorked,
+      totalWorkHours,
+      currentEarnings,
+      projectedEarnings,
+    });
 
     return {
       currentEarnings,
@@ -411,7 +453,7 @@ export default function DashboardScreen() {
                 <View style={styles.earningsStatDivider} />
                 <View style={styles.earningsStat}>
                   <Icon name="clock-outline" size={16} color="rgba(255,255,255,0.8)" />
-                  <Text style={styles.earningsStatValue}>{earnings.totalWorkHours.toFixed(1)}h</Text>
+                  <Text style={styles.earningsStatValue}>{(earnings.totalWorkHours || 0).toFixed(1)}h</Text>
                   <Text style={styles.earningsStatLabel}>Work Hours</Text>
                 </View>
                 <View style={styles.earningsStatDivider} />
@@ -426,16 +468,16 @@ export default function DashboardScreen() {
             </LinearGradient>
 
             {/* Today's Earning Row */}
-            {earnings.todayHours > 0 && (
+            {(earnings.todayHours || 0) > 0 && (
               <View style={[styles.todayEarnings, {backgroundColor: colors.background}]}>
                 <View style={styles.todayEarningsLeft}>
                   <Icon name="clock-check-outline" size={18} color={colors.success} />
                   <Text style={[styles.todayEarningsText, {color: colors.text}]}>
-                    Today: {earnings.todayHours.toFixed(1)} hrs
+                    Today: {(earnings.todayHours || 0).toFixed(1)} hrs
                   </Text>
                 </View>
                 <Text style={[styles.todayEarningsAmount, {color: colors.success}]}>
-                  +{formatCurrency(earnings.todayHours * earnings.hourlyRate, earnings.currency)}
+                  +{formatCurrency((earnings.todayHours || 0) * (earnings.hourlyRate || 0), earnings.currency)}
                 </Text>
               </View>
             )}

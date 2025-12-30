@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Platform,
   Linking,
@@ -26,6 +25,7 @@ import {handleApiError} from '../../api/apiClient';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList} from '../../types';
+import {showToast, showDialog, ALERT_TYPE} from '../../utils/alert';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -134,15 +134,11 @@ export default function FaceCheckInScreen() {
       // Request location permission
       const hasLocationPermission = await requestLocationPermission();
       if (!hasLocationPermission) {
-        Alert.alert(
-          'Location Permission Required',
-          'Please enable location access to check in.',
-          [
-            {text: 'Cancel', style: 'cancel', onPress: () => setVerificationState('camera')},
-            {text: 'Open Settings', onPress: () => Linking.openSettings()},
-          ]
-        );
+        showDialog.warning('Location Required', 'Please enable location access to check in.', () => {
+          Linking.openSettings();
+        });
         setIsCapturing(false);
+        setVerificationState('camera');
         return;
       }
 
@@ -163,14 +159,9 @@ export default function FaceCheckInScreen() {
         const errorCode = locError?.code;
         if (errorCode === 2) {
           setLocationError('GPS is turned off.');
-          Alert.alert(
-            'Turn On Location',
-            'GPS is required for attendance check-in.',
-            [
-              {text: 'Cancel', style: 'cancel', onPress: () => setVerificationState('camera')},
-              {text: 'Turn On GPS', onPress: openLocationSettings},
-            ]
-          );
+          showDialog.warning('Turn On Location', 'GPS is required for attendance check-in.', () => {
+            openLocationSettings();
+          });
         } else {
           setLocationError('Could not get your location.');
         }
@@ -218,33 +209,22 @@ export default function FaceCheckInScreen() {
         } else if (verifyResponse.status === 'MULTIPLE_FACES') {
           errorMessage = 'Multiple faces detected. Please ensure only one person is in the frame.';
         } else if (verifyResponse.status === 'NO_ENROLLMENTS') {
-          errorMessage = 'Your face is not enrolled yet. Would you like to enroll now?';
-          Alert.alert(
-            'Face Not Enrolled',
-            errorMessage,
-            [
-              {text: 'Cancel', style: 'cancel', onPress: () => navigation.goBack()},
-              {text: 'Enroll Now', onPress: () => navigation.replace('FaceEnrollment')},
-            ]
-          );
+          errorMessage = 'Your face is not enrolled yet.';
+          showDialog.info('Face Not Enrolled', errorMessage, () => {
+            navigation.replace('FaceEnrollment');
+          });
           return;
         } else if (verifyResponse.status === 'NO_MATCH') {
           errorMessage = 'Face not recognized. Please try again or contact HR.';
         }
 
-        Alert.alert(
-          'Verification Failed',
-          errorMessage,
-          [{text: 'Retry', onPress: () => setVerificationState('camera')}]
-        );
+        showDialog.error('Verification Failed', errorMessage, () => setVerificationState('camera'));
       }
     } catch (error) {
       console.error('[FaceCheckIn] Error:', error);
       const errorMessage = handleApiError(error);
       setVerificationState('error');
-      Alert.alert('Error', errorMessage, [
-        {text: 'Retry', onPress: () => setVerificationState('camera')},
-      ]);
+      showDialog.error('Error', errorMessage, () => setVerificationState('camera'));
     } finally {
       setIsCapturing(false);
     }
@@ -291,15 +271,11 @@ export default function FaceCheckInScreen() {
           navigation.goBack();
         }, 3000);
       } else {
-        Alert.alert('Error', response.message || 'Check-in failed', [
-          {text: 'OK', onPress: () => setVerificationState('camera')},
-        ]);
+        showDialog.error('Error', response.message || 'Check-in failed', () => setVerificationState('camera'));
       }
     } catch (error) {
       const errorMessage = handleApiError(error);
-      Alert.alert('Error', errorMessage, [
-        {text: 'OK', onPress: () => setVerificationState('camera')},
-      ]);
+      showDialog.error('Error', errorMessage, () => setVerificationState('camera'));
     }
   };
 
@@ -311,14 +287,9 @@ export default function FaceCheckInScreen() {
   const handleRequestPermission = async () => {
     const granted = await requestPermission();
     if (!granted) {
-      Alert.alert(
-        'Camera Permission Required',
-        'Please enable camera access in your device settings to use face check-in.',
-        [
-          {text: 'Cancel', style: 'cancel'},
-          {text: 'Open Settings', onPress: () => Linking.openSettings()},
-        ]
-      );
+      showDialog.warning('Camera Permission Required', 'Please enable camera access in your device settings to use face check-in.', () => {
+        Linking.openSettings();
+      });
     }
   };
 

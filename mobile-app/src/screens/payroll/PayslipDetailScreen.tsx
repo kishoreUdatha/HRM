@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, ActivityIndicator} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import {useQuery} from '@tanstack/react-query';
@@ -7,18 +7,20 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Share from 'react-native-share';
 import RNFS from 'react-native-fs';
 
-import {useAuthStore, useEmployee, useTenant} from '../../store/authStore';
+import {useAuthStore, useEmployee, useTenant, useUser} from '../../store/authStore';
 import {payrollApi} from '../../api/payrollApi';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
+import {showToast} from '../../utils/alert';
 
 // API Base URL for direct downloads
-const API_BASE_URL = 'http://135.171.160.105/api';
+const API_BASE_URL = 'http://localhost:3000/api';
 
 export default function PayslipDetailScreen() {
   const navigation = useNavigation();
   const route = useRoute<any>();
   const employee = useEmployee();
+  const user = useUser();
   const tenant = useTenant();
   const tokens = useAuthStore(state => state.tokens);
   const isDarkMode = useAuthStore(state => state.isDarkMode);
@@ -26,21 +28,48 @@ export default function PayslipDetailScreen() {
   const {payslipId} = route.params || {};
   const [isDownloading, setIsDownloading] = useState(false);
 
+  // Use employee._id if available, otherwise fallback to user's employeeId or user._id
+  const effectiveEmployeeId = employee?._id || user?.employeeId || user?._id;
+
   const {data: payslipData, isLoading} = useQuery({
-    queryKey: ['payslip', tenant?._id, employee?._id, payslipId],
+    queryKey: ['payslip', tenant?._id, effectiveEmployeeId, payslipId],
     queryFn: () => {
       if (payslipId) {
-        return payrollApi.getPayslipById(tenant?._id || '', employee?._id || '', payslipId);
+        return payrollApi.getPayslipById(tenant?._id || '', effectiveEmployeeId || '', payslipId);
       }
-      return payrollApi.getLatestPayslip(tenant?._id || '', employee?._id || '');
+      return payrollApi.getLatestPayslip(tenant?._id || '', effectiveEmployeeId || '');
     },
-    enabled: !!tenant?._id && !!employee?._id,
+    enabled: !!tenant?._id && !!effectiveEmployeeId,
   });
 
   const payslip = payslipData?.data;
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(amount);
+    const num = Number(amount);
+    if (!isFinite(num) || isNaN(num)) {
+      return '₹0';
+    }
+    // Manual Indian number formatting (Hermes-safe, no Intl dependency)
+    const absNum = Math.abs(Math.round(num));
+    const numStr = absNum.toString();
+    let result = '';
+    const len = numStr.length;
+
+    if (len <= 3) {
+      result = numStr;
+    } else {
+      // Last 3 digits
+      result = numStr.slice(-3);
+      let remaining = numStr.slice(0, -3);
+      // Add remaining digits in groups of 2
+      while (remaining.length > 0) {
+        const chunk = remaining.slice(-2);
+        result = chunk + ',' + result;
+        remaining = remaining.slice(0, -2);
+      }
+    }
+
+    return num < 0 ? `-₹${result}` : `₹${result}`;
   };
 
   const getMonthName = (month: number) => {
@@ -49,15 +78,15 @@ export default function PayslipDetailScreen() {
   };
 
   const handleDownload = async () => {
-    if (!payslip || !tenant?._id || !employee?._id) {
-      Alert.alert('Error', 'Unable to download payslip. Missing required data.');
+    if (!payslip || !tenant?._id || !effectiveEmployeeId) {
+      showToast.error('Error', 'Unable to download payslip. Missing required data.');
       return;
     }
 
     setIsDownloading(true);
 
     try {
-      const downloadUrl = `${API_BASE_URL}${payrollApi.getPayslipDownloadUrl(tenant._id, employee._id, payslip._id)}`;
+      const downloadUrl = `${API_BASE_URL}${payrollApi.getPayslipDownloadUrl(tenant._id, effectiveEmployeeId, payslip._id)}`;
       const fileName = `Payslip_${getMonthName(payslip.month)}_${payslip.year}.pdf`;
       const downloadPath = Platform.OS === 'ios'
         ? `${RNFS.DocumentDirectoryPath}/${fileName}`
@@ -82,7 +111,7 @@ export default function PayslipDetailScreen() {
           filename: fileName,
         });
 
-        Alert.alert('Success', `Payslip downloaded successfully${Platform.OS === 'android' ? ' to Downloads folder' : ''}`);
+        showToast.success('Success', `Payslip downloaded${Platform.OS === 'android' ? ' to Downloads folder' : ''}`);
       } else {
         throw new Error('Download failed');
       }
@@ -90,9 +119,9 @@ export default function PayslipDetailScreen() {
       console.error('Download error:', error);
       if (error.message?.includes('User did not share')) {
         // User cancelled share, file is still downloaded
-        Alert.alert('Downloaded', `Payslip saved${Platform.OS === 'android' ? ' to Downloads folder' : ''}`);
+        showToast.success('Downloaded', `Payslip saved${Platform.OS === 'android' ? ' to Downloads folder' : ''}`);
       } else {
-        Alert.alert('Error', 'Failed to download payslip. Please try again.');
+        showToast.error('Error', 'Failed to download payslip. Please try again.');
       }
     } finally {
       setIsDownloading(false);

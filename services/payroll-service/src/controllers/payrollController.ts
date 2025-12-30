@@ -5,8 +5,70 @@ import EmployeeSalary from '../models/EmployeeSalary';
 import SalaryStructure from '../models/SalaryStructure';
 import { generatePayslipPDF } from '../services/payslipService';
 
-const EMPLOYEE_SERVICE_URL = process.env.EMPLOYEE_SERVICE_URL || 'http://employee-service:3003';
-const TENANT_SERVICE_URL = process.env.TENANT_SERVICE_URL || 'http://tenant-service:3002';
+const EMPLOYEE_SERVICE_URL = process.env.EMPLOYEE_SERVICE_URL || 'http://localhost:3003';
+const TENANT_SERVICE_URL = process.env.TENANT_SERVICE_URL || 'http://localhost:3002';
+const ATTENDANCE_SERVICE_URL = process.env.ATTENDANCE_SERVICE_URL || 'http://localhost:3004';
+
+// Helper to fetch attendance summary from attendance service
+async function fetchAttendanceSummary(tenantId: string, employeeId: string, month: number, year: number): Promise<{
+  present: number;
+  absent: number;
+  halfDay: number;
+  late: number;
+  leaves: number;
+  holidays: number;
+  totalWorkHours: number;
+} | null> {
+  try {
+    // Call attendance service /summary endpoint with employeeId, month, year query params
+    const url = `${ATTENDANCE_SERVICE_URL}/summary?month=${month}&year=${year}&employeeId=${employeeId}`;
+    console.log(`[Payroll] Fetching attendance from: ${url}`);
+
+    const response = await fetch(url, {
+      headers: {
+        'x-tenant-id': tenantId,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      console.log(`[Payroll] Attendance service returned ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json() as Record<string, unknown>;
+    console.log('[Payroll] Attendance response:', JSON.stringify(data));
+
+    // Response format: { success: true, data: { summary: {...}, records: [...] } }
+    const responseData = data.data as Record<string, unknown> | undefined;
+    const summary = (responseData?.summary || data.summary || data) as Record<string, unknown>;
+
+    // 'present' count = records with status 'present'
+    // 'late' count = records with status 'late' (still present, but late)
+    // 'halfDay' = records with status 'half_day'
+    // 'onLeave' = records with status 'on_leave' (approved leaves)
+
+    // Total present days = present + late (both are full day attendance)
+    const presentCount = Number(summary.present || 0) + Number(summary.late || 0);
+    const halfDayCount = Number(summary.halfDay || 0);
+    const leavesCount = Number(summary.onLeave || summary.leaves || 0);
+
+    console.log(`[Payroll] Parsed attendance: present=${presentCount}, halfDay=${halfDayCount}, leaves=${leavesCount}`);
+
+    return {
+      present: presentCount,
+      absent: Number(summary.absent || 0),
+      halfDay: halfDayCount,
+      late: Number(summary.late || 0),
+      leaves: leavesCount,
+      holidays: Number(summary.holidays || 0),
+      totalWorkHours: Number(summary.totalWorkHours || 0),
+    };
+  } catch (error) {
+    console.error('[Payroll] Error fetching attendance:', error);
+    return null;
+  }
+}
 
 // Helper to fetch tenant data from tenant service
 async function fetchTenantData(tenantId: string): Promise<{
@@ -16,6 +78,7 @@ async function fetchTenantData(tenantId: string): Promise<{
   state?: string;
   country?: string;
   pincode?: string;
+  logo?: string;
 } | null> {
   try {
     const response = await fetch(`${TENANT_SERVICE_URL}/${tenantId}`, {
@@ -24,6 +87,16 @@ async function fetchTenantData(tenantId: string): Promise<{
     if (!response.ok) return null;
     const data = await response.json() as Record<string, unknown>;
     const tenant = (data.data || data.tenant || data) as Record<string, unknown>;
+
+    // Build full logo URL if logo path exists
+    let logoUrl: string | undefined;
+    if (tenant.logo) {
+      // Logo is stored as /uploads/logos/filename.png
+      // Need to build full URL using TENANT_SERVICE_URL
+      const baseUrl = TENANT_SERVICE_URL.replace(/\/[^/]*$/, ''); // Remove trailing path like /tenants
+      logoUrl = `${baseUrl}${tenant.logo}`;
+    }
+
     return {
       name: String(tenant.name || tenant.companyName || 'Company'),
       address: tenant.address ? String(tenant.address) : undefined,
@@ -31,6 +104,7 @@ async function fetchTenantData(tenantId: string): Promise<{
       state: tenant.state ? String(tenant.state) : undefined,
       country: tenant.country ? String(tenant.country) : undefined,
       pincode: tenant.pincode || tenant.zipCode ? String(tenant.pincode || tenant.zipCode) : undefined,
+      logo: logoUrl,
     };
   } catch {
     return null;
@@ -175,27 +249,58 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
     const payPeriodEnd = new Date(year, month, 0);
     const workingDays = getWorkingDays(payPeriodStart, payPeriodEnd);
 
+    // Fetch actual attendance data for the employee
+    const attendance = await fetchAttendanceSummary(tenantId, employeeId, month, year);
+
+    // Calculate actual present days, leave days, and LOP days
+    let presentDays = workingDays; // Default to full attendance
+    let leaveDays = 0;
+    let lopDays = 0;
+
+    if (attendance) {
+      // Present days = full present + half days counted as 0.5
+      presentDays = attendance.present + (attendance.halfDay * 0.5);
+      // Approved leave days (paid leaves)
+      leaveDays = attendance.leaves;
+      // LOP days = working days - present days - approved leaves
+      lopDays = Math.max(0, workingDays - presentDays - leaveDays);
+
+      console.log(`[Payroll] Attendance for ${employeeId}: present=${presentDays}, leaves=${leaveDays}, lop=${lopDays}, workingDays=${workingDays}`);
+    }
+
+    // Calculate proration ratio based on actual attendance
+    // Paid days = present days + approved leave days
+    const paidDays = presentDays + leaveDays;
+    const prorationRatio = workingDays > 0 ? paidDays / workingDays : 1;
+
+    console.log(`[Payroll] Proration for ${employeeId}: paidDays=${paidDays}, ratio=${prorationRatio.toFixed(4)}`);
+
     // Calculate components
     const earnings: Array<{name: string; code: string; type: 'earning'; amount: number; isTaxable: boolean}> = [];
     const deductions: Array<{name: string; code: string; type: 'deduction'; amount: number; isTaxable: boolean}> = [];
-    const baseSalary = employeeSalary.baseSalary;
+    const fullBaseSalary = employeeSalary.baseSalary;
+    // Prorate base salary based on attendance
+    const baseSalary = Math.round(fullBaseSalary * prorationRatio);
 
     for (const component of salaryStructure.components) {
       if (!component.isActive) continue;
 
-      let amount = 0;
+      let fullAmount = 0;
       if (component.calculationType === 'fixed') {
-        amount = component.value;
+        fullAmount = component.value;
       } else if (component.calculationType === 'percentage') {
         // Calculate percentage based on the configured base (basic salary or gross salary)
-        const grossSalary = baseSalary; // TODO: Calculate actual gross salary from earnings
-        const baseForCalc = component.percentageOf === 'basic' ? baseSalary : grossSalary;
-        amount = (baseForCalc * component.value) / 100;
+        const grossSalary = fullBaseSalary;
+        const baseForCalc = component.percentageOf === 'basic' ? fullBaseSalary : grossSalary;
+        fullAmount = (baseForCalc * component.value) / 100;
       }
       // Ensure amount is valid
-      if (isNaN(amount) || !isFinite(amount) || amount < 0) {
-        amount = 0;
+      if (isNaN(fullAmount) || !isFinite(fullAmount) || fullAmount < 0) {
+        fullAmount = 0;
       }
+
+      // Prorate earnings based on attendance
+      let amount = component.type === 'earning' ? Math.round(fullAmount * prorationRatio) : fullAmount;
 
       if (component.type === 'earning') {
         earnings.push({
@@ -206,6 +311,10 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
           isTaxable: component.isTaxable,
         });
       } else {
+        // Recalculate deduction based on prorated salary if it's percentage based
+        if (component.calculationType === 'percentage') {
+          amount = Math.round((baseSalary * component.value) / 100);
+        }
         deductions.push({
           name: component.name,
           code: component.code,
@@ -216,10 +325,22 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
       }
     }
 
+    // Note: We already prorated baseSalary and earnings based on attendance ratio
+    // So we don't add a separate LOP deduction (that would be double-counting)
+    // The prorated salary already reflects the reduced pay for unpaid days
+
+    // Fetch employee data for snapshot
+    const employeeData = await fetchEmployeeData(tenantId, employeeId);
+
     // Create payroll record
     const payroll = new Payroll({
       tenantId,
       employeeId,
+      employee: employeeData || {
+        firstName: 'Employee',
+        lastName: employeeId.slice(-6),
+        employeeCode: employeeId,
+      },
       month,
       year,
       payPeriodStart,
@@ -228,7 +349,9 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
       earnings,
       deductions,
       workingDays,
-      presentDays: workingDays, // Default to all working days
+      presentDays,
+      leaveDays,
+      lopDays,
       processedBy: userId,
       status: 'draft',
     });
@@ -474,20 +597,59 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
         const payPeriodEnd = new Date(year, month, 0);
         const workingDays = getWorkingDays(payPeriodStart, payPeriodEnd);
 
+        // Fetch actual attendance data for the employee
+        const attendance = await fetchAttendanceSummary(tenantId, employeeId, month, year);
+
+        // Calculate actual present days, leave days, and LOP days
+        let presentDays = workingDays; // Default to full attendance
+        let leaveDays = 0;
+        let lopDays = 0;
+
+        if (attendance) {
+          // Present days = full present + half days counted as 0.5
+          presentDays = attendance.present + (attendance.halfDay * 0.5);
+          // Approved leave days (paid leaves)
+          leaveDays = attendance.leaves;
+          // LOP days = working days - present days - approved leaves - holidays
+          // (holidays are already excluded from workingDays calculation if they fall on weekdays)
+          lopDays = Math.max(0, workingDays - presentDays - leaveDays);
+
+          console.log(`[Payroll] Attendance for ${employeeId}: present=${presentDays}, leaves=${leaveDays}, lop=${lopDays}, workingDays=${workingDays}`);
+        }
+
+        // Calculate proration ratio based on actual attendance
+        // Paid days = present days + approved leave days
+        const paidDays = presentDays + leaveDays;
+        const prorationRatio = workingDays > 0 ? paidDays / workingDays : 1;
+
+        console.log(`[Payroll] Proration for ${employeeId}: paidDays=${paidDays}, ratio=${prorationRatio.toFixed(4)}`);
+
         const earnings: Array<{name: string; code: string; type: 'earning'; amount: number; isTaxable: boolean}> = [];
         const deductions: Array<{name: string; code: string; type: 'deduction'; amount: number; isTaxable: boolean}> = [];
-        const baseSalary = employeeSalary.baseSalary;
+        const fullBaseSalary = employeeSalary.baseSalary;
+        // Prorate base salary based on attendance
+        const baseSalary = Math.round(fullBaseSalary * prorationRatio);
 
         for (const component of salaryStructure.components) {
           if (!component.isActive) continue;
-          let amount = component.calculationType === 'fixed' ? component.value : (baseSalary * component.value) / 100;
+          let fullAmount = component.calculationType === 'fixed' ? component.value : (fullBaseSalary * component.value) / 100;
+          // Prorate earnings based on attendance, deductions remain as-is (they're calculated on prorated amounts)
+          let amount = component.type === 'earning' ? Math.round(fullAmount * prorationRatio) : fullAmount;
 
           if (component.type === 'earning') {
             earnings.push({ name: component.name, code: component.code, type: 'earning', amount, isTaxable: component.isTaxable });
           } else {
+            // Recalculate deduction based on prorated salary if it's percentage based
+            if (component.calculationType === 'percentage') {
+              amount = Math.round((baseSalary * component.value) / 100);
+            }
             deductions.push({ name: component.name, code: component.code, type: 'deduction', amount, isTaxable: component.isTaxable });
           }
         }
+
+        // Note: We already prorated baseSalary and earnings based on attendance ratio
+        // So we don't add a separate LOP deduction (that would be double-counting)
+        // The prorated salary already reflects the reduced pay for unpaid days
 
         // Fetch employee data for snapshot
         const employeeData = await fetchEmployeeData(tenantId, employeeId);
@@ -508,7 +670,9 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
           earnings,
           deductions,
           workingDays,
-          presentDays: workingDays,
+          presentDays,
+          leaveDays,
+          lopDays,
           processedBy: userId,
           status: 'draft',
         });
@@ -959,6 +1123,7 @@ export const downloadPayslipPDF = async (req: Request, res: Response): Promise<v
     const payslipData = {
       companyName: tenantData?.name || 'Company',
       companyAddress: companyAddress,
+      companyLogo: tenantData?.logo,
       employeeName: employeeData
         ? `${employeeData.firstName} ${employeeData.lastName}`
         : payroll.employee
@@ -1060,6 +1225,7 @@ export const downloadPayslipByPeriodPDF = async (req: Request, res: Response): P
     const payslipData = {
       companyName: tenantData?.name || 'Company',
       companyAddress: companyAddress,
+      companyLogo: tenantData?.logo,
       employeeName: employeeData
         ? `${employeeData.firstName} ${employeeData.lastName}`
         : payroll.employee

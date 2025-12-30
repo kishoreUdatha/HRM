@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Alert, Platform, ActivityIndicator} from 'react-native';
+import {View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Platform, ActivityIndicator} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -9,16 +9,17 @@ import LinearGradient from 'react-native-linear-gradient';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 
-import {useAuthStore, useEmployee, useTenant} from '../../store/authStore';
+import {useAuthStore, useEmployee, useTenant, useUser} from '../../store/authStore';
 import {payrollApi} from '../../api/payrollApi';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList, Payslip} from '../../types';
+import {showToast} from '../../utils/alert';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 // API Base URL for direct downloads
-const API_BASE_URL = 'http://135.171.160.105/api';
+const API_BASE_URL = 'http://localhost:3000/api';
 
 const monthColors = [
   {color: '#10B981', bg: '#D1FAE5'},
@@ -59,23 +60,66 @@ const getMonthName = (month: number) => {
 export default function PayslipListScreen() {
   const navigation = useNavigation<NavigationProp>();
   const employee = useEmployee();
+  const user = useUser();
   const tenant = useTenant();
   const tokens = useAuthStore(state => state.tokens);
   const isDarkMode = useAuthStore(state => state.isDarkMode);
   const colors = isDarkMode ? Colors.dark : Colors.light;
+
+  // Use employee._id if available, otherwise fallback to user's employeeId or user._id
+  const effectiveEmployeeId = employee?._id || user?.employeeId || user?._id;
 
   const financialYears = getFinancialYears();
   const [selectedFY, setSelectedFY] = useState(0); // Index of selected FY
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const {data: payslips, isLoading, refetch} = useQuery({
-    queryKey: ['payslips', tenant?._id, employee?._id],
-    queryFn: () => payrollApi.getPayslips(tenant?._id || '', employee?._id || ''),
-    enabled: !!tenant?._id && !!employee?._id,
+    queryKey: ['payslips', tenant?._id, effectiveEmployeeId],
+    queryFn: async () => {
+      console.log('[PayslipList] Fetching payslips...');
+      console.log('[PayslipList] Tenant ID:', tenant?._id);
+      console.log('[PayslipList] Employee ID:', effectiveEmployeeId);
+      const result = await payrollApi.getPayslips(tenant?._id || '', effectiveEmployeeId || '');
+      console.log('[PayslipList] API Response:', JSON.stringify(result, null, 2));
+      return result;
+    },
+    enabled: !!tenant?._id && !!effectiveEmployeeId,
   });
 
+  // Debug logging
+  console.log('[PayslipList] tenant._id:', tenant?._id);
+  console.log('[PayslipList] effectiveEmployeeId:', effectiveEmployeeId);
+  console.log('[PayslipList] payslips data:', payslips?.data?.length, 'items');
+  if (payslips?.data?.[0]) {
+    console.log('[PayslipList] First payslip netSalary:', payslips.data[0].netSalary);
+  }
+
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(amount);
+    const num = Number(amount);
+    if (!isFinite(num) || isNaN(num)) {
+      return '₹0';
+    }
+    // Manual Indian number formatting (Hermes-safe, no Intl dependency)
+    const absNum = Math.abs(Math.round(num));
+    const numStr = absNum.toString();
+    let result = '';
+    const len = numStr.length;
+
+    if (len <= 3) {
+      result = numStr;
+    } else {
+      // Last 3 digits
+      result = numStr.slice(-3);
+      let remaining = numStr.slice(0, -3);
+      // Add remaining digits in groups of 2
+      while (remaining.length > 0) {
+        const chunk = remaining.slice(-2);
+        result = chunk + ',' + result;
+        remaining = remaining.slice(0, -2);
+      }
+    }
+
+    return num < 0 ? `-₹${result}` : `₹${result}`;
   };
 
   // Filter payslips by financial year (April to March)
@@ -90,15 +134,15 @@ export default function PayslipListScreen() {
   };
 
   const handleDownload = async (payslip: Payslip) => {
-    if (!tenant?._id || !employee?._id) {
-      Alert.alert('Error', 'Unable to download payslip. Missing required data.');
+    if (!tenant?._id || !effectiveEmployeeId) {
+      showToast.error('Error', 'Unable to download payslip. Missing required data.');
       return;
     }
 
     setDownloadingId(payslip._id);
 
     try {
-      const downloadUrl = `${API_BASE_URL}${payrollApi.getPayslipDownloadUrl(tenant._id, employee._id, payslip._id)}`;
+      const downloadUrl = `${API_BASE_URL}${payrollApi.getPayslipDownloadUrl(tenant._id, effectiveEmployeeId, payslip._id)}`;
       const fileName = `Payslip_${getMonthName(payslip.month)}_${payslip.year}.pdf`;
       const downloadPath = Platform.OS === 'ios'
         ? `${RNFS.DocumentDirectoryPath}/${fileName}`
@@ -120,13 +164,13 @@ export default function PayslipListScreen() {
           type: 'application/pdf',
           filename: fileName,
         });
-        Alert.alert('Success', `Payslip downloaded${Platform.OS === 'android' ? ' to Downloads' : ''}`);
+        showToast.success('Success', `Payslip downloaded${Platform.OS === 'android' ? ' to Downloads' : ''}`);
       } else {
         throw new Error('Download failed');
       }
     } catch (error: any) {
       if (!error.message?.includes('User did not share')) {
-        Alert.alert('Error', 'Failed to download payslip');
+        showToast.error('Error', 'Failed to download payslip');
       }
     } finally {
       setDownloadingId(null);
@@ -136,6 +180,12 @@ export default function PayslipListScreen() {
   const renderPayslip = ({item, index}: {item: Payslip; index: number}) => {
     const colorSet = monthColors[(item.month - 1) % monthColors.length];
     const isDownloading = downloadingId === item._id;
+
+    // Debug: log the item values being rendered
+    console.log('[PayslipList] Rendering item:', item._id);
+    console.log('[PayslipList] Item netSalary:', item.netSalary, typeof item.netSalary);
+    console.log('[PayslipList] Item grossSalary:', item.grossSalary, typeof item.grossSalary);
+    console.log('[PayslipList] Formatted netSalary:', formatCurrency(item.netSalary));
 
     return (
       <TouchableOpacity
@@ -192,6 +242,13 @@ export default function PayslipListScreen() {
   const filteredPayslips = filterByFinancialYear(allPayslips);
   const totalEarnings = filteredPayslips.reduce((sum, p) => sum + p.netSalary, 0);
   const avgSalary = filteredPayslips.length > 0 ? totalEarnings / filteredPayslips.length : 0;
+
+  // Debug stats
+  console.log('[PayslipList] allPayslips count:', allPayslips.length);
+  console.log('[PayslipList] filteredPayslips count:', filteredPayslips.length);
+  console.log('[PayslipList] totalEarnings:', totalEarnings);
+  console.log('[PayslipList] avgSalary:', avgSalary);
+  console.log('[PayslipList] selectedFY:', selectedFY, financialYears[selectedFY]);
 
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>

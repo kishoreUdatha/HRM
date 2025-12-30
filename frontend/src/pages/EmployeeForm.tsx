@@ -98,8 +98,8 @@ const EmployeeForm: React.FC = () => {
       const employee = response.data.data.employee || response.data.data;
       setFormData({
         ...employee,
-        departmentId: typeof employee.departmentId === 'object' ? employee.departmentId._id : employee.departmentId,
-        shiftId: typeof employee.shiftId === 'object' ? employee.shiftId._id : employee.shiftId,
+        departmentId: employee.departmentId && typeof employee.departmentId === 'object' ? employee.departmentId._id : (employee.departmentId || ''),
+        shiftId: employee.shiftId && typeof employee.shiftId === 'object' ? employee.shiftId._id : (employee.shiftId || ''),
         joiningDate: employee.joiningDate ? new Date(employee.joiningDate).toISOString().split('T')[0] : '',
         dateOfBirth: employee.dateOfBirth ? new Date(employee.dateOfBirth).toISOString().split('T')[0] : '',
       });

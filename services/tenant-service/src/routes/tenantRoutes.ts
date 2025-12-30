@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Request, Response, NextFunction } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import {
   createTenant,
   getTenantById,
@@ -20,7 +23,45 @@ import {
   getAdminTenantList,
   createTenantWithAdmin,
   updateTenantByAdmin,
+  uploadLogo,
+  deleteLogo,
+  updateBranding,
 } from '../controllers/tenantController';
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, '../../uploads/logos');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure multer for logo uploads
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${tenantId}-${Date.now()}${ext}`);
+  },
+});
+
+const fileFilter = (_req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only PNG, JPG, and JPEG files are allowed'));
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB max
+  },
+});
 import * as platformAdmin from '../controllers/platformAdminController';
 
 const router = Router();
@@ -78,6 +119,11 @@ router.get('/:id', getTenantById);
 router.put('/current', updateTenant);
 router.put('/current/settings', updateTenantSettings);
 router.put('/current/subscription', updateSubscriptionValidation, validate, updateSubscription);
+
+// Branding routes (logo and address)
+router.post('/current/logo', upload.single('logo'), uploadLogo);
+router.delete('/current/logo', deleteLogo);
+router.put('/current/branding', updateBranding);
 
 // Admin routes (super_admin only)
 router.get('/admin/list', requireSuperAdmin, getAdminTenantList);

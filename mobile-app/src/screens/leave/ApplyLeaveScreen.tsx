@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -15,11 +14,12 @@ import {useNavigation} from '@react-navigation/native';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-import {useAuthStore, useEmployee} from '../../store/authStore';
+import {useAuthStore, useEmployee, useUser} from '../../store/authStore';
 import {leaveApi} from '../../api/leaveApi';
 import {handleApiError} from '../../api/apiClient';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
+import {showToast, showDialog} from '../../utils/alert';
 
 // Simple Calendar Component
 interface CalendarProps {
@@ -152,8 +152,12 @@ export default function ApplyLeaveScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const employee = useEmployee();
+  const user = useUser();
   const isDarkMode = useAuthStore(state => state.isDarkMode);
   const colors = isDarkMode ? Colors.dark : Colors.light;
+
+  // Use employee._id if available, otherwise fallback to user's employeeId or user._id
+  const effectiveEmployeeId = employee?._id || user?.employeeId || user?._id;
 
   const [selectedLeaveType, setSelectedLeaveType] = useState<string>('');
   const [startDate, setStartDate] = useState<Date>(new Date());
@@ -171,17 +175,15 @@ export default function ApplyLeaveScreen() {
   });
 
   const mutation = useMutation({
-    mutationFn: (data: {leaveTypeId: string; startDate: string; endDate: string; reason: string}) =>
+    mutationFn: (data: {leaveTypeId: string; startDate: string; endDate: string; reason: string; employeeId?: string}) =>
       leaveApi.createLeaveRequest(data),
     onSuccess: () => {
       queryClient.invalidateQueries({queryKey: ['leaveRequests']});
       queryClient.invalidateQueries({queryKey: ['leaveBalance']});
-      Alert.alert('Success', 'Leave request submitted successfully', [
-        {text: 'OK', onPress: () => navigation.goBack()},
-      ]);
+      showDialog.success('Success', 'Leave request submitted successfully', () => navigation.goBack());
     },
     onError: (error) => {
-      Alert.alert('Error', handleApiError(error));
+      showToast.error('Error', handleApiError(error));
     },
   });
 
@@ -223,19 +225,19 @@ export default function ApplyLeaveScreen() {
 
   const handleSubmit = () => {
     if (!selectedLeaveType) {
-      Alert.alert('Validation Error', 'Please select a leave type');
+      showToast.warning('Validation', 'Please select a leave type');
       return;
     }
     if (!startDateSelected || !endDateSelected) {
-      Alert.alert('Validation Error', 'Please select start and end dates');
+      showToast.warning('Validation', 'Please select start and end dates');
       return;
     }
     if (!reason.trim()) {
-      Alert.alert('Validation Error', 'Please enter a reason for leave');
+      showToast.warning('Validation', 'Please enter a reason for leave');
       return;
     }
     if (endDate < startDate) {
-      Alert.alert('Validation Error', 'End date cannot be before start date');
+      showToast.warning('Validation', 'End date cannot be before start date');
       return;
     }
 
@@ -244,6 +246,7 @@ export default function ApplyLeaveScreen() {
       startDate: formatDate(startDate),
       endDate: formatDate(endDate),
       reason: reason.trim(),
+      employeeId: effectiveEmployeeId,
     });
   };
 

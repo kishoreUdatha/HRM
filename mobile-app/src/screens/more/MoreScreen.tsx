@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -11,6 +11,7 @@ import {authStorage} from '../../services/authStorage';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList} from '../../types';
+import {showDialog, ALERT_TYPE} from '../../utils/alert';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -31,13 +32,17 @@ export default function MoreScreen() {
   const colors = isDarkMode ? Colors.dark : Colors.light;
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      {text: 'Cancel', style: 'cancel'},
-      {text: 'Logout', style: 'destructive', onPress: async () => {
+    showDialog.confirm(
+      'Logout',
+      'Are you sure you want to logout?',
+      async () => {
         await authStorage.clearTokens();
         logout();
-      }},
-    ]);
+      },
+      undefined,
+      'Logout',
+      ALERT_TYPE.WARNING
+    );
   };
 
   const menuItems: MenuItem[] = [

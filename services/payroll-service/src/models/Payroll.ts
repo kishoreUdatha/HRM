@@ -8,9 +8,18 @@ export interface IPayrollComponent {
   isTaxable: boolean;
 }
 
+export interface IEmployeeSnapshot {
+  firstName: string;
+  lastName: string;
+  employeeCode: string;
+  email?: string;
+  department?: string;
+}
+
 export interface IPayroll extends Document {
   tenantId: mongoose.Types.ObjectId;
   employeeId: mongoose.Types.ObjectId;
+  employee?: IEmployeeSnapshot;
   month: number;
   year: number;
   payPeriodStart: Date;
@@ -50,6 +59,14 @@ const payrollComponentSchema = new Schema<IPayrollComponent>(
   { _id: false }
 );
 
+const employeeSnapshotSchema = new Schema({
+  firstName: String,
+  lastName: String,
+  employeeCode: String,
+  email: String,
+  department: String,
+}, { _id: false });
+
 const payrollSchema = new Schema<IPayroll>(
   {
     tenantId: {
@@ -62,6 +79,7 @@ const payrollSchema = new Schema<IPayroll>(
       required: true,
       ref: 'Employee',
     },
+    employee: employeeSnapshotSchema,
     month: {
       type: Number,
       required: true,

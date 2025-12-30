@@ -25,9 +25,33 @@ const getWeekDates = (date: Date) => {
   return {start: monday, end: sunday};
 };
 
-// Helper to format currency - always use INR
+// Helper to format currency - always use INR (Hermes-safe)
 const formatCurrency = (amount: number, _currency: string = 'INR'): string => {
-  return new Intl.NumberFormat('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 0}).format(amount);
+  const num = Number(amount);
+  if (!isFinite(num) || isNaN(num)) {
+    return '₹0';
+  }
+  // Manual Indian number formatting (Hermes-safe, no Intl dependency)
+  const absNum = Math.abs(Math.round(num));
+  const numStr = absNum.toString();
+  let result = '';
+  const len = numStr.length;
+
+  if (len <= 3) {
+    result = numStr;
+  } else {
+    // Last 3 digits
+    result = numStr.slice(-3);
+    let remaining = numStr.slice(0, -3);
+    // Add remaining digits in groups of 2
+    while (remaining.length > 0) {
+      const chunk = remaining.slice(-2);
+      result = chunk + ',' + result;
+      remaining = remaining.slice(0, -2);
+    }
+  }
+
+  return num < 0 ? `-₹${result}` : `₹${result}`;
 };
 
 export default function TimesheetHomeScreen() {

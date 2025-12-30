@@ -1,4 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
+import path from 'path';
+import fs from 'fs';
 import Tenant from '../models/Tenant';
 
 // Create new tenant (organization signup)
@@ -888,6 +890,169 @@ export const createTenantWithAdmin = async (
         warning: adminCreationError,
       });
     }
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Upload company logo
+export const uploadLogo = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        message: 'No file uploaded',
+      });
+      return;
+    }
+
+    const tenant = await Tenant.findById(tenantId);
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    // Delete old logo if exists
+    if (tenant.logo) {
+      const oldLogoPath = path.join(__dirname, '../../uploads/logos', path.basename(tenant.logo));
+      if (fs.existsSync(oldLogoPath)) {
+        fs.unlinkSync(oldLogoPath);
+      }
+    }
+
+    // Get the uploaded file path
+    const logoUrl = `/uploads/logos/${req.file.filename}`;
+
+    // Update tenant with new logo URL
+    tenant.logo = logoUrl;
+    await tenant.save();
+
+    res.json({
+      success: true,
+      data: {
+        logo: logoUrl,
+      },
+      message: 'Logo uploaded successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Delete company logo
+export const deleteLogo = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    const tenant = await Tenant.findById(tenantId);
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    // Delete logo file if exists
+    if (tenant.logo) {
+      const logoPath = path.join(__dirname, '../../uploads/logos', path.basename(tenant.logo));
+      if (fs.existsSync(logoPath)) {
+        fs.unlinkSync(logoPath);
+      }
+      tenant.logo = undefined;
+      await tenant.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Logo deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update company branding (address fields)
+export const updateBranding = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { address, city, state, country, pincode } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      tenantId,
+      {
+        $set: {
+          address,
+          city,
+          state,
+          country,
+          pincode,
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        address: tenant.address,
+        city: tenant.city,
+        state: tenant.state,
+        country: tenant.country,
+        pincode: tenant.pincode,
+        logo: tenant.logo,
+      },
+      message: 'Branding updated successfully',
+    });
   } catch (error) {
     next(error);
   }

@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -20,6 +19,7 @@ import {handleApiError} from '../../api/apiClient';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList} from '../../types';
+import {showDialog} from '../../utils/alert';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -126,7 +126,7 @@ export default function TenantDetectionScreen() {
             </Text>
             <TouchableOpacity
               onPress={() =>
-                Alert.alert(
+                showDialog.info(
                   'Contact Support',
                   'Please contact your HR administrator or reach out to support@hrm.com for assistance.'
                 )

@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {useMutation} from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import {useAuthStore, useUser, useEmployee} from '../../store/authStore';
 import apiClient from '../../api/apiClient';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
+import {showToast} from '../../utils/alert';
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
@@ -28,12 +29,12 @@ export default function ProfileScreen() {
     onSuccess: (response) => {
       if (response.success && response.data?.employee) {
         setEmployee(response.data.employee);
-        Alert.alert('Success', 'Profile updated successfully');
+        showToast.success('Success', 'Profile updated successfully');
         setIsEditing(false);
       }
     },
     onError: () => {
-      Alert.alert('Error', 'Failed to update profile');
+      showToast.error('Error', 'Failed to update profile');
     },
   });
 

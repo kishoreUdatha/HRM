@@ -107,6 +107,16 @@ export const services: ServiceConfig[] = [
     timeout: 30000,
     requiresAuth: true,  // Requires authentication for admin routes
   },
+  // Tenant current routes (authenticated users) - must come before public tenant routes
+  {
+    name: 'tenant-current-service',
+    url: process.env.TENANT_SERVICE_URL || 'http://localhost:3002',
+    pathPrefix: '/api/tenants/current',
+    targetPath: '/current',
+    healthCheck: '/health',
+    timeout: 60000,  // Logo uploads may take longer
+    requiresAuth: true,  // Requires authentication for current tenant operations
+  },
   {
     name: 'tenant-service',
     url: process.env.TENANT_SERVICE_URL || 'http://localhost:3002',

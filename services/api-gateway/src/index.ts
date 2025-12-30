@@ -5,7 +5,7 @@ import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { createProxyMiddleware, Options } from 'http-proxy-middleware';
+import { createProxyMiddleware, Options, fixRequestBody } from 'http-proxy-middleware';
 
 import { services, getServiceByPath } from './config/services';
 import { authenticateToken, extractTenant, AuthRequest } from './middleware/auth';
@@ -134,6 +134,10 @@ services.forEach((service) => {
     timeout: service.timeout,
     on: {
       proxyReq: (proxyReq, req) => {
+        // Fix request body streaming issue with Express 5 + http-proxy-middleware
+        // This ensures the body is properly forwarded even if bodyParser was used
+        fixRequestBody(proxyReq, req);
+
         // Forward tenant context headers
         const authReq = req as AuthRequest;
         if (authReq.headers['x-tenant-id']) {

@@ -1,5 +1,5 @@
 import React, {useCallback} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert} from 'react-native';
+import {View, Text, StyleSheet, ScrollView, TouchableOpacity} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import {useAuthStore} from '../../store/authStore';
 import {leaveApi} from '../../api/leaveApi';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
+import {showDialog} from '../../utils/alert';
 
 export default function LeaveDetailScreen() {
   const navigation = useNavigation();
@@ -40,7 +41,7 @@ export default function LeaveDetailScreen() {
       queryClient.invalidateQueries({queryKey: ['leaveRequest', leaveId]});
       queryClient.invalidateQueries({queryKey: ['leaveRequests']});
       queryClient.invalidateQueries({queryKey: ['leaveBalance']});
-      Alert.alert('Success', 'Leave request cancelled', [{text: 'OK', onPress: () => navigation.goBack()}]);
+      showDialog.success('Success', 'Leave request cancelled', () => navigation.goBack());
     },
   });
 

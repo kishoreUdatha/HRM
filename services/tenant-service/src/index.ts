@@ -1,6 +1,7 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 
 import connectDB from './config/database';
 import tenantRoutes from './routes/tenantRoutes';
@@ -16,6 +17,9 @@ connectDB();
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Static file serving for uploaded logos
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {

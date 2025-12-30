@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Platform,
   Linking,
@@ -25,6 +24,7 @@ import {handleApiError} from '../../api/apiClient';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList} from '../../types';
+import {showToast, showDialog} from '../../utils/alert';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -75,7 +75,7 @@ export default function FaceEnrollmentScreen() {
       setCapturedPhotos(prev => [...prev, base64Image]);
     } catch (error) {
       console.error('[FaceEnrollment] Error capturing photo:', error);
-      Alert.alert('Error', 'Failed to capture photo. Please try again.');
+      showToast.error('Error', 'Failed to capture photo. Please try again.');
     } finally {
       setIsCapturing(false);
     }
@@ -96,7 +96,7 @@ export default function FaceEnrollmentScreen() {
     }
     if (!employeeId) {
       console.log('[FaceEnrollment] No employee ID');
-      Alert.alert('Error', 'Employee data not found. Please log out and log in again.');
+      showToast.error('Error', 'Employee data not found. Please log out and log in again.');
       return;
     }
 
@@ -120,11 +120,11 @@ export default function FaceEnrollmentScreen() {
           navigation.goBack();
         }, 2000);
       } else {
-        Alert.alert('Enrollment Failed', response.message || 'Failed to enroll face. Please try again.');
+        showDialog.error('Enrollment Failed', response.message || 'Failed to enroll face. Please try again.');
       }
     } catch (error) {
       const errorMessage = handleApiError(error);
-      Alert.alert('Error', errorMessage);
+      showDialog.error('Error', errorMessage);
     } finally {
       setIsEnrolling(false);
     }
@@ -133,14 +133,9 @@ export default function FaceEnrollmentScreen() {
   const handleRequestPermission = async () => {
     const granted = await requestPermission();
     if (!granted) {
-      Alert.alert(
-        'Camera Permission Required',
-        'Please enable camera access in your device settings.',
-        [
-          {text: 'Cancel', style: 'cancel'},
-          {text: 'Open Settings', onPress: () => Linking.openSettings()},
-        ]
-      );
+      showDialog.warning('Camera Permission Required', 'Please enable camera access in your device settings.', () => {
+        Linking.openSettings();
+      });
     }
   };
 

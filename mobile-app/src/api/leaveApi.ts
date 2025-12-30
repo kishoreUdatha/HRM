@@ -12,6 +12,7 @@ export interface CreateLeaveRequest {
   startDate: string;
   endDate: string;
   reason: string;
+  employeeId?: string;
   attachments?: string[];
 }
 

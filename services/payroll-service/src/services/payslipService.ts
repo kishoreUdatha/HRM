@@ -112,18 +112,67 @@ export async function generatePayslipPDF(data: PayslipData): Promise<Buffer> {
 
   y = height - 35;
 
+  // Logo and company info positioning
+  let textStartX = leftMargin;
+  const logoSize = 55; // Logo dimensions
+
+  // Try to embed company logo if provided
+  if (data.companyLogo) {
+    try {
+      // Fetch logo image
+      const logoResponse = await fetch(data.companyLogo);
+      if (logoResponse.ok) {
+        const logoBytes = await logoResponse.arrayBuffer();
+        const logoUint8 = new Uint8Array(logoBytes);
+
+        // Determine image type and embed
+        let logoImage;
+        const logoUrl = data.companyLogo.toLowerCase();
+        if (logoUrl.endsWith('.png')) {
+          logoImage = await pdfDoc.embedPng(logoUint8);
+        } else if (logoUrl.endsWith('.jpg') || logoUrl.endsWith('.jpeg')) {
+          logoImage = await pdfDoc.embedJpg(logoUint8);
+        }
+
+        if (logoImage) {
+          // Draw logo with white background
+          const logoX = leftMargin;
+          const logoY = height - headerHeight + 17;
+
+          // White background for logo
+          drawRect(page, logoX - 3, logoY - 3, logoSize + 6, logoSize + 6, colors.white);
+
+          // Scale logo to fit
+          const scaledDims = logoImage.scaleToFit(logoSize, logoSize);
+          page.drawImage(logoImage, {
+            x: logoX + (logoSize - scaledDims.width) / 2,
+            y: logoY + (logoSize - scaledDims.height) / 2,
+            width: scaledDims.width,
+            height: scaledDims.height,
+          });
+
+          // Shift text to right of logo
+          textStartX = leftMargin + logoSize + 15;
+        }
+      }
+    } catch (logoError) {
+      console.warn('[Payslip PDF] Failed to embed logo:', logoError);
+      // Continue without logo
+    }
+  }
+
   // Company Name
-  drawText(page, data.companyName.toUpperCase(), leftMargin, y, fontBold, 20, colors.white);
+  drawText(page, data.companyName.toUpperCase(), textStartX, y, fontBold, 20, colors.white);
   y -= 18;
 
   // Company Address
   const addressLines = data.companyAddress.split(',').map(s => s.trim());
   for (const line of addressLines.slice(0, 2)) {
-    drawText(page, line, leftMargin, y, font, 9, rgb(1, 1, 1));
+    drawText(page, line, textStartX, y, font, 9, rgb(1, 1, 1));
     y -= 12;
   }
   if (addressLines.length > 2) {
-    drawText(page, addressLines.slice(2).join(', '), leftMargin, y, font, 9, rgb(1, 1, 1));
+    drawText(page, addressLines.slice(2).join(', '), textStartX, y, font, 9, rgb(1, 1, 1));
     y -= 12;
   }
 

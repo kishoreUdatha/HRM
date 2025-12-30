@@ -31,6 +31,7 @@ import Profile from './pages/Profile';
 import Shifts from './pages/Shifts';
 import NotFound from './pages/NotFound';
 import Payroll from './pages/Payroll';
+import SalaryStructures from './pages/SalaryStructures';
 import Chat from './pages/Chat';
 import Analytics from './pages/Analytics';
 import Onboarding from './pages/Onboarding';
@@ -180,6 +181,11 @@ const AppRoutes: React.FC = () => {
         <Route path="/payroll" element={
           <ProtectedRoute requiredPermissions={['payroll:read']}>
             <Payroll />
+          </ProtectedRoute>
+        } />
+        <Route path="/payroll/salary-structures" element={
+          <ProtectedRoute requiredPermissions={['payroll:write']}>
+            <SalaryStructures />
           </ProtectedRoute>
         } />
         <Route path="/benefits" element={

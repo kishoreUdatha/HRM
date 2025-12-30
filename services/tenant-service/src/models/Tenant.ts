@@ -6,6 +6,12 @@ export interface ITenant extends Document {
   slug: string;
   domain?: string;
   logo?: string;
+  // Company address fields for payslips
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
   settings: {
     timezone: string;
     dateFormat: string;
@@ -79,6 +85,27 @@ const tenantSchema = new Schema<ITenant>(
     },
     logo: {
       type: String,
+    },
+    // Company address fields for payslips
+    address: {
+      type: String,
+      trim: true,
+    },
+    city: {
+      type: String,
+      trim: true,
+    },
+    state: {
+      type: String,
+      trim: true,
+    },
+    country: {
+      type: String,
+      trim: true,
+    },
+    pincode: {
+      type: String,
+      trim: true,
     },
     settings: {
       timezone: { type: String, default: 'UTC' },

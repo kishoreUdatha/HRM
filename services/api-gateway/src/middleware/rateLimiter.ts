@@ -4,7 +4,7 @@ import { Request, Response } from 'express';
 // General API rate limiter
 export const apiLimiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000', 10), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+  max: parseInt(process.env.RATE_LIMIT_MAX || '1000', 10), // Increased for development
   message: {
     success: false,
     message: 'Too many requests, please try again later.',
@@ -12,12 +12,16 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: false,
+  skip: (req) => {
+    // Skip rate limiting for tenant lookup (needed for login flow)
+    return req.path.startsWith('/api/tenants/by-slug');
+  },
 });
 
 // Stricter rate limit for auth endpoints
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 requests per window
+  max: 50, // 50 requests per window (increased for development)
   message: {
     success: false,
     message: 'Too many authentication attempts, please try again later.',

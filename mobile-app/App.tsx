@@ -4,6 +4,7 @@ import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {NavigationContainer} from '@react-navigation/native';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {GestureHandlerRootView} from 'react-native-gesture-handler';
+import {AlertNotificationRoot} from 'react-native-alert-notification';
 
 import RootNavigator from './src/navigation/RootNavigator';
 import {useAuthStore} from './src/store/authStore';
@@ -31,9 +32,11 @@ function App(): React.JSX.Element {
             barStyle={isDarkMode ? 'light-content' : 'dark-content'}
             backgroundColor={isDarkMode ? Colors.dark.background : Colors.light.background}
           />
-          <NavigationContainer>
-            <RootNavigator isAuthenticated={isAuthenticated} />
-          </NavigationContainer>
+          <AlertNotificationRoot>
+            <NavigationContainer>
+              <RootNavigator isAuthenticated={isAuthenticated} />
+            </NavigationContainer>
+          </AlertNotificationRoot>
         </SafeAreaProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>
