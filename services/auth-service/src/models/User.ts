@@ -6,6 +6,8 @@ export interface IUser extends Document {
   tenantId?: mongoose.Types.ObjectId;  // Optional for super_admin
   email: string;
   password: string;
+  mobileNumber?: string;
+  pin?: string;  // 4-digit PIN for mobile login
   firstName: string;
   lastName: string;
   role: 'super_admin' | 'tenant_admin' | 'hr' | 'manager' | 'employee';
@@ -22,6 +24,7 @@ export interface IUser extends Document {
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
+  comparePin(candidatePin: string): Promise<boolean>;
 }
 
 const userSchema = new Schema<IUser>(
@@ -45,6 +48,15 @@ const userSchema = new Schema<IUser>(
       type: String,
       required: [true, 'Password is required'],
       minlength: [6, 'Password must be at least 6 characters'],
+      select: false,
+    },
+    mobileNumber: {
+      type: String,
+      trim: true,
+      match: [/^\d{10}$/, 'Please enter a valid 10-digit mobile number'],
+    },
+    pin: {
+      type: String,
       select: false,
     },
     firstName: {
@@ -124,6 +136,15 @@ userSchema.index(
   }
 );
 
+// Index for mobile number lookup (tenant + mobileNumber)
+userSchema.index(
+  { tenantId: 1, mobileNumber: 1 },
+  {
+    sparse: true,
+    partialFilterExpression: { mobileNumber: { $exists: true, $ne: null } }
+  }
+);
+
 // Hash password before saving
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) {
@@ -134,9 +155,25 @@ userSchema.pre('save', async function () {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
+// Hash PIN before saving
+userSchema.pre('save', async function () {
+  if (!this.isModified('pin') || !this.pin) {
+    return;
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  this.pin = await bcrypt.hash(this.pin, salt);
+});
+
 // Compare password method
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
+};
+
+// Compare PIN method
+userSchema.methods.comparePin = async function (candidatePin: string): Promise<boolean> {
+  if (!this.pin) return false;
+  return bcrypt.compare(candidatePin, this.pin);
 };
 
 // Set default permissions based on role
@@ -183,6 +220,7 @@ userSchema.pre('save', function () {
 userSchema.methods.toJSON = function () {
   const user = this.toObject();
   delete user.password;
+  delete user.pin;
   delete user.refreshTokens;
   delete user.passwordResetToken;
   delete user.passwordResetExpires;

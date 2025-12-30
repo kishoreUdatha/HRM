@@ -4,10 +4,12 @@ import { Request, Response, NextFunction } from 'express';
 import {
   register,
   login,
+  loginWithMobile,
   logout,
   refreshToken,
   getCurrentUser,
   changePassword,
+  setMobileCredentials,
   getUsersByTenant,
 } from '../controllers/authController';
 import {
@@ -63,20 +65,32 @@ const loginValidation = [
   body('password').notEmpty().withMessage('Password is required'),
 ];
 
+const mobileLoginValidation = [
+  body('mobileNumber').matches(/^\d{10}$/).withMessage('Please enter a valid 10-digit mobile number'),
+  body('pin').matches(/^\d{4}$/).withMessage('PIN must be 4 digits'),
+];
+
 const changePasswordValidation = [
   body('currentPassword').notEmpty().withMessage('Current password is required'),
   body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
 ];
 
+const setMobileCredentialsValidation = [
+  body('mobileNumber').optional().matches(/^\d{10}$/).withMessage('Please enter a valid 10-digit mobile number'),
+  body('pin').optional().matches(/^\d{4}$/).withMessage('PIN must be 4 digits'),
+];
+
 // Public routes
 router.post('/register', registerValidation, validate, register);
 router.post('/login', loginValidation, validate, login);
+router.post('/login/mobile', mobileLoginValidation, validate, loginWithMobile);
 router.post('/logout', logout);
 router.post('/refresh', refreshToken);
 
 // Protected routes (auth verified by gateway)
 router.get('/me', getCurrentUser);
 router.post('/change-password', changePasswordValidation, validate, changePassword);
+router.post('/set-mobile-credentials', setMobileCredentialsValidation, validate, setMobileCredentials);
 router.get('/users', getUsersByTenant);
 
 // ==================== ADMIN USER MANAGEMENT ROUTES ====================

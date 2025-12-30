@@ -139,6 +139,89 @@ export const login = async (
   }
 };
 
+// Login with mobile number and PIN
+export const loginWithMobile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { mobileNumber, pin, tenantId } = req.body;
+
+    // Build query - if tenantId provided, use it
+    const query: { mobileNumber: string; tenantId?: mongoose.Types.ObjectId } = { mobileNumber };
+    if (tenantId && mongoose.Types.ObjectId.isValid(tenantId)) {
+      query.tenantId = new mongoose.Types.ObjectId(tenantId);
+    }
+
+    // Find user with pin
+    const user = await User.findOne(query).select('+pin');
+    if (!user) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid mobile number or PIN',
+      });
+      return;
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      res.status(401).json({
+        success: false,
+        message: 'Account is deactivated. Please contact your administrator.',
+      });
+      return;
+    }
+
+    // Check if user has PIN set
+    if (!user.pin) {
+      res.status(401).json({
+        success: false,
+        message: 'PIN not set for this account. Please contact your administrator.',
+      });
+      return;
+    }
+
+    // Verify PIN
+    const isPinValid = await user.comparePin(pin);
+    if (!isPinValid) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid mobile number or PIN',
+      });
+      return;
+    }
+
+    // Update last login
+    user.lastLogin = new Date();
+
+    // Generate tokens
+    const tokens = generateTokens({
+      userId: user._id.toString(),
+      tenantId: user.tenantId?.toString() || 'platform',
+      email: user.email,
+      role: user.role,
+      permissions: user.permissions,
+    });
+
+    // Save refresh token (limit to 5 active sessions)
+    if (user.refreshTokens.length >= 5) {
+      user.refreshTokens = user.refreshTokens.slice(-4);
+    }
+    user.refreshTokens.push(tokens.refreshToken);
+    await user.save();
+
+    res.json({
+      success: true,
+      user: user.toJSON(),
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Logout user
 export const logout = async (
   req: Request,
@@ -293,6 +376,54 @@ export const changePassword = async (
     res.json({
       success: true,
       message: 'Password changed successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Set mobile number and PIN for mobile login
+export const setMobileCredentials = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.headers['x-user-id'] as string;
+    const { mobileNumber, pin } = req.body;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'Not authenticated',
+      });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Update mobile number and PIN
+    if (mobileNumber) {
+      user.mobileNumber = mobileNumber;
+    }
+    if (pin) {
+      user.pin = pin;
+    }
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Mobile credentials updated successfully',
+      data: {
+        mobileNumber: user.mobileNumber,
+      },
     });
   } catch (error) {
     next(error);

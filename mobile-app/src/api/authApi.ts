@@ -7,6 +7,12 @@ export interface LoginRequest {
   tenantId?: string;
 }
 
+export interface MobileLoginRequest {
+  mobileNumber: string;
+  pin: string;
+  tenantId?: string;
+}
+
 export interface LoginResponse {
   user: User;
   accessToken: string;
@@ -23,6 +29,14 @@ export const authApi = {
    */
   async login(data: LoginRequest): Promise<ApiResponse<LoginResponse>> {
     const response = await apiClient.post<ApiResponse<LoginResponse>>('/auth/login', data);
+    return response.data;
+  },
+
+  /**
+   * Login with mobile number and PIN
+   */
+  async loginWithMobile(data: MobileLoginRequest): Promise<ApiResponse<LoginResponse>> {
+    const response = await apiClient.post<ApiResponse<LoginResponse>>('/auth/login/mobile', data);
     return response.data;
   },
 

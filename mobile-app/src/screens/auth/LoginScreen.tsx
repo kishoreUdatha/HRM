@@ -31,25 +31,25 @@ export default function LoginScreen() {
   const isDarkMode = useAuthStore(state => state.isDarkMode);
   const colors = isDarkMode ? Colors.dark : Colors.light;
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{email?: string; password?: string; general?: string}>({});
+  const [errors, setErrors] = useState<{mobileNumber?: string; pin?: string; general?: string}>({});
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
 
-    if (!email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Please enter a valid email';
+    if (!mobileNumber.trim()) {
+      newErrors.mobileNumber = 'Mobile number is required';
+    } else if (!/^\d{10}$/.test(mobileNumber.trim())) {
+      newErrors.mobileNumber = 'Please enter a valid 10-digit mobile number';
     }
 
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    if (!pin) {
+      newErrors.pin = 'PIN is required';
+    } else if (!/^\d{4}$/.test(pin)) {
+      newErrors.pin = 'PIN must be 4 digits';
     }
 
     setErrors(newErrors);
@@ -63,12 +63,12 @@ export default function LoginScreen() {
     setErrors({});
 
     try {
-      console.log('[Login] Attempting login for:', email.trim().toLowerCase());
+      console.log('[Login] Attempting login for mobile:', mobileNumber.trim());
       console.log('[Login] Tenant ID:', tenant?._id);
 
-      const response = await authApi.login({
-        email: email.trim().toLowerCase(),
-        password,
+      const response = await authApi.loginWithMobile({
+        mobileNumber: mobileNumber.trim(),
+        pin,
         tenantId: tenant?._id,
       });
 
@@ -172,12 +172,12 @@ export default function LoginScreen() {
                 </View>
               )}
 
-              {/* Email Input */}
+              {/* Mobile Number Input */}
               <View style={styles.inputContainer}>
-                <Text style={[styles.label, {color: colors.text}]}>Email</Text>
+                <Text style={[styles.label, {color: colors.text}]}>Mobile Number</Text>
                 <View style={styles.inputWrapper}>
                   <Icon
-                    name="email-outline"
+                    name="cellphone"
                     size={20}
                     color={colors.textSecondary}
                     style={styles.inputIcon}
@@ -187,31 +187,33 @@ export default function LoginScreen() {
                       styles.input,
                       {
                         backgroundColor: colors.surface,
-                        borderColor: errors.email ? colors.error : colors.border,
+                        borderColor: errors.mobileNumber ? colors.error : colors.border,
                         color: colors.text,
                       },
                     ]}
-                    placeholder="Enter your email"
+                    placeholder="Enter your mobile number"
                     placeholderTextColor={colors.textDisabled}
-                    value={email}
+                    value={mobileNumber}
                     onChangeText={text => {
-                      setEmail(text);
-                      setErrors(prev => ({...prev, email: undefined}));
+                      const numericText = text.replace(/[^0-9]/g, '').slice(0, 10);
+                      setMobileNumber(numericText);
+                      setErrors(prev => ({...prev, mobileNumber: undefined}));
                     }}
-                    keyboardType="email-address"
+                    keyboardType="phone-pad"
                     autoCapitalize="none"
                     autoCorrect={false}
+                    maxLength={10}
                     editable={!isLoading}
                   />
                 </View>
-                {errors.email && (
-                  <Text style={[styles.errorText, {color: colors.error}]}>{errors.email}</Text>
+                {errors.mobileNumber && (
+                  <Text style={[styles.errorText, {color: colors.error}]}>{errors.mobileNumber}</Text>
                 )}
               </View>
 
-              {/* Password Input */}
+              {/* PIN Input */}
               <View style={styles.inputContainer}>
-                <Text style={[styles.label, {color: colors.text}]}>Password</Text>
+                <Text style={[styles.label, {color: colors.text}]}>PIN</Text>
                 <View style={styles.inputWrapper}>
                   <Icon
                     name="lock-outline"
@@ -224,33 +226,38 @@ export default function LoginScreen() {
                       styles.input,
                       {
                         backgroundColor: colors.surface,
-                        borderColor: errors.password ? colors.error : colors.border,
+                        borderColor: errors.pin ? colors.error : colors.border,
                         color: colors.text,
                         paddingRight: 50,
+                        letterSpacing: 8,
+                        fontSize: 20,
                       },
                     ]}
-                    placeholder="Enter your password"
+                    placeholder="Enter 4-digit PIN (e.g. 1122)"
                     placeholderTextColor={colors.textDisabled}
-                    value={password}
+                    value={pin}
                     onChangeText={text => {
-                      setPassword(text);
-                      setErrors(prev => ({...prev, password: undefined}));
+                      const numericText = text.replace(/[^0-9]/g, '').slice(0, 4);
+                      setPin(numericText);
+                      setErrors(prev => ({...prev, pin: undefined}));
                     }}
-                    secureTextEntry={!showPassword}
+                    secureTextEntry={!showPin}
+                    keyboardType="number-pad"
+                    maxLength={4}
                     editable={!isLoading}
                   />
                   <TouchableOpacity
                     style={styles.eyeButton}
-                    onPress={() => setShowPassword(!showPassword)}>
+                    onPress={() => setShowPin(!showPin)}>
                     <Icon
-                      name={showPassword ? 'eye-off' : 'eye'}
+                      name={showPin ? 'eye-off' : 'eye'}
                       size={20}
                       color={colors.textSecondary}
                     />
                   </TouchableOpacity>
                 </View>
-                {errors.password && (
-                  <Text style={[styles.errorText, {color: colors.error}]}>{errors.password}</Text>
+                {errors.pin && (
+                  <Text style={[styles.errorText, {color: colors.error}]}>{errors.pin}</Text>
                 )}
               </View>
 
@@ -271,10 +278,10 @@ export default function LoginScreen() {
                 )}
               </TouchableOpacity>
 
-              {/* Forgot Password */}
+              {/* Forgot PIN */}
               <TouchableOpacity style={styles.forgotButton}>
                 <Text style={[styles.forgotText, {color: colors.primary}]}>
-                  Forgot Password?
+                  Forgot PIN?
                 </Text>
               </TouchableOpacity>
             </View>
