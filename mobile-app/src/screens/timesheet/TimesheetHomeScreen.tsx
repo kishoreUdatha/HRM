@@ -1,7 +1,5 @@
 import React, {useState} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {View, Text, StyleSheet, ScrollView, RefreshControl} from 'react-native';
 import {useQuery} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import LinearGradient from 'react-native-linear-gradient';
@@ -10,6 +8,7 @@ import {useAuthStore, useEmployee, useUser} from '../../store/authStore';
 import {attendanceApi} from '../../api/attendanceApi';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 // Helper to get week dates
 const getWeekDates = (date: Date) => {
@@ -55,7 +54,6 @@ const formatCurrency = (amount: number, _currency: string = 'INR'): string => {
 };
 
 export default function TimesheetHomeScreen() {
-  const navigation = useNavigation();
   const employee = useEmployee();
   const user = useUser();
   const isDarkMode = useAuthStore(state => state.isDarkMode);
@@ -142,15 +140,11 @@ export default function TimesheetHomeScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, {color: colors.text}]}>Timesheet</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title="Timesheet"
+        gradientColors={HeaderGradients.timesheet}
+      />
 
       <ScrollView
         style={styles.content}
@@ -313,7 +307,7 @@ export default function TimesheetHomeScreen() {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

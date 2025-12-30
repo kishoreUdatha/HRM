@@ -1,7 +1,5 @@
 import React, {useState} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
 import {useMutation} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -10,9 +8,9 @@ import apiClient from '../../api/apiClient';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import {showToast} from '../../utils/alert';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 export default function ProfileScreen() {
-  const navigation = useNavigation();
   const user = useUser();
   const employee = useEmployee();
   const {isDarkMode, setUser, setEmployee} = useAuthStore();
@@ -47,28 +45,33 @@ export default function ProfileScreen() {
     setIsEditing(false);
   };
 
-  return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, {color: colors.text}]}>Profile</Text>
-        {isEditing ? (
-          <View style={styles.headerActions}>
-            <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-              <Icon name="close" size={24} color={colors.error} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleSave} style={styles.headerButton}>
-              <Icon name="check" size={24} color={colors.success} />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity onPress={() => setIsEditing(true)}>
-            <Icon name="pencil" size={24} color={colors.primary} />
+  const renderRightComponent = () => {
+    if (isEditing) {
+      return (
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
+            <Icon name="close" size={24} color="#FFFFFF" />
           </TouchableOpacity>
-        )}
-      </View>
+          <TouchableOpacity onPress={handleSave} style={styles.headerButton}>
+            <Icon name="check" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return (
+      <TouchableOpacity onPress={() => setIsEditing(true)}>
+        <Icon name="pencil" size={24} color="#FFFFFF" />
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title="Profile"
+        gradientColors={HeaderGradients.profile}
+        rightComponent={renderRightComponent()}
+      />
 
       <ScrollView style={styles.content}>
         <View style={styles.avatarSection}>
@@ -102,7 +105,7 @@ export default function ProfileScreen() {
           <InfoRow label="Joining Date" value={employee?.joiningDate ? new Date(employee.joiningDate).toLocaleDateString() : ''} colors={colors} />
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

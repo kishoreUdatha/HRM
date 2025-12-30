@@ -1,7 +1,6 @@
 import React, {useState} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {useRoute} from '@react-navigation/native';
 import {useQuery} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Share from 'react-native-share';
@@ -12,12 +11,12 @@ import {payrollApi} from '../../api/payrollApi';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import {showToast} from '../../utils/alert';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 // API Base URL for direct downloads
 const API_BASE_URL = 'http://localhost:3000/api';
 
 export default function PayslipDetailScreen() {
-  const navigation = useNavigation();
   const route = useRoute<any>();
   const employee = useEmployee();
   const user = useUser();
@@ -128,32 +127,39 @@ export default function PayslipDetailScreen() {
     }
   };
 
+  const renderDownloadButton = () => (
+    <TouchableOpacity onPress={handleDownload} disabled={isDownloading || !payslip}>
+      {isDownloading ? (
+        <ActivityIndicator size="small" color="#FFFFFF" />
+      ) : (
+        <Icon name="download" size={24} color="#FFFFFF" />
+      )}
+    </TouchableOpacity>
+  );
+
   if (isLoading) {
     return (
-      <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
+      <View style={[styles.container, {backgroundColor: colors.background}]}>
+        <AppHeader
+          title="Payslip Details"
+          gradientColors={HeaderGradients.payroll}
+          rightComponent={renderDownloadButton()}
+        />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, {color: colors.textSecondary}]}>Loading payslip...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, {color: colors.text}]}>Payslip Details</Text>
-        <TouchableOpacity onPress={handleDownload} disabled={isDownloading || !payslip}>
-          {isDownloading ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <Icon name="download" size={24} color={payslip ? colors.primary : colors.textSecondary} />
-          )}
-        </TouchableOpacity>
-      </View>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title="Payslip Details"
+        gradientColors={HeaderGradients.payroll}
+        rightComponent={renderDownloadButton()}
+      />
 
       <ScrollView style={styles.content}>
         {payslip ? (
@@ -222,7 +228,7 @@ export default function PayslipDetailScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

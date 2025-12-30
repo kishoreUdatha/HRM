@@ -1,11 +1,9 @@
 import React, {useState} from 'react';
 import {View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Platform, ActivityIndicator} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useQuery} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import LinearGradient from 'react-native-linear-gradient';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
 
@@ -15,6 +13,7 @@ import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList, Payslip} from '../../types';
 import {showToast} from '../../utils/alert';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -250,56 +249,60 @@ export default function PayslipListScreen() {
   console.log('[PayslipList] avgSalary:', avgSalary);
   console.log('[PayslipList] selectedFY:', selectedFY, financialYears[selectedFY]);
 
+  const renderHeaderContent = () => (
+    <>
+      {/* Financial Year Picker */}
+      <View style={styles.fyPickerContainer}>
+        {financialYears.map((fy, index) => (
+          <TouchableOpacity
+            key={fy.label}
+            style={[
+              styles.fyPill,
+              selectedFY === index && styles.fyPillSelected,
+            ]}
+            onPress={() => setSelectedFY(index)}
+          >
+            <Text style={[
+              styles.fyPillText,
+              selectedFY === index && styles.fyPillTextSelected,
+            ]}>
+              {fy.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Stats Cards */}
+      <View style={styles.statsContainer}>
+        <View style={styles.statCard}>
+          <View style={styles.statIconContainer}>
+            <Icon name="wallet" size={16} color="#10B981" />
+          </View>
+          <Text style={styles.statValue}>{formatCurrency(totalEarnings)}</Text>
+          <Text style={styles.statLabel}>{financialYears[selectedFY].label} Earnings</Text>
+        </View>
+        <View style={styles.statCard}>
+          <View style={[styles.statIconContainer, {backgroundColor: '#DBEAFE'}]}>
+            <Icon name="chart-line" size={16} color="#3B82F6" />
+          </View>
+          <Text style={styles.statValue}>{formatCurrency(avgSalary)}</Text>
+          <Text style={styles.statLabel}>Avg Monthly</Text>
+        </View>
+      </View>
+    </>
+  );
+
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
-      {/* Header with Gradient */}
-      <LinearGradient
-        colors={['#10B981', '#34D399']}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 1}}
-        style={styles.headerGradient}>
-        <Text style={styles.headerTitle}>Payslips</Text>
-        <Text style={styles.headerSubtitle}>Your salary history</Text>
-
-        {/* Financial Year Picker */}
-        <View style={styles.fyPickerContainer}>
-          {financialYears.map((fy, index) => (
-            <TouchableOpacity
-              key={fy.label}
-              style={[
-                styles.fyPill,
-                selectedFY === index && styles.fyPillSelected,
-              ]}
-              onPress={() => setSelectedFY(index)}
-            >
-              <Text style={[
-                styles.fyPillText,
-                selectedFY === index && styles.fyPillTextSelected,
-              ]}>
-                {fy.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <View style={styles.statIconContainer}>
-              <Icon name="wallet" size={20} color="#10B981" />
-            </View>
-            <Text style={styles.statValue}>{formatCurrency(totalEarnings)}</Text>
-            <Text style={styles.statLabel}>{financialYears[selectedFY].label} Earnings</Text>
-          </View>
-          <View style={styles.statCard}>
-            <View style={[styles.statIconContainer, {backgroundColor: '#DBEAFE'}]}>
-              <Icon name="chart-line" size={20} color="#3B82F6" />
-            </View>
-            <Text style={styles.statValue}>{formatCurrency(avgSalary)}</Text>
-            <Text style={styles.statLabel}>Avg Monthly</Text>
-          </View>
-        </View>
-      </LinearGradient>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title="Payslips"
+        subtitle="Your salary history"
+        showBack={false}
+        gradientColors={HeaderGradients.payroll}
+        extraPadding={30}
+      >
+        {renderHeaderContent()}
+      </AppHeader>
 
       <FlatList
         data={filteredPayslips}
@@ -330,7 +333,7 @@ export default function PayslipListScreen() {
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -338,32 +341,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerGradient: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xl + 40,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  headerSubtitle: {
-    fontSize: FontSizes.md,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
-    marginBottom: Spacing.sm,
-  },
   fyPickerContainer: {
     flexDirection: 'row',
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.sm,
     gap: Spacing.xs,
   },
   fyPill: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
     borderRadius: BorderRadius.full,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
@@ -371,7 +356,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   fyPillText: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '500',
   },
@@ -381,36 +366,36 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
-    gap: Spacing.md,
+    gap: Spacing.sm,
   },
   statCard: {
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.sm,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 4},
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   statIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#D1FAE5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    marginBottom: 4,
   },
   statValue: {
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.md,
     fontWeight: '700',
     color: '#1E293B',
   },
   statLabel: {
-    fontSize: FontSizes.xs,
+    fontSize: 10,
     color: '#64748B',
   },
   listContent: {

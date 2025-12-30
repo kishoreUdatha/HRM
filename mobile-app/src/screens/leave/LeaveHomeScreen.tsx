@@ -8,18 +8,17 @@ import {
   RefreshControl,
   FlatList,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useQuery} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import LinearGradient from 'react-native-linear-gradient';
 
 import {useAuthStore, useEmployee, useUser} from '../../store/authStore';
 import {leaveApi} from '../../api/leaveApi';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList, LeaveRequest} from '../../types';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -148,27 +147,24 @@ export default function LeaveHomeScreen() {
     );
   };
 
+  const renderApplyButton = () => (
+    <TouchableOpacity
+      style={styles.applyButton}
+      onPress={() => navigation.navigate('ApplyLeave')}>
+      <Icon name="plus" size={20} color="#EC4899" />
+      <Text style={styles.applyButtonText}>Apply</Text>
+    </TouchableOpacity>
+  );
+
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
-      {/* Header with Gradient */}
-      <LinearGradient
-        colors={['#EC4899', '#F472B6']}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 1}}
-        style={styles.headerGradient}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerTitle}>Leave</Text>
-            <Text style={styles.headerSubtitle}>Manage your time off</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.applyButton}
-            onPress={() => navigation.navigate('ApplyLeave')}>
-            <Icon name="plus" size={20} color="#EC4899" />
-            <Text style={styles.applyButtonText}>Apply</Text>
-          </TouchableOpacity>
-        </View>
-      </LinearGradient>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title="Leave"
+        subtitle="Manage your time off"
+        showBack={false}
+        gradientColors={HeaderGradients.leave}
+        rightComponent={renderApplyButton()}
+      />
 
       {/* Tabs */}
       <View style={[styles.tabContainer, {backgroundColor: colors.card}]}>
@@ -279,35 +275,13 @@ export default function LeaveHomeScreen() {
           }
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  headerGradient: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xl,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  headerSubtitle: {
-    fontSize: FontSizes.md,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
   },
   applyButton: {
     flexDirection: 'row',

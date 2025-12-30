@@ -9,9 +9,10 @@ import {
   Linking,
   PermissionsAndroid,
   Animated,
+  StatusBar,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {Camera, useCameraDevice, useCameraPermission} from 'react-native-vision-camera';
@@ -58,6 +59,15 @@ export default function FaceCheckInScreen() {
 
   // Animation for success state
   const successScale = useRef(new Animated.Value(0)).current;
+
+  // Set StatusBar for camera screen
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle('light-content');
+      StatusBar.setBackgroundColor('transparent');
+      StatusBar.setTranslucent(true);
+    }, [])
+  );
 
   const requestLocationPermission = async (): Promise<boolean> => {
     if (Platform.OS === 'android') {

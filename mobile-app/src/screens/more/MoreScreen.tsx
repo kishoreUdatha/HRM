@@ -1,6 +1,5 @@
 import React from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -12,6 +11,7 @@ import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList} from '../../types';
 import {showDialog, ALERT_TYPE} from '../../utils/alert';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -96,16 +96,13 @@ export default function MoreScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
-      {/* Gradient Header */}
-      <LinearGradient
-        colors={[colors.gradientStart, colors.gradientEnd]}
-        start={{x: 0, y: 0}}
-        end={{x: 1, y: 1}}
-        style={styles.headerGradient}>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <Text style={styles.headerSubtitle}>Manage your account</Text>
-      </LinearGradient>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title="Settings"
+        subtitle="Manage your account"
+        showBack={false}
+        gradientColors={HeaderGradients.settings}
+      />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* User Card */}
@@ -174,7 +171,7 @@ export default function MoreScreen() {
           HRM Mobile v1.0.0
         </Text>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -182,27 +179,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerGradient: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xl,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  headerSubtitle: {
-    fontSize: FontSizes.md,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
-  },
   content: {
     flex: 1,
     padding: Spacing.lg,
-    marginTop: -Spacing.lg,
   },
   userCard: {
     flexDirection: 'row',

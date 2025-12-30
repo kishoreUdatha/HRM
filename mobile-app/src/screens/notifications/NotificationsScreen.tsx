@@ -1,7 +1,5 @@
 import React from 'react';
 import {View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import apiClient from '../../api/apiClient';
@@ -10,9 +8,9 @@ import {useAuthStore} from '../../store/authStore';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {Notification} from '../../types';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 export default function NotificationsScreen() {
-  const navigation = useNavigation();
   const queryClient = useQueryClient();
   const isDarkMode = useAuthStore(state => state.isDarkMode);
   const colors = isDarkMode ? Colors.dark : Colors.light;
@@ -65,14 +63,11 @@ export default function NotificationsScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, {color: colors.text}]}>Notifications</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title="Notifications"
+        gradientColors={HeaderGradients.notifications}
+      />
 
       <FlatList
         data={notifications?.data?.notifications || notifications?.data || []}
@@ -89,7 +84,7 @@ export default function NotificationsScreen() {
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

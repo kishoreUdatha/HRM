@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -20,6 +19,7 @@ import {handleApiError} from '../../api/apiClient';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import {showToast, showDialog} from '../../utils/alert';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 // Simple Calendar Component
 interface CalendarProps {
@@ -251,14 +251,11 @@ export default function ApplyLeaveScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, {color: colors.text}]}>Apply Leave</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title="Apply Leave"
+        gradientColors={HeaderGradients.leave}
+      />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Leave Type */}
@@ -411,7 +408,7 @@ export default function ApplyLeaveScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 

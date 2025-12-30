@@ -1,6 +1,5 @@
 import React, {useCallback} from 'react';
 import {View, Text, StyleSheet, ScrollView, TouchableOpacity} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native';
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -10,6 +9,7 @@ import {leaveApi} from '../../api/leaveApi';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import {showDialog} from '../../utils/alert';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 export default function LeaveDetailScreen() {
   const navigation = useNavigation();
@@ -86,14 +86,11 @@ export default function LeaveDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, {color: colors.text}]}>Leave Details</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title="Leave Details"
+        gradientColors={HeaderGradients.leave}
+      />
 
       <ScrollView style={styles.content}>
         {isLoading ? (
@@ -171,7 +168,7 @@ export default function LeaveDetailScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

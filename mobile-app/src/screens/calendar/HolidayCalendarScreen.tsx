@@ -1,7 +1,5 @@
 import React, {useState, useMemo} from 'react';
-import {View, Text, StyleSheet, ScrollView, TouchableOpacity} from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {View, Text, StyleSheet, ScrollView} from 'react-native';
 import {useQuery} from '@tanstack/react-query';
 import {Calendar} from 'react-native-calendars';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -10,9 +8,9 @@ import {useAuthStore} from '../../store/authStore';
 import {leaveApi} from '../../api/leaveApi';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 export default function HolidayCalendarScreen() {
-  const navigation = useNavigation();
   const isDarkMode = useAuthStore(state => state.isDarkMode);
   const colors = isDarkMode ? Colors.dark : Colors.light;
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -39,14 +37,11 @@ export default function HolidayCalendarScreen() {
   }, [holidayList, colors]);
 
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-left" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, {color: colors.text}]}>Holiday Calendar</Text>
-        <View style={{width: 24}} />
-      </View>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title="Holiday Calendar"
+        gradientColors={HeaderGradients.calendar}
+      />
 
       <Calendar
         markedDates={markedDates}
@@ -91,7 +86,7 @@ export default function HolidayCalendarScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

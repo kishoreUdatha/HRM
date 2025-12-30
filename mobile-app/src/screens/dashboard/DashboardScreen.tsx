@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useQuery} from '@tanstack/react-query';
@@ -21,6 +20,7 @@ import {employeeApi} from '../../api/employeeApi';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList, AttendanceSummary} from '../../types';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -288,78 +288,79 @@ export default function DashboardScreen() {
     {color: '#F59E0B', bg: '#FEF3C7'},
   ];
 
+  const renderNotificationButton = () => (
+    <TouchableOpacity
+      onPress={() => navigation.navigate('Notifications')}
+      style={styles.notificationButton}>
+      <Icon name="bell-outline" size={24} color="#FFFFFF" />
+      <View style={styles.notificationBadge} />
+    </TouchableOpacity>
+  );
+
+  const renderAttendanceCard = () => (
+    <View style={styles.attendanceCardHeader}>
+      <View style={styles.attendanceStatus}>
+        <View style={styles.attendanceItem}>
+          <View style={[styles.attendanceIcon, {backgroundColor: 'rgba(255,255,255,0.2)'}]}>
+            <Icon
+              name="login"
+              size={18}
+              color={hasCheckedIn ? '#4ADE80' : 'rgba(255,255,255,0.6)'}
+            />
+          </View>
+          <Text style={styles.attendanceLabelWhite}>Check In</Text>
+          <Text style={styles.attendanceTimeWhite}>
+            {attendance?.checkIn
+              ? new Date(attendance.checkIn).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '--:--'}
+          </Text>
+        </View>
+
+        <View style={styles.dividerWhite} />
+
+        <View style={styles.attendanceItem}>
+          <View style={[styles.attendanceIcon, {backgroundColor: 'rgba(255,255,255,0.2)'}]}>
+            <Icon
+              name="logout"
+              size={18}
+              color={hasCheckedOut ? '#FB7185' : 'rgba(255,255,255,0.6)'}
+            />
+          </View>
+          <Text style={styles.attendanceLabelWhite}>Check Out</Text>
+          <Text style={styles.attendanceTimeWhite}>
+            {attendance?.checkOut
+              ? new Date(attendance.checkOut).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '--:--'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title={`${getGreeting()}, ${user?.firstName || 'User'}`}
+        showBack={false}
+        gradientColors={HeaderGradients.primary}
+        rightComponent={renderNotificationButton()}
+        extraPadding={30}
+      >
+        {renderAttendanceCard()}
+      </AppHeader>
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }>
-        {/* Header with Gradient */}
-        <LinearGradient
-          colors={[colors.gradientStart, colors.gradientEnd]}
-          start={{x: 0, y: 0}}
-          end={{x: 1, y: 1}}
-          style={styles.headerGradient}>
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <Text style={styles.greeting}>{getGreeting()},</Text>
-              <Text style={styles.userName}>{user?.firstName || 'User'}</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Notifications')}
-              style={styles.notificationButton}>
-              <Icon name="bell-outline" size={24} color="#FFFFFF" />
-              <View style={styles.notificationBadge} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Attendance Card in Header */}
-          <View style={styles.attendanceCardHeader}>
-            <View style={styles.attendanceStatus}>
-              <View style={styles.attendanceItem}>
-                <View style={[styles.attendanceIcon, {backgroundColor: 'rgba(255,255,255,0.2)'}]}>
-                  <Icon
-                    name="login"
-                    size={22}
-                    color={hasCheckedIn ? '#4ADE80' : 'rgba(255,255,255,0.6)'}
-                  />
-                </View>
-                <Text style={styles.attendanceLabelWhite}>Check In</Text>
-                <Text style={styles.attendanceTimeWhite}>
-                  {attendance?.checkIn
-                    ? new Date(attendance.checkIn).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : '--:--'}
-                </Text>
-              </View>
-
-              <View style={styles.dividerWhite} />
-
-              <View style={styles.attendanceItem}>
-                <View style={[styles.attendanceIcon, {backgroundColor: 'rgba(255,255,255,0.2)'}]}>
-                  <Icon
-                    name="logout"
-                    size={22}
-                    color={hasCheckedOut ? '#FB7185' : 'rgba(255,255,255,0.6)'}
-                  />
-                </View>
-                <Text style={styles.attendanceLabelWhite}>Check Out</Text>
-                <Text style={styles.attendanceTimeWhite}>
-                  {attendance?.checkOut
-                    ? new Date(attendance.checkOut).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : '--:--'}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </LinearGradient>
 
         {/* Check In/Out Button */}
         <View style={styles.checkButtonContainer}>
@@ -425,7 +426,7 @@ export default function DashboardScreen() {
               style={styles.earningsGradient}>
               <View style={styles.earningsHeader}>
                 <View style={styles.earningsIconContainer}>
-                  <Icon name="wallet-outline" size={24} color="#FFFFFF" />
+                  <Icon name="wallet-outline" size={18} color="#FFFFFF" />
                 </View>
                 <View style={styles.earningsHeaderText}>
                   <Text style={styles.earningsTitle}>Current Earnings</Text>
@@ -446,19 +447,19 @@ export default function DashboardScreen() {
 
               <View style={styles.earningsStats}>
                 <View style={styles.earningsStat}>
-                  <Icon name="calendar-check" size={16} color="rgba(255,255,255,0.8)" />
+                  <Icon name="calendar-check" size={14} color="rgba(255,255,255,0.8)" />
                   <Text style={styles.earningsStatValue}>{earnings.daysWorked}</Text>
                   <Text style={styles.earningsStatLabel}>Days Worked</Text>
                 </View>
                 <View style={styles.earningsStatDivider} />
                 <View style={styles.earningsStat}>
-                  <Icon name="clock-outline" size={16} color="rgba(255,255,255,0.8)" />
+                  <Icon name="clock-outline" size={14} color="rgba(255,255,255,0.8)" />
                   <Text style={styles.earningsStatValue}>{(earnings.totalWorkHours || 0).toFixed(1)}h</Text>
                   <Text style={styles.earningsStatLabel}>Work Hours</Text>
                 </View>
                 <View style={styles.earningsStatDivider} />
                 <View style={styles.earningsStat}>
-                  <Icon name="cash" size={16} color="rgba(255,255,255,0.8)" />
+                  <Icon name="cash" size={14} color="rgba(255,255,255,0.8)" />
                   <Text style={styles.earningsStatValue}>
                     {formatCurrency(earnings.dailyRate, earnings.currency).replace(/\.\d+$/, '')}
                   </Text>
@@ -471,7 +472,7 @@ export default function DashboardScreen() {
             {(earnings.todayHours || 0) > 0 && (
               <View style={[styles.todayEarnings, {backgroundColor: colors.background}]}>
                 <View style={styles.todayEarningsLeft}>
-                  <Icon name="clock-check-outline" size={18} color={colors.success} />
+                  <Icon name="clock-check-outline" size={16} color={colors.success} />
                   <Text style={[styles.todayEarningsText, {color: colors.text}]}>
                     Today: {(earnings.todayHours || 0).toFixed(1)} hrs
                   </Text>
@@ -485,7 +486,7 @@ export default function DashboardScreen() {
             {/* Projected Earnings Row */}
             <View style={[styles.projectedEarnings, {borderTopColor: colors.cardBorder}]}>
               <View style={styles.projectedEarningsLeft}>
-                <Icon name="chart-line" size={18} color={colors.primary} />
+                <Icon name="chart-line" size={16} color={colors.primary} />
                 <Text style={[styles.projectedEarningsLabel, {color: colors.textSecondary}]}>
                   Projected Monthly
                 </Text>
@@ -586,7 +587,7 @@ export default function DashboardScreen() {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -640,10 +641,9 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
   },
   attendanceCardHeader: {
-    marginHorizontal: Spacing.lg,
-    padding: Spacing.lg,
+    padding: Spacing.md,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.md,
   },
   attendanceStatus: {
     flexDirection: 'row',
@@ -653,20 +653,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   attendanceIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    marginBottom: 4,
   },
   attendanceLabelWhite: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
     color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 2,
   },
   attendanceTimeWhite: {
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.md,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -860,46 +860,46 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   earningsGradient: {
-    padding: Spacing.lg,
+    padding: Spacing.md,
   },
   earningsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   earningsIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Spacing.md,
+    marginRight: Spacing.sm,
   },
   earningsHeaderText: {
     flex: 1,
   },
   earningsTitle: {
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.md,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   earningsSubtitle: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
     color: 'rgba(255,255,255,0.8)',
-    marginTop: 2,
+    marginTop: 1,
   },
   earningsMainAmount: {
     alignItems: 'center',
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   earningsAmountLabel: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
     color: 'rgba(255,255,255,0.8)',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   earningsAmount: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.5,
@@ -907,7 +907,7 @@ const styles = StyleSheet.create({
   earningsDivider: {
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.2)',
-    marginVertical: Spacing.md,
+    marginVertical: Spacing.sm,
   },
   earningsStats: {
     flexDirection: 'row',
@@ -918,59 +918,59 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   earningsStatValue: {
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.md,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginTop: 4,
+    marginTop: 2,
   },
   earningsStatLabel: {
-    fontSize: FontSizes.xs,
+    fontSize: 10,
     color: 'rgba(255,255,255,0.7)',
-    marginTop: 2,
+    marginTop: 1,
   },
   earningsStatDivider: {
     width: 1,
-    height: 40,
+    height: 30,
     backgroundColor: 'rgba(255,255,255,0.2)',
   },
   todayEarnings: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   todayEarningsLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   todayEarningsText: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.sm,
     fontWeight: '500',
   },
   todayEarningsAmount: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.sm,
     fontWeight: '700',
   },
   projectedEarnings: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
     borderTopWidth: 1,
   },
   projectedEarningsLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   projectedEarningsLabel: {
-    fontSize: FontSizes.md,
+    fontSize: FontSizes.sm,
   },
   projectedEarningsAmount: {
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.md,
     fontWeight: '700',
   },
 });

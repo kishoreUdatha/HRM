@@ -7,18 +7,17 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {useQuery} from '@tanstack/react-query';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import LinearGradient from 'react-native-linear-gradient';
 
 import {useAuthStore, useEmployee, useUser} from '../../store/authStore';
 import {attendanceApi} from '../../api/attendanceApi';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList, Attendance} from '../../types';
+import AppHeader, {HeaderGradients} from '../../components/AppHeader';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -122,85 +121,84 @@ export default function AttendanceHomeScreen() {
     }
   };
 
+  const renderTodayStatus = () => (
+    <View style={styles.todayCard}>
+      <View style={styles.statusRow}>
+        <View style={styles.statusItem}>
+          <View style={[styles.statusIconContainer, {backgroundColor: 'rgba(255,255,255,0.2)'}]}>
+            <Icon
+              name="login"
+              size={18}
+              color={hasCheckedIn ? '#4ADE80' : 'rgba(255,255,255,0.5)'}
+            />
+          </View>
+          <Text style={styles.statusLabel}>Check In</Text>
+          <Text style={styles.statusTime}>
+            {attendance?.checkIn
+              ? new Date(attendance.checkIn).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '--:--'}
+          </Text>
+        </View>
+
+        <View style={styles.statusDivider} />
+
+        <View style={styles.statusItem}>
+          <View style={[styles.statusIconContainer, {backgroundColor: 'rgba(255,255,255,0.2)'}]}>
+            <Icon
+              name="logout"
+              size={18}
+              color={hasCheckedOut ? '#FB7185' : 'rgba(255,255,255,0.5)'}
+            />
+          </View>
+          <Text style={styles.statusLabel}>Check Out</Text>
+          <Text style={styles.statusTime}>
+            {attendance?.checkOut
+              ? new Date(attendance.checkOut).toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '--:--'}
+          </Text>
+        </View>
+
+        <View style={styles.statusDivider} />
+
+        <View style={styles.statusItem}>
+          <View style={[styles.statusIconContainer, {backgroundColor: 'rgba(255,255,255,0.2)'}]}>
+            <Icon name="timer-outline" size={18} color="#FFFFFF" />
+          </View>
+          <Text style={styles.statusLabel}>Hours</Text>
+          <Text style={styles.statusTime}>
+            {attendance?.workHours?.toFixed(1) || '0'}h
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]} edges={['top']}>
+    <View style={[styles.container, {backgroundColor: colors.background}]}>
+      <AppHeader
+        title="Attendance"
+        subtitle={currentDate.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+        })}
+        showBack={false}
+        gradientColors={HeaderGradients.attendance}
+        extraPadding={30}
+      >
+        {renderTodayStatus()}
+      </AppHeader>
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}>
-
-        {/* Header with Gradient */}
-        <LinearGradient
-          colors={['#F59E0B', '#F97316']}
-          start={{x: 0, y: 0}}
-          end={{x: 1, y: 1}}
-          style={styles.headerGradient}>
-          <Text style={styles.headerTitle}>Attendance</Text>
-          <Text style={styles.headerSubtitle}>
-            {currentDate.toLocaleDateString('en-US', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-            })}
-          </Text>
-
-          {/* Today's Status */}
-          <View style={styles.todayCard}>
-            <View style={styles.statusRow}>
-              <View style={styles.statusItem}>
-                <View style={[styles.statusIconContainer, {backgroundColor: 'rgba(255,255,255,0.2)'}]}>
-                  <Icon
-                    name="login"
-                    size={24}
-                    color={hasCheckedIn ? '#4ADE80' : 'rgba(255,255,255,0.5)'}
-                  />
-                </View>
-                <Text style={styles.statusLabel}>Check In</Text>
-                <Text style={styles.statusTime}>
-                  {attendance?.checkIn
-                    ? new Date(attendance.checkIn).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : '--:--'}
-                </Text>
-              </View>
-
-              <View style={styles.statusDivider} />
-
-              <View style={styles.statusItem}>
-                <View style={[styles.statusIconContainer, {backgroundColor: 'rgba(255,255,255,0.2)'}]}>
-                  <Icon
-                    name="logout"
-                    size={24}
-                    color={hasCheckedOut ? '#FB7185' : 'rgba(255,255,255,0.5)'}
-                  />
-                </View>
-                <Text style={styles.statusLabel}>Check Out</Text>
-                <Text style={styles.statusTime}>
-                  {attendance?.checkOut
-                    ? new Date(attendance.checkOut).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })
-                    : '--:--'}
-                </Text>
-              </View>
-
-              <View style={styles.statusDivider} />
-
-              <View style={styles.statusItem}>
-                <View style={[styles.statusIconContainer, {backgroundColor: 'rgba(255,255,255,0.2)'}]}>
-                  <Icon name="timer-outline" size={24} color="#FFFFFF" />
-                </View>
-                <Text style={styles.statusLabel}>Hours</Text>
-                <Text style={styles.statusTime}>
-                  {attendance?.workHours?.toFixed(1) || '0'}h
-                </Text>
-              </View>
-            </View>
-          </View>
-        </LinearGradient>
 
         {/* Check In/Out Button */}
         <View style={styles.actionContainer}>
@@ -394,7 +392,7 @@ export default function AttendanceHomeScreen() {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -405,28 +403,10 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  headerGradient: {
-    paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xl + 24,
-    paddingHorizontal: Spacing.lg,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  headerSubtitle: {
-    fontSize: FontSizes.md,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
-    marginBottom: Spacing.lg,
-  },
   todayCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
   },
   statusRow: {
     flexDirection: 'row',
@@ -437,26 +417,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    marginBottom: 4,
   },
   statusLabel: {
-    fontSize: FontSizes.sm,
+    fontSize: FontSizes.xs,
     color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 2,
   },
   statusTime: {
-    fontSize: FontSizes.lg,
+    fontSize: FontSizes.md,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   statusDivider: {
     width: 1,
-    height: 60,
+    height: 40,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
   actionContainer: {

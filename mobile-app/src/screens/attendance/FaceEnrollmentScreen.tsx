@@ -10,9 +10,10 @@ import {
   PermissionsAndroid,
   ScrollView,
   Image,
+  StatusBar,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useFocusEffect} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {Camera, useCameraDevice, useCameraPermission} from 'react-native-vision-camera';
@@ -57,6 +58,15 @@ export default function FaceEnrollmentScreen() {
 
   const currentPhotoIndex = capturedPhotos.length;
   const currentInstruction = PHOTO_INSTRUCTIONS[currentPhotoIndex] || PHOTO_INSTRUCTIONS[0];
+
+  // Set StatusBar for camera screen
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle('light-content');
+      StatusBar.setBackgroundColor('transparent');
+      StatusBar.setTranslucent(true);
+    }, [])
+  );
 
   const handleCapture = useCallback(async () => {
     if (!camera.current || currentPhotoIndex >= REQUIRED_PHOTOS) return;
