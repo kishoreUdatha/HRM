@@ -76,6 +76,8 @@ interface PayrollSummary {
   totalEarnings: number;
   totalDeductions: number;
   avgSalary: number;
+  totalOvertimeHours?: number;
+  totalOvertimePay?: number;
   statusBreakdown: {
     draft: number;
     processed: number;
@@ -350,7 +352,7 @@ const Payroll: React.FC = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-secondary-100 p-5 hover:shadow-md transition-shadow">
           <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 rounded-full blur-2xl" />
           <div className="relative">
@@ -387,6 +389,20 @@ const Payroll: React.FC = () => {
               <span className="text-sm font-medium text-secondary-500">Total Earnings</span>
             </div>
             <p className="text-2xl font-bold text-green-600">{formatCurrency(summary?.totalEarnings)}</p>
+          </div>
+        </div>
+
+        <div className="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-secondary-100 p-5 hover:shadow-md transition-shadow">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-orange-500/10 to-amber-500/10 rounded-full blur-2xl" />
+          <div className="relative">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2.5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl text-white shadow-lg shadow-orange-500/25">
+                <HiClock className="w-5 h-5" />
+              </div>
+              <span className="text-sm font-medium text-secondary-500">Overtime Pay</span>
+            </div>
+            <p className="text-2xl font-bold text-orange-600">{formatCurrency(payrolls.reduce((sum, p) => sum + safeNumber(p.overtimePay), 0))}</p>
+            <p className="text-xs text-secondary-400 mt-1">{payrolls.reduce((sum, p) => sum + safeNumber(p.overtimeHours), 0).toFixed(1)} hrs total</p>
           </div>
         </div>
 
@@ -507,6 +523,9 @@ const Payroll: React.FC = () => {
                   Gross Salary
                 </th>
                 <th className="text-right px-6 py-4 text-xs font-bold text-secondary-600 uppercase tracking-wider">
+                  OT Pay
+                </th>
+                <th className="text-right px-6 py-4 text-xs font-bold text-secondary-600 uppercase tracking-wider">
                   Deductions
                 </th>
                 <th className="text-right px-6 py-4 text-xs font-bold text-secondary-600 uppercase tracking-wider">
@@ -523,7 +542,7 @@ const Payroll: React.FC = () => {
             <tbody className="divide-y divide-secondary-100">
               {filteredPayrolls.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
+                  <td colSpan={8} className="px-6 py-16 text-center">
                     <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                       <HiCurrencyDollar className="w-8 h-8 text-emerald-500" />
                     </div>
@@ -568,6 +587,16 @@ const Payroll: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="font-semibold text-secondary-900">{formatCurrency(payroll.grossSalary)}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {safeNumber(payroll.overtimePay) > 0 ? (
+                          <div>
+                            <span className="font-semibold text-orange-600">{formatCurrency(payroll.overtimePay)}</span>
+                            <p className="text-xs text-secondary-400">{safeNumber(payroll.overtimeHours)} hrs</p>
+                          </div>
+                        ) : (
+                          <span className="text-secondary-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="font-medium text-rose-600">{formatCurrency(payroll.totalDeductions)}</span>

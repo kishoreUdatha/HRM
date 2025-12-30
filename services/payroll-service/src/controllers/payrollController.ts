@@ -4,6 +4,7 @@ import Payroll from '../models/Payroll';
 import EmployeeSalary from '../models/EmployeeSalary';
 import SalaryStructure from '../models/SalaryStructure';
 import { generatePayslipPDF } from '../services/payslipService';
+import { getApprovedOvertimeForPayroll, markOvertimeAsPaid, calculateShiftAllowance } from '../services/overtimeService';
 
 const EMPLOYEE_SERVICE_URL = process.env.EMPLOYEE_SERVICE_URL || 'http://localhost:3003';
 const TENANT_SERVICE_URL = process.env.TENANT_SERVICE_URL || 'http://localhost:3002';
@@ -329,6 +330,42 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
     // So we don't add a separate LOP deduction (that would be double-counting)
     // The prorated salary already reflects the reduced pay for unpaid days
 
+    // Fetch approved overtime entries for this employee and period
+    const overtimeData = await getApprovedOvertimeForPayroll(tenantId, employeeId, month, year);
+    const overtimeHours = overtimeData.totalHours;
+    const overtimePay = overtimeData.totalAmount;
+
+    // Add overtime pay as an earning if applicable
+    if (overtimePay > 0) {
+      earnings.push({
+        name: 'Overtime Pay',
+        code: 'OT',
+        type: 'earning',
+        amount: Math.round(overtimePay),
+        isTaxable: true,
+      });
+    }
+
+    // Calculate shift allowance if employee is assigned to a shift
+    const shiftAllowanceData = await calculateShiftAllowance(
+      tenantId,
+      employeeId,
+      month,
+      year,
+      employeeSalary.baseSalary,
+      workingDays
+    );
+
+    if (shiftAllowanceData && shiftAllowanceData.allowanceAmount > 0) {
+      earnings.push({
+        name: `Shift Allowance (${shiftAllowanceData.shiftName})`,
+        code: 'SHIFT',
+        type: 'earning',
+        amount: Math.round(shiftAllowanceData.allowanceAmount * prorationRatio),
+        isTaxable: true,
+      });
+    }
+
     // Fetch employee data for snapshot
     const employeeData = await fetchEmployeeData(tenantId, employeeId);
 
@@ -352,11 +389,19 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
       presentDays,
       leaveDays,
       lopDays,
+      overtimeHours,
+      overtimePay: Math.round(overtimePay),
       processedBy: userId,
       status: 'draft',
     });
 
     await payroll.save();
+
+    // Mark overtime entries as paid
+    if (overtimeData.entries.length > 0) {
+      const entryIds = overtimeData.entries.map(e => (e as any)._id.toString());
+      await markOvertimeAsPaid(entryIds, payroll._id.toString());
+    }
 
     res.status(201).json({
       success: true,
@@ -651,6 +696,42 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
         // So we don't add a separate LOP deduction (that would be double-counting)
         // The prorated salary already reflects the reduced pay for unpaid days
 
+        // Fetch approved overtime entries for this employee and period
+        const overtimeData = await getApprovedOvertimeForPayroll(tenantId, employeeId, month, year);
+        const overtimeHours = overtimeData.totalHours;
+        const overtimePay = overtimeData.totalAmount;
+
+        // Add overtime pay as an earning if applicable
+        if (overtimePay > 0) {
+          earnings.push({
+            name: 'Overtime Pay',
+            code: 'OT',
+            type: 'earning',
+            amount: Math.round(overtimePay),
+            isTaxable: true,
+          });
+        }
+
+        // Calculate shift allowance if employee is assigned to a shift
+        const shiftAllowanceData = await calculateShiftAllowance(
+          tenantId,
+          employeeId,
+          month,
+          year,
+          employeeSalary.baseSalary,
+          workingDays
+        );
+
+        if (shiftAllowanceData && shiftAllowanceData.allowanceAmount > 0) {
+          earnings.push({
+            name: `Shift Allowance (${shiftAllowanceData.shiftName})`,
+            code: 'SHIFT',
+            type: 'earning',
+            amount: Math.round(shiftAllowanceData.allowanceAmount * prorationRatio),
+            isTaxable: true,
+          });
+        }
+
         // Fetch employee data for snapshot
         const employeeData = await fetchEmployeeData(tenantId, employeeId);
 
@@ -673,11 +754,20 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
           presentDays,
           leaveDays,
           lopDays,
+          overtimeHours,
+          overtimePay: Math.round(overtimePay),
           processedBy: userId,
           status: 'draft',
         });
 
         await payroll.save();
+
+        // Mark overtime entries as paid
+        if (overtimeData.entries.length > 0) {
+          const entryIds = overtimeData.entries.map(e => (e as any)._id.toString());
+          await markOvertimeAsPaid(entryIds, payroll._id.toString());
+        }
+
         results.success++;
       } catch (err) {
         results.failed++;
@@ -716,6 +806,8 @@ export const getPayrollSummary = async (req: Request, res: Response): Promise<vo
       totalDeductions: payrolls.reduce((sum, p) => sum + p.totalDeductions, 0),
       totalNetSalary: payrolls.reduce((sum, p) => sum + p.netSalary, 0),
       totalTax: payrolls.reduce((sum, p) => sum + p.incomeTax, 0),
+      totalOvertimeHours: payrolls.reduce((sum, p) => sum + (p.overtimeHours || 0), 0),
+      totalOvertimePay: payrolls.reduce((sum, p) => sum + (p.overtimePay || 0), 0),
       statusBreakdown: {
         draft: payrolls.filter(p => p.status === 'draft').length,
         processing: payrolls.filter(p => p.status === 'processing').length,

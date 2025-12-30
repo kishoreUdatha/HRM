@@ -61,6 +61,8 @@ const navigation: NavItem[] = [
   { name: 'Leave Balances', path: '/leave-balances', icon: HiCollection, permissions: ['leaves:approve', 'employees:read'] },
   { name: 'Payroll', path: '/payroll', icon: HiCurrencyDollar, permissions: ['payroll:read'] },
   { name: 'Salary Structures', path: '/payroll/salary-structures', icon: HiCurrencyDollar, permissions: ['payroll:write'] },
+  { name: 'Overtime', path: '/payroll/overtime', icon: HiClock, permissions: ['payroll:read'] },
+  { name: 'OT Configuration', path: '/payroll/overtime-config', icon: HiCog, permissions: ['payroll:write'] },
   { name: 'Timesheets', path: '/timesheets', icon: HiClock, permissions: ['attendance:read'] },
   { name: 'Recruitment', path: '/recruitment', icon: HiBriefcase, permissions: ['recruitment:read'] },
   { name: 'Onboarding', path: '/onboarding', icon: HiUserAdd, permissions: ['employees:write', 'recruitment:write'] },

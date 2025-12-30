@@ -32,6 +32,8 @@ import Shifts from './pages/Shifts';
 import NotFound from './pages/NotFound';
 import Payroll from './pages/Payroll';
 import SalaryStructures from './pages/SalaryStructures';
+import OvertimeConfig from './pages/OvertimeConfig';
+import OvertimeManagement from './pages/OvertimeManagement';
 import Chat from './pages/Chat';
 import Analytics from './pages/Analytics';
 import Onboarding from './pages/Onboarding';
@@ -186,6 +188,16 @@ const AppRoutes: React.FC = () => {
         <Route path="/payroll/salary-structures" element={
           <ProtectedRoute requiredPermissions={['payroll:write']}>
             <SalaryStructures />
+          </ProtectedRoute>
+        } />
+        <Route path="/payroll/overtime-config" element={
+          <ProtectedRoute requiredPermissions={['payroll:write']}>
+            <OvertimeConfig />
+          </ProtectedRoute>
+        } />
+        <Route path="/payroll/overtime" element={
+          <ProtectedRoute requiredPermissions={['payroll:read']}>
+            <OvertimeManagement />
           </ProtectedRoute>
         } />
         <Route path="/benefits" element={
