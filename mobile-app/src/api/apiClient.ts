@@ -3,12 +3,8 @@ import {useAuthStore} from '../store/authStore';
 import {authStorage} from '../services/authStorage';
 import type {ApiResponse, AuthTokens} from '../types';
 
-// API Base URL - Production deployment
-// Change this URL when switching between environments:
-// - Development (local): http://192.168.29.125:3000/api (use your computer's IP)
-// - Production (VM): http://135.171.160.105/api
-// - Azure Container Apps: https://hrm-api-gateway.proudforest-af6f92dd.eastus.azurecontainerapps.io/api
-const API_BASE_URL = 'http://localhost:3000/api';
+// API Base URL - Azure Container Apps Production
+const API_BASE_URL = 'https://hrm-api-gateway.proudforest-af6f92dd.eastus.azurecontainerapps.io/api';
 
 if (__DEV__) {
   console.log('[API] Using base URL:', API_BASE_URL);

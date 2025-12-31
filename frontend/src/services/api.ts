@@ -1,10 +1,8 @@
 import axios, { AxiosError } from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 
-// Production API URL
-// Currently using VM deployment at 135.171.160.105
-// Azure Container Apps URL: https://hrm-api-gateway.proudforest-af6f92dd.eastus.azurecontainerapps.io/api
-const API_URL = import.meta.env.VITE_API_URL || 'http://135.171.160.105/api';
+// Production API URL - Azure Container Apps
+const API_URL = import.meta.env.VITE_API_URL || 'https://hrm-api-gateway.proudforest-af6f92dd.eastus.azurecontainerapps.io/api';
 
 const api = axios.create({
   baseURL: API_URL,
