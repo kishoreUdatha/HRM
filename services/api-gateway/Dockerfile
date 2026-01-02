@@ -1,3 +1,4 @@
+# HRM API Gateway - Built 2026-01-03
 # Build stage
 FROM node:20-alpine AS builder
 WORKDIR /app
