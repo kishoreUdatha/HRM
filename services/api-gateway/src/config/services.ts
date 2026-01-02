@@ -1,4 +1,5 @@
 // Service Registry Configuration
+// Last updated: 2026-01-03 - Fixed internal service URLs for Azure Container Apps
 export interface ServiceConfig {
   name: string;
   url: string;
