@@ -33,6 +33,8 @@ app.use(
         // Azure production deployment
         'http://135.171.160.105',
         'https://135.171.160.105',
+        // Azure Container Apps
+        /\.azurecontainerapps\.io$/,
       ];
 
       // Add additional allowed origins from environment variable
