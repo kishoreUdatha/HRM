@@ -20,42 +20,10 @@ app.set('trust proxy', 1);
 // Security middleware
 app.use(helmet());
 
-// CORS configuration
+// CORS configuration - allow all origins for Azure Container Apps
 app.use(
   cors({
-    origin: (origin, callback) => {
-      const allowedOrigins: (string | RegExp)[] = [
-        process.env.CLIENT_URL || 'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:5175',
-        /\.hrm\.com$/,
-        /^http:\/\/localhost:\d+$/,
-        // Azure production deployment
-        'http://135.171.160.105',
-        'https://135.171.160.105',
-        // Azure Container Apps
-        /\.azurecontainerapps\.io$/,
-      ];
-
-      // Add additional allowed origins from environment variable
-      const additionalOrigins = process.env.ADDITIONAL_CORS_ORIGINS?.split(',').map(o => o.trim());
-      if (additionalOrigins) {
-        allowedOrigins.push(...additionalOrigins);
-      }
-
-      if (!origin) return callback(null, true);
-
-      const isAllowed = allowedOrigins.some((allowed) =>
-        allowed instanceof RegExp ? allowed.test(origin) : allowed === origin
-      );
-
-      if (isAllowed) {
-        callback(null, true);
-      } else {
-        console.log(`CORS blocked origin: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
+    origin: true, // Allow all origins
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Request-ID'],
