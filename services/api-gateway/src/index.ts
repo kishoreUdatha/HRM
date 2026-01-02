@@ -17,10 +17,7 @@ const PORT = process.env.PORT || 3000;
 // Trust proxy (for rate limiting behind load balancer)
 app.set('trust proxy', 1);
 
-// Security middleware
-app.use(helmet());
-
-// CORS configuration - allow all origins for Azure Container Apps
+// CORS configuration - must be before helmet
 app.use(
   cors({
     origin: true, // Allow all origins
@@ -29,6 +26,13 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Request-ID'],
   })
 );
+
+// Security middleware - disable conflicting CORS policies
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
 
 // Note: Do NOT add express.json() here - it will consume the body stream
 // and break the proxy. Body parsing is handled by the downstream services.
