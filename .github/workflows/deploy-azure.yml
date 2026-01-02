@@ -159,6 +159,9 @@ jobs:
 
       - name: Deploy API Gateway
         run: |
+          # Get the environment's default domain for internal service URLs
+          ENV_DOMAIN=$(az containerapp env show --name ${{ env.CONTAINER_APP_ENV }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.defaultDomain" -o tsv)
+
           az containerapp create \
             --name hrm-api-gateway \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
@@ -171,12 +174,36 @@ jobs:
             --registry-password ${{ secrets.ACR_PASSWORD }} \
             --cpu 0.5 --memory 1.0Gi \
             --min-replicas 0 --max-replicas 5 \
-            --env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}" "REDIS_URL=${{ secrets.REDIS_URL }}" \
+            --env-vars \
+              "NODE_ENV=production" \
+              "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
+              "REDIS_URL=${{ secrets.REDIS_URL }}" \
+              "ADDITIONAL_CORS_ORIGINS=https://hrm-frontend.${ENV_DOMAIN}" \
+              "AUTH_SERVICE_URL=http://hrm-auth-service" \
+              "TENANT_SERVICE_URL=http://hrm-tenant-service" \
+              "EMPLOYEE_SERVICE_URL=http://hrm-employee-service" \
+              "ATTENDANCE_SERVICE_URL=http://hrm-attendance-service" \
+              "LEAVE_SERVICE_URL=http://hrm-leave-service" \
+              "PAYROLL_SERVICE_URL=http://hrm-payroll-service" \
+              "NOTIFICATION_SERVICE_URL=http://hrm-notification-service" \
+              "TIMESHEET_SERVICE_URL=http://hrm-timesheet-service" \
+              "ONBOARDING_SERVICE_URL=http://hrm-onboarding-service" \
             2>/dev/null || \
           az containerapp update \
             --name hrm-api-gateway \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/api-gateway:${{ needs.build-push.outputs.image_tag }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/api-gateway:${{ needs.build-push.outputs.image_tag }} \
+            --set-env-vars \
+              "ADDITIONAL_CORS_ORIGINS=https://hrm-frontend.${ENV_DOMAIN}" \
+              "AUTH_SERVICE_URL=http://hrm-auth-service" \
+              "TENANT_SERVICE_URL=http://hrm-tenant-service" \
+              "EMPLOYEE_SERVICE_URL=http://hrm-employee-service" \
+              "ATTENDANCE_SERVICE_URL=http://hrm-attendance-service" \
+              "LEAVE_SERVICE_URL=http://hrm-leave-service" \
+              "PAYROLL_SERVICE_URL=http://hrm-payroll-service" \
+              "NOTIFICATION_SERVICE_URL=http://hrm-notification-service" \
+              "TIMESHEET_SERVICE_URL=http://hrm-timesheet-service" \
+              "ONBOARDING_SERVICE_URL=http://hrm-onboarding-service"
 
       - name: Deploy Auth Service
         run: |
@@ -374,7 +401,7 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --environment ${{ env.CONTAINER_APP_ENV }} \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm/frontend:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 80 \
+            --target-port 8080 \
             --ingress external \
             --registry-server ${{ env.ACR_LOGIN_SERVER }} \
             --registry-username ${{ secrets.ACR_USERNAME }} \
