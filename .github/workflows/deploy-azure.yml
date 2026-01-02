@@ -162,6 +162,9 @@ jobs:
           # Get the environment's default domain for internal service URLs
           ENV_DOMAIN=$(az containerapp env show --name ${{ env.CONTAINER_APP_ENV }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.defaultDomain" -o tsv)
 
+          # Internal services use HTTPS with .internal prefix
+          INTERNAL_DOMAIN="internal.${ENV_DOMAIN}"
+
           az containerapp create \
             --name hrm-api-gateway \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
@@ -179,15 +182,15 @@ jobs:
               "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
               "REDIS_URL=${{ secrets.REDIS_URL }}" \
               "ADDITIONAL_CORS_ORIGINS=https://hrm-frontend.${ENV_DOMAIN}" \
-              "AUTH_SERVICE_URL=http://hrm-auth-service" \
-              "TENANT_SERVICE_URL=http://hrm-tenant-service" \
-              "EMPLOYEE_SERVICE_URL=http://hrm-employee-service" \
-              "ATTENDANCE_SERVICE_URL=http://hrm-attendance-service" \
-              "LEAVE_SERVICE_URL=http://hrm-leave-service" \
-              "PAYROLL_SERVICE_URL=http://hrm-payroll-service" \
-              "NOTIFICATION_SERVICE_URL=http://hrm-notification-service" \
-              "TIMESHEET_SERVICE_URL=http://hrm-timesheet-service" \
-              "ONBOARDING_SERVICE_URL=http://hrm-onboarding-service" \
+              "AUTH_SERVICE_URL=https://hrm-auth-service.${INTERNAL_DOMAIN}" \
+              "TENANT_SERVICE_URL=https://hrm-tenant-service.${INTERNAL_DOMAIN}" \
+              "EMPLOYEE_SERVICE_URL=https://hrm-employee-service.${INTERNAL_DOMAIN}" \
+              "ATTENDANCE_SERVICE_URL=https://hrm-attendance-service.${INTERNAL_DOMAIN}" \
+              "LEAVE_SERVICE_URL=https://hrm-leave-service.${INTERNAL_DOMAIN}" \
+              "PAYROLL_SERVICE_URL=https://hrm-payroll-service.${INTERNAL_DOMAIN}" \
+              "NOTIFICATION_SERVICE_URL=https://hrm-notification-service.${INTERNAL_DOMAIN}" \
+              "TIMESHEET_SERVICE_URL=https://hrm-timesheet-service.${INTERNAL_DOMAIN}" \
+              "ONBOARDING_SERVICE_URL=https://hrm-onboarding-service.${INTERNAL_DOMAIN}" \
             2>/dev/null || \
           az containerapp update \
             --name hrm-api-gateway \
@@ -195,15 +198,15 @@ jobs:
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm/api-gateway:${{ needs.build-push.outputs.image_tag }} \
             --set-env-vars \
               "ADDITIONAL_CORS_ORIGINS=https://hrm-frontend.${ENV_DOMAIN}" \
-              "AUTH_SERVICE_URL=http://hrm-auth-service" \
-              "TENANT_SERVICE_URL=http://hrm-tenant-service" \
-              "EMPLOYEE_SERVICE_URL=http://hrm-employee-service" \
-              "ATTENDANCE_SERVICE_URL=http://hrm-attendance-service" \
-              "LEAVE_SERVICE_URL=http://hrm-leave-service" \
-              "PAYROLL_SERVICE_URL=http://hrm-payroll-service" \
-              "NOTIFICATION_SERVICE_URL=http://hrm-notification-service" \
-              "TIMESHEET_SERVICE_URL=http://hrm-timesheet-service" \
-              "ONBOARDING_SERVICE_URL=http://hrm-onboarding-service"
+              "AUTH_SERVICE_URL=https://hrm-auth-service.${INTERNAL_DOMAIN}" \
+              "TENANT_SERVICE_URL=https://hrm-tenant-service.${INTERNAL_DOMAIN}" \
+              "EMPLOYEE_SERVICE_URL=https://hrm-employee-service.${INTERNAL_DOMAIN}" \
+              "ATTENDANCE_SERVICE_URL=https://hrm-attendance-service.${INTERNAL_DOMAIN}" \
+              "LEAVE_SERVICE_URL=https://hrm-leave-service.${INTERNAL_DOMAIN}" \
+              "PAYROLL_SERVICE_URL=https://hrm-payroll-service.${INTERNAL_DOMAIN}" \
+              "NOTIFICATION_SERVICE_URL=https://hrm-notification-service.${INTERNAL_DOMAIN}" \
+              "TIMESHEET_SERVICE_URL=https://hrm-timesheet-service.${INTERNAL_DOMAIN}" \
+              "ONBOARDING_SERVICE_URL=https://hrm-onboarding-service.${INTERNAL_DOMAIN}"
 
       - name: Deploy Auth Service
         run: |
