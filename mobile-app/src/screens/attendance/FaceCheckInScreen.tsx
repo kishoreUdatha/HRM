@@ -21,12 +21,13 @@ import RNFS from 'react-native-fs';
 import {useQueryClient} from '@tanstack/react-query';
 
 import {useAuthStore, useEmployee} from '../../store/authStore';
-import {attendanceApi, VerifyFaceResponse} from '../../api/attendanceApi';
+import {attendanceApi, VerifyFaceResponse, GeofencingConfig} from '../../api/attendanceApi';
 import {handleApiError} from '../../api/apiClient';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList} from '../../types';
 import {showToast, showDialog, ALERT_TYPE} from '../../utils/alert';
+import {isWithinGeofence, formatDistance, GeofenceResult} from '../../utils/geofencing';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -137,10 +138,17 @@ export default function FaceCheckInScreen() {
     if (!camera.current) return;
 
     setIsCapturing(true);
-    setVerificationState('verifying');
     setLocationError(null);
 
     try {
+      // Take photo FIRST while camera is still active
+      const photo = await camera.current.takePhoto({
+        qualityPrioritization: 'quality',
+      });
+
+      // Now set verifying state after photo is captured
+      setVerificationState('verifying');
+
       // Request location permission
       const hasLocationPermission = await requestLocationPermission();
       if (!hasLocationPermission) {
@@ -152,13 +160,8 @@ export default function FaceCheckInScreen() {
         return;
       }
 
-      // Get location and take photo in parallel
-      const photoPromise = camera.current.takePhoto({
-        qualityPrioritization: 'quality',
-      });
+      // Get location
       const locationPromise = getCurrentLocation();
-
-      const photo = await photoPromise;
 
       // Get location
       let currentLocation;
@@ -178,6 +181,42 @@ export default function FaceCheckInScreen() {
         setIsCapturing(false);
         setVerificationState('camera');
         return;
+      }
+
+      // Check geo-fencing
+      try {
+        const geofencingResponse = await attendanceApi.getGeofencingConfig();
+        if (geofencingResponse.success && geofencingResponse.data?.enabled) {
+          const geofenceConfig = geofencingResponse.data;
+
+          if (geofenceConfig.locations && geofenceConfig.locations.length > 0) {
+            const geofenceResult = isWithinGeofence(
+              currentLocation,
+              geofenceConfig.locations,
+              geofenceConfig.defaultRadius
+            );
+
+            console.log('[FaceCheckIn] Geo-fence validation:', geofenceResult);
+
+            if (!geofenceResult.isWithin) {
+              if (geofenceConfig.strictMode) {
+                // Strict mode: Block check-in
+                const message = `You are ${formatDistance(geofenceResult.distanceMeters)} away from ${geofenceResult.nearestOffice || 'the office'}.\n\nAllowed radius: ${formatDistance(geofenceResult.allowedRadius)}.\n\nPlease move closer to your office to check in.`;
+                showDialog.error('Outside Work Location', message, () => {
+                  setVerificationState('camera');
+                });
+                setIsCapturing(false);
+                return;
+              } else {
+                // Non-strict mode: Show warning but allow
+                showToast.warning(`You are ${formatDistance(geofenceResult.distanceMeters)} away from ${geofenceResult.nearestOffice || 'the office'}. Check-in will be recorded with a location warning.`);
+              }
+            }
+          }
+        }
+      } catch (geoError) {
+        console.log('[FaceCheckIn] Could not fetch geofencing config:', geoError);
+        // Continue without geo-fence validation if config fetch fails
       }
 
       // Read image and convert to base64
@@ -453,7 +492,7 @@ export default function FaceCheckInScreen() {
         ref={camera}
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={verificationState === 'camera' && !isCapturing}
+        isActive={verificationState === 'camera' || verificationState === 'verifying'}
         photo={true}
       />
 

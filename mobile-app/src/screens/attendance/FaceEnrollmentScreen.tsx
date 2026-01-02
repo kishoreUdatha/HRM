@@ -273,7 +273,7 @@ export default function FaceEnrollmentScreen() {
         ref={camera}
         style={StyleSheet.absoluteFill}
         device={device}
-        isActive={!isCapturing}
+        isActive={true}
         photo={true}
       />
 

@@ -3,7 +3,12 @@ import {useAuthStore} from '../store/authStore';
 import {authStorage} from '../services/authStorage';
 import type {ApiResponse, AuthTokens} from '../types';
 
-// API Base URL - Azure Container Apps Production
+// API Base URL - Production deployment (Azure Container Apps)
+// Change this URL when switching between environments:
+// - Android Emulator: http://10.0.2.2:3000/api (emulator uses 10.0.2.2 for host machine)
+// - Physical Device: http://192.168.29.46:3000/api (use your computer's IP)
+// - Production (VM): http://135.171.160.105/api
+// - Azure Container Apps: https://hrm-api-gateway.proudforest-af6f92dd.eastus.azurecontainerapps.io/api
 const API_BASE_URL = 'https://hrm-api-gateway.proudforest-af6f92dd.eastus.azurecontainerapps.io/api';
 
 if (__DEV__) {

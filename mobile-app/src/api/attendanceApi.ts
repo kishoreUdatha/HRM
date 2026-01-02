@@ -80,6 +80,20 @@ export interface AttendanceListParams {
   status?: string;
 }
 
+export interface GeofencingConfig {
+  enabled: boolean;
+  locations: Array<{
+    _id?: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    address?: string;
+    radius: number;
+  }>;
+  defaultRadius: number;
+  strictMode: boolean;
+}
+
 export const attendanceApi = {
   /**
    * Check in with location
@@ -163,6 +177,16 @@ export const attendanceApi = {
       success: response.data.success,
       data: response.data.data?.settings?.geofencing?.locations || [],
     };
+  },
+
+  /**
+   * Get geo-fencing configuration
+   */
+  async getGeofencingConfig(): Promise<ApiResponse<GeofencingConfig>> {
+    const response = await apiClient.get<ApiResponse<GeofencingConfig>>(
+      '/tenants/current/geofencing'
+    );
+    return response.data;
   },
 
   /**
