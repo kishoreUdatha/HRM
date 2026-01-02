@@ -117,6 +117,16 @@ export const services: ServiceConfig[] = [
     timeout: 60000,  // Logo uploads may take longer
     requiresAuth: true,  // Requires authentication for current tenant operations
   },
+  // Tenant uploads (static files like logos) - public access
+  {
+    name: 'tenant-uploads-service',
+    url: process.env.TENANT_SERVICE_URL || 'http://localhost:3002',
+    pathPrefix: '/api/tenants/uploads',
+    targetPath: '/uploads',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: false,  // Public access to uploaded assets
+  },
   {
     name: 'tenant-service',
     url: process.env.TENANT_SERVICE_URL || 'http://localhost:3002',

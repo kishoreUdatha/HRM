@@ -26,6 +26,11 @@ import {
   uploadLogo,
   deleteLogo,
   updateBranding,
+  getGeofencing,
+  updateGeofencing,
+  addGeofenceLocation,
+  updateGeofenceLocation,
+  deleteGeofenceLocation,
 } from '../controllers/tenantController';
 
 // Ensure uploads directory exists
@@ -124,6 +129,13 @@ router.put('/current/subscription', updateSubscriptionValidation, validate, upda
 router.post('/current/logo', upload.single('logo'), uploadLogo);
 router.delete('/current/logo', deleteLogo);
 router.put('/current/branding', updateBranding);
+
+// Geo-fencing routes
+router.get('/current/geofencing', getGeofencing);
+router.put('/current/geofencing', updateGeofencing);
+router.post('/current/geofencing/locations', addGeofenceLocation);
+router.put('/current/geofencing/locations/:locationId', updateGeofenceLocation);
+router.delete('/current/geofencing/locations/:locationId', deleteGeofenceLocation);
 
 // Admin routes (super_admin only)
 router.get('/admin/list', requireSuperAdmin, getAdminTenantList);

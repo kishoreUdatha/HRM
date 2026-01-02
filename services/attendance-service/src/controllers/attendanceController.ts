@@ -4,6 +4,49 @@ import mongoose from 'mongoose';
 import Attendance from '../models/Attendance';
 import Shift from '../models/Shift';
 import { faceRecognitionService, FaceEmbeddingData } from '../services/faceRecognitionService';
+import { isWithinGeofence, formatDistance } from '../utils/geofencing';
+
+// IST timezone offset: UTC+5:30
+const IST_OFFSET_HOURS = 5;
+const IST_OFFSET_MINUTES = 30;
+
+// Get current time in IST
+const getISTDate = (): Date => {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  return new Date(utc + (IST_OFFSET_HOURS * 3600000) + (IST_OFFSET_MINUTES * 60000));
+};
+
+// Get start of day in IST (returns UTC time that corresponds to IST midnight)
+const getISTStartOfDay = (date?: Date): Date => {
+  const d = date ? new Date(date) : getISTDate();
+  // Set to midnight IST
+  d.setHours(0, 0, 0, 0);
+  // Convert back to UTC for storage
+  const utcTime = d.getTime() - (IST_OFFSET_HOURS * 3600000) - (IST_OFFSET_MINUTES * 60000);
+  return new Date(utcTime);
+};
+
+// Parse date string as IST date and get UTC equivalent for start of day
+const parseISTDateString = (dateStr: string): Date => {
+  // Parse date as YYYY-MM-DD in IST timezone
+  const [year, month, day] = dateStr.split('-').map(Number);
+  // Create date at midnight IST
+  const istMidnight = new Date(year, month - 1, day, 0, 0, 0, 0);
+  // Convert to UTC
+  const utcTime = istMidnight.getTime() - (IST_OFFSET_HOURS * 3600000) - (IST_OFFSET_MINUTES * 60000);
+  return new Date(utcTime);
+};
+
+// Get end of day in IST (23:59:59.999 IST)
+const getISTEndOfDay = (dateStr: string): Date => {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  // Create date at 23:59:59.999 IST
+  const istEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
+  // Convert to UTC
+  const utcTime = istEnd.getTime() - (IST_OFFSET_HOURS * 3600000) - (IST_OFFSET_MINUTES * 60000);
+  return new Date(utcTime);
+};
 
 // Cache for face embeddings to avoid frequent DB queries
 let faceEmbeddingsCache: { tenantId: string; embeddings: FaceEmbeddingData[]; timestamp: number } | null = null;
@@ -204,6 +247,73 @@ const getEmployeeByUserIdOrEmail = async (userId: string, tenantId: string) => {
   }
 };
 
+// Helper to get tenant's geofencing settings
+interface GeofencingSettings {
+  enabled: boolean;
+  locations: Array<{
+    _id?: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+    address?: string;
+    radius: number;
+  }>;
+  defaultRadius: number;
+  strictMode: boolean;
+}
+
+const getTenantGeofencing = async (tenantId: string): Promise<GeofencingSettings | null> => {
+  try {
+    const mongoUri = process.env.MONGODB_URI || '';
+    const tenantDbUri = mongoUri.replace('/hrm_attendance', '/hrm_tenants');
+    const tenantConn = await mongoose.createConnection(tenantDbUri).asPromise();
+
+    const tenantSchema = new mongoose.Schema({
+      settings: {
+        geofencing: {
+          enabled: Boolean,
+          locations: [{
+            name: String,
+            latitude: Number,
+            longitude: Number,
+            address: String,
+            radius: Number,
+          }],
+          defaultRadius: Number,
+          strictMode: Boolean,
+        },
+      },
+    });
+
+    const Tenant = tenantConn.model('Tenant', tenantSchema);
+    const tenant = await Tenant.findById(new mongoose.Types.ObjectId(tenantId)).lean();
+    await tenantConn.close();
+
+    if (tenant && tenant.settings?.geofencing) {
+      // Map locations to ensure correct type
+      const locations = (tenant.settings.geofencing.locations || []).map((loc: any) => ({
+        _id: loc._id?.toString(),
+        name: loc.name || '',
+        latitude: loc.latitude || 0,
+        longitude: loc.longitude || 0,
+        address: loc.address,
+        radius: loc.radius || 100,
+      }));
+      return {
+        enabled: tenant.settings.geofencing.enabled || false,
+        locations,
+        defaultRadius: tenant.settings.geofencing.defaultRadius || 100,
+        strictMode: tenant.settings.geofencing.strictMode !== false, // default true
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error('[Attendance Service] Error fetching tenant geofencing settings:', error);
+    return null;
+  }
+};
+
 // Check In
 export const checkIn = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -229,8 +339,9 @@ export const checkIn = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use IST date for today
+    const today = getISTStartOfDay();
+    console.log('[Attendance Service] Check-in: Using IST date:', today.toISOString());
 
     // Check if already checked in today
     const existingAttendance = await Attendance.findOne({
@@ -313,8 +424,9 @@ export const checkOut = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use IST date for today
+    const today = getISTStartOfDay();
+    console.log('[Attendance Service] Check-out: Using IST date:', today.toISOString());
 
     const attendance = await Attendance.findOne({
       tenantId,
@@ -466,10 +578,14 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
     if (startDate || endDate) {
       query.date = {};
       if (startDate) {
-        (query.date as Record<string, unknown>).$gte = new Date(startDate as string);
+        // Parse start date as IST and get UTC equivalent for start of day
+        (query.date as Record<string, unknown>).$gte = parseISTDateString(startDate as string);
+        console.log('[Attendance Service] Query startDate (IST):', startDate, '-> UTC:', parseISTDateString(startDate as string).toISOString());
       }
       if (endDate) {
-        (query.date as Record<string, unknown>).$lte = new Date(endDate as string);
+        // Parse end date as IST and get UTC equivalent for end of day
+        (query.date as Record<string, unknown>).$lte = getISTEndOfDay(endDate as string);
+        console.log('[Attendance Service] Query endDate (IST):', endDate, '-> UTC:', getISTEndOfDay(endDate as string).toISOString());
       }
     }
 
@@ -530,8 +646,8 @@ export const getTodayStatus = async (req: Request, res: Response): Promise<void>
     const tenantId = req.headers['x-tenant-id'] as string;
     const { employeeId } = req.params;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use IST date for today
+    const today = getISTStartOfDay();
 
     // First try to find attendance by the provided ID
     let attendance = await Attendance.findOne({
@@ -583,8 +699,8 @@ export const getMyTodayStatus = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use IST date for today
+    const today = getISTStartOfDay();
 
     // Look up employee by userId
     const employee = await getEmployeeByUserIdOrEmail(userId, tenantId);
@@ -622,13 +738,15 @@ export const getAttendanceSummary = async (req: Request, res: Response): Promise
     const tenantId = req.headers['x-tenant-id'] as string;
     const { employeeId, month, year } = req.query;
 
-    // Default to current month/year if not provided
-    const currentDate = new Date();
+    // Default to current month/year if not provided (using IST)
+    const currentDate = getISTDate();
     const targetMonth = month ? Number(month) : currentDate.getMonth() + 1;
     const targetYear = year ? Number(year) : currentDate.getFullYear();
 
-    const startDate = new Date(targetYear, targetMonth - 1, 1);
-    const endDate = new Date(targetYear, targetMonth, 0);
+    // Create IST dates and convert to UTC for query
+    const startDate = parseISTDateString(`${targetYear}-${String(targetMonth).padStart(2, '0')}-01`);
+    const lastDayOfMonth = new Date(targetYear, targetMonth, 0).getDate();
+    const endDate = getISTEndOfDay(`${targetYear}-${String(targetMonth).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`);
 
     const query: Record<string, unknown> = {
       tenantId,
@@ -648,7 +766,7 @@ export const getAttendanceSummary = async (req: Request, res: Response): Promise
     const records = await Attendance.find(query).lean();
 
     const summary = {
-      totalDays: endDate.getDate(),
+      totalDays: lastDayOfMonth,
       present: records.filter(r => r.status === 'present').length,
       absent: records.filter(r => r.status === 'absent').length,
       late: records.filter(r => r.status === 'late').length,
@@ -746,8 +864,8 @@ export const faceCheckIn = async (req: Request, res: Response): Promise<void> =>
     }
 
     const targetEmployeeId = employeeId || userId;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use IST date for today
+    const today = getISTStartOfDay();
 
     // Check if already checked in today
     const existingAttendance = await Attendance.findOne({
@@ -851,8 +969,8 @@ export const faceCheckOut = async (req: Request, res: Response): Promise<void> =
     }
 
     const targetEmployeeId = employeeId || userId;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use IST date for today
+    const today = getISTStartOfDay();
 
     const attendance = await Attendance.findOne({
       tenantId,
@@ -1034,8 +1152,8 @@ export const confirmFaceCheckIn = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use IST date for today
+    const today = getISTStartOfDay();
 
     // Check if already checked in today
     const existingAttendance = await Attendance.findOne({
@@ -1050,6 +1168,58 @@ export const confirmFaceCheckIn = async (req: Request, res: Response): Promise<v
         message: 'Already checked in today',
       });
       return;
+    }
+
+    // Geo-fence validation
+    let geofenceResult: {
+      isWithin: boolean;
+      nearestOffice: string | null;
+      nearestOfficeId: string | null;
+      distanceMeters: number;
+      allowedRadius: number;
+    } | null = null;
+
+    const geofencingSettings = await getTenantGeofencing(tenantId);
+
+    if (geofencingSettings?.enabled && geofencingSettings.locations.length > 0) {
+      if (!location || !location.latitude || !location.longitude) {
+        res.status(400).json({
+          success: false,
+          message: 'Location is required for geo-fenced check-in',
+          code: 'LOCATION_REQUIRED',
+        });
+        return;
+      }
+
+      // Validate employee location against geo-fences
+      geofenceResult = isWithinGeofence(
+        { latitude: location.latitude, longitude: location.longitude },
+        geofencingSettings.locations,
+        geofencingSettings.defaultRadius
+      );
+
+      console.log('[Attendance Service] Geo-fence validation:', {
+        employeeLocation: location,
+        isWithin: geofenceResult.isWithin,
+        nearestOffice: geofenceResult.nearestOffice,
+        distance: `${geofenceResult.distanceMeters}m`,
+        allowedRadius: `${geofenceResult.allowedRadius}m`,
+      });
+
+      // In strict mode, reject check-in if outside geo-fence
+      if (!geofenceResult.isWithin && geofencingSettings.strictMode) {
+        res.status(403).json({
+          success: false,
+          message: `You are outside the allowed check-in area. You are ${formatDistance(geofenceResult.distanceMeters)} away from ${geofenceResult.nearestOffice || 'the office'}. Allowed radius: ${formatDistance(geofenceResult.allowedRadius)}.`,
+          code: 'OUTSIDE_GEOFENCE',
+          data: {
+            nearestOffice: geofenceResult.nearestOffice,
+            distanceMeters: geofenceResult.distanceMeters,
+            allowedRadius: geofenceResult.allowedRadius,
+          },
+        });
+        return;
+      }
     }
 
     const now = new Date();
@@ -1087,15 +1257,33 @@ export const confirmFaceCheckIn = async (req: Request, res: Response): Promise<v
       attendance.notes = notes;
     }
 
+    // Store geo-fence validation result if available
+    if (geofenceResult) {
+      attendance.geofenceValidation = {
+        isWithinGeofence: geofenceResult.isWithin,
+        nearestOffice: geofenceResult.nearestOffice,
+        nearestOfficeId: geofenceResult.nearestOfficeId,
+        distanceMeters: geofenceResult.distanceMeters,
+        allowedRadius: geofenceResult.allowedRadius,
+        validatedAt: new Date(),
+      };
+    }
+
     await attendance.save();
 
     // Get employee name for response
     const employeeMap = await getEmployeeDetails([employeeId], tenantId);
     const employee = employeeMap.get(employeeId);
 
+    // Include geo-fence warning in message if not strict mode
+    let message = `Thank you, ${employee?.firstName || 'Employee'}! Have a productive day!`;
+    if (geofenceResult && !geofenceResult.isWithin) {
+      message = `Check-in recorded with location warning. You are ${formatDistance(geofenceResult.distanceMeters)} away from ${geofenceResult.nearestOffice || 'the office'}.`;
+    }
+
     res.status(200).json({
       success: true,
-      message: `Thank you, ${employee?.firstName || 'Employee'}! Have a productive day!`,
+      message,
       data: {
         attendance,
         employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
@@ -1331,8 +1519,8 @@ export const confirmFaceCheckOut = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use IST date for today
+    const today = getISTStartOfDay();
 
     const attendance = await Attendance.findOne({
       tenantId,

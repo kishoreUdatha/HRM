@@ -110,7 +110,7 @@ const OvertimeManagement: React.FC = () => {
 
       setPendingEntries(pendingRes.data.data || []);
       setSummary(summaryRes.data.data || null);
-      setEmployees(employeesRes.data.employees || employeesRes.data.data?.employees || []);
+      setEmployees(employeesRes.data.data || employeesRes.data.employees || []);
     } catch (error) {
       console.error('Failed to fetch overtime data:', error);
     } finally {

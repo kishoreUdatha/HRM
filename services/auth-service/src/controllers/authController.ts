@@ -1,7 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
+import axios from 'axios';
 import User from '../models/User';
 import { generateTokens, verifyRefreshToken, generateAccessToken } from '../services/jwtService';
+
+// Employee service URL for internal communication
+const EMPLOYEE_SERVICE_URL = process.env.EMPLOYEE_SERVICE_URL || 'http://localhost:3003';
 
 // Register new user (for a tenant)
 export const register = async (
@@ -140,6 +144,7 @@ export const login = async (
 };
 
 // Login with mobile number and PIN
+// Supports both: 1) User records with mobile credentials, 2) Employee records with selfyPunch enabled
 export const loginWithMobile = async (
   req: Request,
   res: Response,
@@ -154,9 +159,63 @@ export const loginWithMobile = async (
       query.tenantId = new mongoose.Types.ObjectId(tenantId);
     }
 
-    // Find user with pin
+    // First, try to find user in auth database
     const user = await User.findOne(query).select('+pin');
-    if (!user) {
+
+    if (user) {
+      // User found in auth database - use existing flow
+      if (!user.isActive) {
+        res.status(401).json({
+          success: false,
+          message: 'Account is deactivated. Please contact your administrator.',
+        });
+        return;
+      }
+
+      if (!user.pin) {
+        res.status(401).json({
+          success: false,
+          message: 'PIN not set for this account. Please contact your administrator.',
+        });
+        return;
+      }
+
+      const isPinValid = await user.comparePin(pin);
+      if (!isPinValid) {
+        res.status(401).json({
+          success: false,
+          message: 'Invalid mobile number or PIN',
+        });
+        return;
+      }
+
+      user.lastLogin = new Date();
+      const tokens = generateTokens({
+        userId: user._id.toString(),
+        tenantId: user.tenantId?.toString() || 'platform',
+        email: user.email,
+        role: user.role,
+        permissions: user.permissions,
+      });
+
+      if (user.refreshTokens.length >= 5) {
+        user.refreshTokens = user.refreshTokens.slice(-4);
+      }
+      user.refreshTokens.push(tokens.refreshToken);
+      await user.save();
+
+      res.json({
+        success: true,
+        user: user.toJSON(),
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      });
+      return;
+    }
+
+    // User not found in auth database - try employee-service
+    // This allows employees with selfyPunch enabled to login directly
+    if (!tenantId) {
       res.status(401).json({
         success: false,
         message: 'Invalid mobile number or PIN',
@@ -164,58 +223,66 @@ export const loginWithMobile = async (
       return;
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      res.status(401).json({
-        success: false,
-        message: 'Account is deactivated. Please contact your administrator.',
-      });
-      return;
+    try {
+      const employeeResponse = await axios.post(
+        `${EMPLOYEE_SERVICE_URL}/employees/verify-mobile-credentials`,
+        {
+          tenantId,
+          phone: mobileNumber,
+          pin,
+        },
+        { timeout: 5000 }
+      );
+
+      if (employeeResponse.data.success && employeeResponse.data.data) {
+        const employeeData = employeeResponse.data.data;
+
+        // Generate tokens for the employee
+        const tokens = generateTokens({
+          userId: employeeData.employeeId,  // Use employeeId as userId
+          tenantId: employeeData.tenantId,
+          email: employeeData.email,
+          role: 'employee',
+          permissions: ['profile:read', 'profile:write', 'attendance:read', 'leaves:read', 'leaves:write'],
+        });
+
+        res.json({
+          success: true,
+          user: {
+            _id: employeeData.employeeId,
+            tenantId: employeeData.tenantId,
+            email: employeeData.email,
+            firstName: employeeData.firstName,
+            lastName: employeeData.lastName,
+            role: 'employee',
+            permissions: ['profile:read', 'profile:write', 'attendance:read', 'leaves:read', 'leaves:write'],
+            employeeId: employeeData.employeeId,
+            employeeCode: employeeData.employeeCode,
+            designation: employeeData.designation,
+            department: employeeData.department,
+            avatar: employeeData.avatar,
+            isActive: true,
+          },
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        });
+        return;
+      }
+    } catch (employeeError) {
+      // If employee service returns an error response, use its message
+      if (axios.isAxiosError(employeeError) && employeeError.response?.data?.message) {
+        res.status(employeeError.response.status).json({
+          success: false,
+          message: employeeError.response.data.message,
+        });
+        return;
+      }
+      // For other errors, fall through to generic error
     }
 
-    // Check if user has PIN set
-    if (!user.pin) {
-      res.status(401).json({
-        success: false,
-        message: 'PIN not set for this account. Please contact your administrator.',
-      });
-      return;
-    }
-
-    // Verify PIN
-    const isPinValid = await user.comparePin(pin);
-    if (!isPinValid) {
-      res.status(401).json({
-        success: false,
-        message: 'Invalid mobile number or PIN',
-      });
-      return;
-    }
-
-    // Update last login
-    user.lastLogin = new Date();
-
-    // Generate tokens
-    const tokens = generateTokens({
-      userId: user._id.toString(),
-      tenantId: user.tenantId?.toString() || 'platform',
-      email: user.email,
-      role: user.role,
-      permissions: user.permissions,
-    });
-
-    // Save refresh token (limit to 5 active sessions)
-    if (user.refreshTokens.length >= 5) {
-      user.refreshTokens = user.refreshTokens.slice(-4);
-    }
-    user.refreshTokens.push(tokens.refreshToken);
-    await user.save();
-
-    res.json({
-      success: true,
-      user: user.toJSON(),
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
+    res.status(401).json({
+      success: false,
+      message: 'Invalid mobile number or PIN',
     });
   } catch (error) {
     next(error);

@@ -25,6 +25,15 @@ export interface IAttendance extends Document {
   checkOutFaceScore?: number;
   checkInMethod?: 'manual' | 'face' | 'biometric' | 'qr';
   checkOutMethod?: 'manual' | 'face' | 'biometric' | 'qr';
+  // Geo-fence validation
+  geofenceValidation?: {
+    isWithinGeofence: boolean;
+    nearestOffice: string | null;
+    nearestOfficeId: string | null;
+    distanceMeters: number;
+    allowedRadius: number;
+    validatedAt: Date;
+  };
   status: 'present' | 'absent' | 'late' | 'half_day' | 'on_leave' | 'holiday' | 'weekend';
   workHours?: number;
   overtimeHours?: number;
@@ -91,6 +100,15 @@ const attendanceSchema = new Schema<IAttendance>(
       type: String,
       enum: ['manual', 'face', 'biometric', 'qr'],
       default: 'manual',
+    },
+    // Geo-fence validation
+    geofenceValidation: {
+      isWithinGeofence: Boolean,
+      nearestOffice: String,
+      nearestOfficeId: String,
+      distanceMeters: Number,
+      allowedRadius: Number,
+      validatedAt: Date,
     },
     status: {
       type: String,

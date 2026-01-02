@@ -10,6 +10,9 @@ import {
   getEmployeeStats,
   getNextEmployeeCode,
   updateMyProfile,
+  verifyMobileCredentials,
+  toggleSelfyPunch,
+  resetPin,
 } from '../controllers/employeeController';
 import {
   getAllDepartments,
@@ -131,6 +134,9 @@ const departmentValidation = [
 // Dashboard routes
 router.get('/dashboard/stats', getDashboardStats);
 
+// Internal API for auth-service (mobile login verification)
+router.post('/employees/verify-mobile-credentials', verifyMobileCredentials);
+
 // Employee routes
 router.get('/employees', getAllEmployees);
 router.get('/employees/stats', getEmployeeStats);
@@ -148,6 +154,9 @@ router.get('/employees/:id', getEmployeeById);
 router.post('/employees', employeeValidation, validate, createEmployee);
 router.put('/employees/:id', updateEmployee);
 router.delete('/employees/:id', deleteEmployee);
+// Selfie Punch / Mobile App Access routes
+router.patch('/employees/:id/selfy-punch', toggleSelfyPunch);
+router.post('/employees/:id/reset-pin', resetPin);
 
 // Department routes
 router.get('/departments', getAllDepartments);

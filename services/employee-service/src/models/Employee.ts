@@ -57,6 +57,8 @@ export interface IEmployee extends Document {
   skills: string[];
   faceEnrolled: boolean;
   faceEnrollmentDate?: Date;
+  selfyPunch: boolean;  // Allow mobile app login with selfie punch
+  pin?: string;  // 4-digit PIN for mobile login (default: 1122)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -182,6 +184,15 @@ const employeeSchema = new Schema<IEmployee>(
       default: false,
     },
     faceEnrollmentDate: Date,
+    selfyPunch: {
+      type: Boolean,
+      default: false,  // Disabled by default, admin needs to enable
+    },
+    pin: {
+      type: String,
+      default: '1122',  // Default 4-digit PIN
+      match: [/^\d{4}$/, 'PIN must be 4 digits'],
+    },
   },
   {
     timestamps: true,
@@ -204,6 +215,7 @@ employeeSchema.index({
 employeeSchema.index({ tenantId: 1, departmentId: 1 });
 employeeSchema.index({ tenantId: 1, status: 1 });
 employeeSchema.index({ tenantId: 1, joiningDate: 1 });
+employeeSchema.index({ tenantId: 1, phone: 1 });  // For mobile login lookup
 
 // Generate employee code before saving using atomic counter
 employeeSchema.pre('save', async function () {

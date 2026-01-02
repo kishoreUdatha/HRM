@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { HiPlus, HiSearch, HiFilter, HiDotsVertical, HiPencil, HiTrash, HiEye, HiCloudUpload } from 'react-icons/hi';
+import { HiPlus, HiSearch, HiFilter, HiDotsVertical, HiPencil, HiTrash, HiEye, HiCloudUpload, HiDeviceMobile } from 'react-icons/hi';
 import api from '../services/api';
 import type { Employee } from '../types';
 import BulkUploadModal from '../components/employees/BulkUploadModal';
@@ -16,6 +16,7 @@ const Employees: React.FC = () => {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [togglingMobile, setTogglingMobile] = useState<string | null>(null);
   const { sortConfig, handleSort } = useSortConfig('createdAt', 'desc');
 
   useEffect(() => {
@@ -75,6 +76,25 @@ const Employees: React.FC = () => {
       fetchEmployees();
     } catch (error) {
       console.error('Failed to delete employee:', error);
+    }
+  };
+
+  const handleToggleMobileAccess = async (employeeId: string, currentStatus: boolean) => {
+    setTogglingMobile(employeeId);
+    try {
+      const response = await api.patch(`/employees/${employeeId}/selfy-punch`, {
+        selfyPunch: !currentStatus,
+      });
+      // Update local state to reflect the change immediately
+      setEmployees((prev) =>
+        prev.map((emp) =>
+          emp._id === employeeId ? { ...emp, selfyPunch: response.data.data.selfyPunch } : emp
+        )
+      );
+    } catch (error) {
+      console.error('Failed to toggle mobile access:', error);
+    } finally {
+      setTogglingMobile(null);
     }
   };
 
@@ -211,6 +231,12 @@ const Employees: React.FC = () => {
                   currentSort={sortConfig}
                   onSort={handleSort}
                 />
+                <th className="px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider text-center">
+                  <span className="flex items-center justify-center gap-1">
+                    <HiDeviceMobile className="w-4 h-4" />
+                    Mobile
+                  </span>
+                </th>
                 <th className="text-right px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">
                   Actions
                 </th>
@@ -219,7 +245,7 @@ const Employees: React.FC = () => {
             <tbody className="divide-y divide-secondary-200">
               {employees.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
+                  <td colSpan={7} className="px-6 py-12 text-center">
                     <p className="text-secondary-500">No employees found</p>
                     <Link
                       to="/employees/new"
@@ -265,6 +291,22 @@ const Employees: React.FC = () => {
                       {employee.joiningDate
                         ? new Date(employee.joiningDate).toLocaleDateString()
                         : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={() => handleToggleMobileAccess(employee._id, employee.selfyPunch || false)}
+                        disabled={togglingMobile === employee._id}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                          employee.selfyPunch ? 'bg-green-500' : 'bg-gray-300'
+                        } ${togglingMobile === employee._id ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
+                        title={employee.selfyPunch ? 'Mobile access enabled - Click to disable' : 'Mobile access disabled - Click to enable'}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            employee.selfyPunch ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="relative">

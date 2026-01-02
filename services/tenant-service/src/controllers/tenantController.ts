@@ -937,8 +937,8 @@ export const uploadLogo = async (
       }
     }
 
-    // Get the uploaded file path
-    const logoUrl = `/uploads/logos/${req.file.filename}`;
+    // Get the uploaded file path - use full API path for proper access via gateway
+    const logoUrl = `/api/tenants/uploads/logos/${req.file.filename}`;
 
     // Update tenant with new logo URL
     tenant.logo = logoUrl;
@@ -1052,6 +1052,256 @@ export const updateBranding = async (
         logo: tenant.logo,
       },
       message: 'Branding updated successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get geo-fencing configuration
+export const getGeofencing = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    const tenant = await Tenant.findById(tenantId).select('settings.geofencing');
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    // Return default geofencing config if not set
+    const geofencing = tenant.settings?.geofencing || {
+      enabled: false,
+      locations: [],
+      defaultRadius: 100,
+      strictMode: true,
+    };
+
+    res.json({
+      success: true,
+      data: geofencing,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update geo-fencing configuration
+export const updateGeofencing = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { enabled, defaultRadius, strictMode, locations } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    const updateData: Record<string, unknown> = {};
+
+    if (typeof enabled === 'boolean') {
+      updateData['settings.geofencing.enabled'] = enabled;
+    }
+    if (typeof defaultRadius === 'number') {
+      updateData['settings.geofencing.defaultRadius'] = defaultRadius;
+    }
+    if (typeof strictMode === 'boolean') {
+      updateData['settings.geofencing.strictMode'] = strictMode;
+    }
+    if (Array.isArray(locations)) {
+      updateData['settings.geofencing.locations'] = locations;
+    }
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      tenantId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: tenant.settings?.geofencing,
+      message: 'Geo-fencing settings updated successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Add a new geo-fence location
+export const addGeofenceLocation = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { name, latitude, longitude, address, radius } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    if (!name || typeof latitude !== 'number' || typeof longitude !== 'number') {
+      res.status(400).json({
+        success: false,
+        message: 'Name, latitude, and longitude are required',
+      });
+      return;
+    }
+
+    const newLocation = {
+      name,
+      latitude,
+      longitude,
+      address: address || '',
+      radius: radius || 100,
+    };
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      tenantId,
+      { $push: { 'settings.geofencing.locations': newLocation } },
+      { new: true, runValidators: true }
+    );
+
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: tenant.settings?.geofencing,
+      message: 'Location added successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update a geo-fence location
+export const updateGeofenceLocation = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { locationId } = req.params;
+    const { name, latitude, longitude, address, radius } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    const updateFields: Record<string, unknown> = {};
+    if (name) updateFields['settings.geofencing.locations.$.name'] = name;
+    if (typeof latitude === 'number') updateFields['settings.geofencing.locations.$.latitude'] = latitude;
+    if (typeof longitude === 'number') updateFields['settings.geofencing.locations.$.longitude'] = longitude;
+    if (address !== undefined) updateFields['settings.geofencing.locations.$.address'] = address;
+    if (typeof radius === 'number') updateFields['settings.geofencing.locations.$.radius'] = radius;
+
+    const tenant = await Tenant.findOneAndUpdate(
+      { _id: tenantId, 'settings.geofencing.locations._id': locationId },
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    );
+
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization or location not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: tenant.settings?.geofencing,
+      message: 'Location updated successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Delete a geo-fence location
+export const deleteGeofenceLocation = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { locationId } = req.params;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      tenantId,
+      { $pull: { 'settings.geofencing.locations': { _id: locationId } } },
+      { new: true }
+    );
+
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: tenant.settings?.geofencing,
+      message: 'Location deleted successfully',
     });
   } catch (error) {
     next(error);

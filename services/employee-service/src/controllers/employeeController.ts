@@ -178,7 +178,20 @@ export const updateEmployee = async (
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = { ...req.body };
+
+    // Sanitize ObjectId fields - convert empty strings to null
+    const objectIdFields = ['shiftId', 'reportingManagerId', 'userId', 'departmentId'];
+    for (const field of objectIdFields) {
+      if (updateData[field] === '' || updateData[field] === null) {
+        if (field === 'departmentId') {
+          // departmentId is required, don't set to null
+          delete updateData[field];
+        } else {
+          updateData[field] = null;
+        }
+      }
+    }
 
     // Check email uniqueness if being updated
     if (updateData.email) {
@@ -334,6 +347,165 @@ export const getNextEmployeeCode = async (
         nextEmployeeCode: nextCode,
         nextSequence: nextSeq,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Verify mobile credentials for employee login
+// This is called by auth-service to verify employee can login via mobile app
+export const verifyMobileCredentials = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    console.log('[Employee Service] verifyMobileCredentials called with:', req.body);
+    const { tenantId, phone, pin } = req.body;
+
+    if (!tenantId || !phone || !pin) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant ID, phone, and PIN are required',
+      });
+      return;
+    }
+
+    // Find employee by phone and tenant
+    // Support flexible phone matching - user may enter just digits (e.g. 9876543210)
+    // while DB may store with country code (e.g. +91-9876543210 or +919876543210)
+    const phoneDigits = phone.replace(/\D/g, ''); // Extract only digits
+    const employee = await Employee.findOne({
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+      $or: [
+        { phone: phone }, // Exact match
+        { phone: { $regex: phoneDigits + '$' } }, // Ends with the digits
+        { phone: { $regex: phone.replace(/[-\s]/g, '') } }, // Match without hyphens/spaces
+      ],
+      status: 'active',
+    }).populate('departmentId', 'name code');
+
+    if (!employee) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid mobile number or PIN',
+      });
+      return;
+    }
+
+    // Check if selfyPunch is enabled for this employee
+    if (!employee.selfyPunch) {
+      res.status(403).json({
+        success: false,
+        message: 'Mobile app login is not enabled for this employee. Please contact your administrator.',
+      });
+      return;
+    }
+
+    // Verify PIN (default is 1122 if not set)
+    const employeePin = employee.pin || '1122';
+    if (employeePin !== pin) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid mobile number or PIN',
+      });
+      return;
+    }
+
+    // Return employee data for auth-service to create tokens
+    res.json({
+      success: true,
+      data: {
+        employeeId: employee._id.toString(),
+        tenantId: employee.tenantId.toString(),
+        email: employee.email,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        phone: employee.phone,
+        designation: employee.designation,
+        department: employee.departmentId,
+        avatar: employee.avatar,
+        employeeCode: employee.employeeCode,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Toggle selfyPunch for an employee (for admin/HR to enable/disable mobile app login)
+export const toggleSelfyPunch = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { id } = req.params;
+    const { selfyPunch } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({ success: false, message: 'Tenant ID required' });
+      return;
+    }
+
+    if (typeof selfyPunch !== 'boolean') {
+      res.status(400).json({ success: false, message: 'selfyPunch must be a boolean value' });
+      return;
+    }
+
+    const employee = await Employee.findOneAndUpdate(
+      { _id: id, tenantId: new mongoose.Types.ObjectId(tenantId) },
+      { $set: { selfyPunch } },
+      { new: true }
+    ).populate('departmentId', 'name code');
+
+    if (!employee) {
+      res.status(404).json({ success: false, message: 'Employee not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: employee,
+      message: `Mobile app login ${selfyPunch ? 'enabled' : 'disabled'} successfully`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Reset employee PIN to default (1122)
+export const resetPin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { id } = req.params;
+
+    if (!tenantId) {
+      res.status(400).json({ success: false, message: 'Tenant ID required' });
+      return;
+    }
+
+    const employee = await Employee.findOneAndUpdate(
+      { _id: id, tenantId: new mongoose.Types.ObjectId(tenantId) },
+      { $set: { pin: '1122' } },
+      { new: true }
+    ).populate('departmentId', 'name code');
+
+    if (!employee) {
+      res.status(404).json({ success: false, message: 'Employee not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: employee,
+      message: 'PIN reset to default (1122) successfully',
     });
   } catch (error) {
     next(error);

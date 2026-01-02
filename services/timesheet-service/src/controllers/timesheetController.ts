@@ -10,11 +10,15 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
 
   try {
     if (!employeeIds || employeeIds.length === 0) {
+      console.log('[Timesheet Service] No employee IDs to fetch');
       return new Map();
     }
 
+    console.log('[Timesheet Service] Fetching employee details for IDs:', employeeIds);
+
     const mongoUri = process.env.MONGODB_URI || '';
     const employeesDbUri = mongoUri.replace('/hrm_timesheets', '/hrm_employees');
+    console.log('[Timesheet Service] Connecting to employees DB:', employeesDbUri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
 
     // Convert string IDs to ObjectIds
     const objectIds = employeeIds.map(id => {
@@ -39,10 +43,13 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
     const employeesCollection = employeesConn.collection('employees');
 
     // Search by _id
+    console.log('[Timesheet Service] Searching employees with tenantId:', tenantId, 'objectIds:', objectIds.map(id => id.toString()));
     const employees = await employeesCollection.find({
       tenantId: tenantObjectId,
       _id: { $in: objectIds },
     }).toArray();
+
+    console.log('[Timesheet Service] Found employees:', employees.length);
 
     // Build map from employee records
     for (const emp of employees) {
@@ -54,6 +61,7 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
         email: emp.email,
       };
       employeeMap.set(emp._id.toString(), employeeData);
+      console.log('[Timesheet Service] Mapped employee:', emp._id.toString(), emp.firstName, emp.lastName);
     }
 
     return employeeMap;
@@ -304,9 +312,50 @@ export const getTimesheets = async (req: Request, res: Response) => {
     const query: any = { tenantId };
     if (employeeId) query.employeeId = employeeId;
     if (status) query.status = status;
-    if (weekNumber) query.weekNumber = Number(weekNumber);
-    if (month) query.month = Number(month);
-    if (year) query.year = Number(year);
+
+    // Handle month/year query - find timesheets that overlap with the selected month
+    if (month && year) {
+      const targetMonth = Number(month);
+      const targetYear = Number(year);
+
+      // Calculate first and last day of the target month
+      const firstDayOfMonth = new Date(targetYear, targetMonth - 1, 1);
+      const lastDayOfMonth = new Date(targetYear, targetMonth, 0);
+
+      // Find timesheets where the week overlaps with the target month
+      // A week overlaps if: weekStartDate <= lastDayOfMonth AND weekEndDate >= firstDayOfMonth
+      query.$and = [
+        { weekStartDate: { $lte: lastDayOfMonth } },
+        { weekEndDate: { $gte: firstDayOfMonth } }
+      ];
+
+      // If weekNumber is also specified, filter by that
+      if (weekNumber) {
+        // Calculate the week's start date based on weekNumber in the month
+        const weekNum = Number(weekNumber);
+        const firstMonday = new Date(firstDayOfMonth);
+        const dayOfWeek = firstMonday.getDay();
+        const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        firstMonday.setDate(firstMonday.getDate() + diff);
+
+        const weekStart = new Date(firstMonday);
+        weekStart.setDate(firstMonday.getDate() + (weekNum - 1) * 7);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+
+        // Override the date range for specific week
+        query.$and = [
+          { weekStartDate: { $lte: weekEnd } },
+          { weekEndDate: { $gte: weekStart } }
+        ];
+      }
+    } else {
+      // Legacy support: if only weekNumber is specified without month/year
+      if (weekNumber) query.weekNumber = Number(weekNumber);
+      if (month) query.month = Number(month);
+      if (year) query.year = Number(year);
+    }
+
     if (startDate && endDate) {
       query.weekStartDate = {
         $gte: new Date(startDate as string),
@@ -335,7 +384,8 @@ export const getTimesheets = async (req: Request, res: Response) => {
       const employeeData = empId ? employeeMap.get(empId) : null;
       return {
         ...timesheet,
-        employeeId: employeeData || { _id: timesheet.employeeId, firstName: 'Unknown', lastName: 'Employee', email: '' },
+        employeeId: empId, // Keep employeeId as string ID
+        employee: employeeData || { _id: timesheet.employeeId, firstName: 'Unknown', lastName: 'Employee', employeeCode: '', email: '' },
       };
     });
 

@@ -769,7 +769,9 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
         }
 
         results.success++;
-      } catch (err) {
+      } catch (err: any) {
+        console.error(`[Payroll] Error generating payroll for ${employeeId}:`, err.message || err);
+        results.errors.push(`Error for ${employeeId}: ${err.message || 'Unknown error'}`);
         results.failed++;
       }
     }
@@ -1182,11 +1184,11 @@ export const downloadPayslipPDF = async (req: Request, res: Response): Promise<v
       _id: payslipId,
       tenantId,
       employeeId,
-      status: { $in: ['processed', 'paid'] }
+      status: { $in: ['draft', 'processed', 'paid'] }
     }).lean();
 
     if (!payroll) {
-      res.status(404).json({ success: false, message: 'Payslip not found' });
+      res.status(404).json({ success: false, message: 'Payslip not found or not ready for download' });
       return;
     }
 

@@ -8,15 +8,15 @@ print("Tenant ID: " + tenantId.toString());
 // ===================== TENANT DATABASE =====================
 db = db.getSiblingDB("hrm_tenants");
 
-// Drop existing data
-db.tenants.deleteMany({});
+// Drop existing data for xyz tenant only
+db.tenants.deleteMany({slug: "xyz"});
 
 // Create tenant
 db.tenants.insertOne({
   _id: tenantId,
-  name: "Acme Corporation",
-  slug: "acme",
-  domain: "acme.local",
+  name: "XYZ Company",
+  slug: "xyz",
+  domain: "xyz.com",
   settings: {
     timezone: "Asia/Kolkata",
     dateFormat: "DD/MM/YYYY",
@@ -41,9 +41,9 @@ print("Created tenant in hrm_tenants");
 // ===================== EMPLOYEES DATABASE =====================
 db = db.getSiblingDB("hrm_employees");
 
-// Drop existing data
-db.employees.deleteMany({});
-db.departments.deleteMany({});
+// Drop existing data for this tenant only
+db.employees.deleteMany({tenantId: tenantId.toString()});
+db.departments.deleteMany({tenantId: tenantId.toString()});
 
 // Create departments
 const depts = db.departments.insertMany([
@@ -67,7 +67,7 @@ const ceo = db.employees.insertOne({
   employeeCode: "EMP001",
   firstName: "Rajesh",
   lastName: "Kumar",
-  email: "rajesh.kumar@acme.local",
+  email: "rajesh.kumar@xyz.com",
   phone: "+91-9876543210",
   dateOfBirth: new Date("1975-05-15"),
   gender: "male",
@@ -90,7 +90,7 @@ const cto = db.employees.insertOne({
   employeeCode: "EMP002",
   firstName: "Priya",
   lastName: "Sharma",
-  email: "priya.sharma@acme.local",
+  email: "priya.sharma@xyz.com",
   phone: "+91-9876543211",
   dateOfBirth: new Date("1980-08-20"),
   gender: "female",
@@ -114,7 +114,7 @@ const hrDir = db.employees.insertOne({
   employeeCode: "EMP003",
   firstName: "Amit",
   lastName: "Patel",
-  email: "amit.patel@acme.local",
+  email: "amit.patel@xyz.com",
   phone: "+91-9876543212",
   dateOfBirth: new Date("1982-03-10"),
   gender: "male",
@@ -138,7 +138,7 @@ const cfo = db.employees.insertOne({
   employeeCode: "EMP004",
   firstName: "Sneha",
   lastName: "Reddy",
-  email: "sneha.reddy@acme.local",
+  email: "sneha.reddy@xyz.com",
   phone: "+91-9876543213",
   dateOfBirth: new Date("1978-11-25"),
   gender: "female",
@@ -162,7 +162,7 @@ const engMgr = db.employees.insertOne({
   employeeCode: "EMP005",
   firstName: "Vikram",
   lastName: "Singh",
-  email: "vikram.singh@acme.local",
+  email: "vikram.singh@xyz.com",
   phone: "+91-9876543214",
   dateOfBirth: new Date("1985-07-18"),
   gender: "male",
@@ -187,7 +187,7 @@ db.employees.insertMany([
     employeeCode: "EMP006",
     firstName: "Arjun",
     lastName: "Menon",
-    email: "arjun.menon@acme.local",
+    email: "arjun.menon@xyz.com",
     phone: "+91-9876543215",
     dateOfBirth: new Date("1990-04-12"),
     gender: "male",
@@ -208,7 +208,7 @@ db.employees.insertMany([
     employeeCode: "EMP007",
     firstName: "Kavitha",
     lastName: "Nair",
-    email: "kavitha.nair@acme.local",
+    email: "kavitha.nair@xyz.com",
     phone: "+91-9876543216",
     dateOfBirth: new Date("1992-09-28"),
     gender: "female",
@@ -229,7 +229,7 @@ db.employees.insertMany([
     employeeCode: "EMP008",
     firstName: "Rahul",
     lastName: "Verma",
-    email: "rahul.verma@acme.local",
+    email: "rahul.verma@xyz.com",
     phone: "+91-9876543217",
     dateOfBirth: new Date("1993-12-05"),
     gender: "male",
@@ -253,7 +253,7 @@ db.employees.insertOne({
   employeeCode: "EMP009",
   firstName: "Divya",
   lastName: "Gupta",
-  email: "divya.gupta@acme.local",
+  email: "divya.gupta@xyz.com",
   phone: "+91-9876543218",
   dateOfBirth: new Date("1991-06-22"),
   gender: "female",
@@ -276,7 +276,7 @@ db.employees.insertOne({
   employeeCode: "EMP010",
   firstName: "Sanjay",
   lastName: "Rao",
-  email: "sanjay.rao@acme.local",
+  email: "sanjay.rao@xyz.com",
   phone: "+91-9876543219",
   dateOfBirth: new Date("1988-02-14"),
   gender: "male",
@@ -299,7 +299,7 @@ print("Created 10 employees in hrm_employees");
 print("");
 print("=== Sample Data Created Successfully ===");
 print("Tenant ID: " + tenantId.toString());
-print("Tenant: Acme Corporation (slug: acme)");
+print("Tenant: XYZ Company (slug: xyz)");
 print("Departments: 5");
 print("Employees: 10 (with reporting hierarchy)");
 print("");
@@ -316,4 +316,4 @@ print("  +-- CFO (Sneha Reddy)");
 print("        +-- Finance Manager (Sanjay Rao)");
 print("");
 print("Now register an admin user with this tenant ID:");
-print("curl -X POST http://localhost:3000/api/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"admin@acme.local\",\"password\":\"admin123\",\"firstName\":\"Admin\",\"lastName\":\"User\",\"tenantId\":\"" + tenantId.toString() + "\",\"role\":\"tenant_admin\"}'");
+print("curl -X POST http://localhost:3000/api/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"admin@xyz.local\",\"password\":\"admin123\",\"firstName\":\"Admin\",\"lastName\":\"User\",\"tenantId\":\"" + tenantId.toString() + "\",\"role\":\"tenant_admin\"}'");

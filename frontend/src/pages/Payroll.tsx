@@ -104,6 +104,13 @@ const Payroll: React.FC = () => {
   const { user, tenant } = useAppSelector((state) => state.auth);
   const isAdmin = user?.role === 'admin' || user?.role === 'tenant_admin' || user?.role === 'hr';
 
+  // Helper to build full logo URL
+  const getLogoUrl = (): string | null => {
+    if (!tenant?.logo) return null;
+    const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || '';
+    return `${baseUrl}${tenant.logo}`;
+  };
+
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
@@ -773,10 +780,14 @@ const Payroll: React.FC = () => {
                 {/* Payslip Header */}
                 <div className="header bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white p-6 text-center">
                   <div className="flex items-center justify-center gap-3 mb-2">
-                    <HiOfficeBuilding className="w-8 h-8" />
-                    <h1 className="text-2xl font-bold">ACME Corporation</h1>
+                    {getLogoUrl() ? (
+                      <img src={getLogoUrl()!} alt="Company Logo" className="w-10 h-10 rounded-lg object-contain bg-white p-1" />
+                    ) : (
+                      <HiOfficeBuilding className="w-8 h-8" />
+                    )}
+                    <h1 className="text-2xl font-bold">{tenant?.name || tenant?.companyName || 'Company'}</h1>
                   </div>
-                  <p className="text-white/80">123 Business Park, Tech City, India - 500001</p>
+                  <p className="text-white/80">{[tenant?.address, tenant?.city, tenant?.state, tenant?.pincode, tenant?.country].filter(Boolean).join(', ') || 'Address not available'}</p>
                   <div className="period-badge inline-block bg-white/20 px-4 py-2 rounded-full mt-3">
                     <span className="font-semibold">Payslip for {months[selectedPayroll.month - 1]} {selectedPayroll.year}</span>
                   </div>

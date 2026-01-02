@@ -83,9 +83,13 @@ const Timesheets: React.FC = () => {
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedWeek, setSelectedWeek] = useState(3); // Current week in December
-  const [selectedYear, setSelectedYear] = useState(2025);
-  const [selectedMonth, setSelectedMonth] = useState(12);
+  // Initialize with current date
+  const [selectedWeek, setSelectedWeek] = useState(() => {
+    const now = new Date();
+    return Math.ceil(now.getDate() / 7);
+  });
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth() + 1);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedTimesheets, setExpandedTimesheets] = useState<Set<string>>(new Set());
@@ -147,7 +151,10 @@ const Timesheets: React.FC = () => {
         params.append('employeeId', user._id);
       }
       const response = await api.get(`/timesheets?${params}`);
-      let fetchedTimesheets = response.data.data?.timesheets || response.data.timesheets || [];
+      // API returns data as array directly in response.data.data, or as response.data.data.timesheets
+      let fetchedTimesheets = Array.isArray(response.data.data)
+        ? response.data.data
+        : (response.data.data?.timesheets || response.data.timesheets || response.data || []);
 
       // Extra safety: filter on frontend as well for non-admin users
       if (!canViewAllTimesheets && user?._id) {
@@ -431,10 +438,51 @@ const Timesheets: React.FC = () => {
       {/* Week Navigation & Filters */}
       <div className="bg-white rounded-2xl shadow-sm border border-secondary-100 p-4">
         <div className="flex flex-col lg:flex-row gap-4">
+          {/* Month/Year Selection */}
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedMonth}
+              onChange={(e) => {
+                setSelectedMonth(Number(e.target.value));
+                setSelectedWeek(1);
+              }}
+              className="px-3 py-2.5 bg-secondary-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer font-medium"
+            >
+              {months.map((month, idx) => (
+                <option key={idx} value={idx + 1}>{month}</option>
+              ))}
+            </select>
+            <select
+              value={selectedYear}
+              onChange={(e) => {
+                setSelectedYear(Number(e.target.value));
+                setSelectedWeek(1);
+              }}
+              className="px-3 py-2.5 bg-secondary-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer font-medium"
+            >
+              {[2024, 2025, 2026, 2027].map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Week Navigation */}
           <div className="flex items-center gap-2 bg-secondary-50 rounded-xl p-1">
             <button
-              onClick={() => setSelectedWeek(prev => Math.max(1, prev - 1))}
+              onClick={() => {
+                if (selectedWeek <= 1) {
+                  // Go to previous month
+                  if (selectedMonth === 1) {
+                    setSelectedMonth(12);
+                    setSelectedYear(prev => prev - 1);
+                  } else {
+                    setSelectedMonth(prev => prev - 1);
+                  }
+                  setSelectedWeek(4);
+                } else {
+                  setSelectedWeek(prev => prev - 1);
+                }
+              }}
               className="p-2.5 hover:bg-white rounded-lg transition-all"
             >
               <HiChevronLeft className="w-5 h-5 text-secondary-600" />
@@ -444,7 +492,20 @@ const Timesheets: React.FC = () => {
               <p className="text-xs text-secondary-500">{months[selectedMonth - 1]} {selectedYear}</p>
             </div>
             <button
-              onClick={() => setSelectedWeek(prev => Math.min(4, prev + 1))}
+              onClick={() => {
+                if (selectedWeek >= 5) {
+                  // Go to next month
+                  if (selectedMonth === 12) {
+                    setSelectedMonth(1);
+                    setSelectedYear(prev => prev + 1);
+                  } else {
+                    setSelectedMonth(prev => prev + 1);
+                  }
+                  setSelectedWeek(1);
+                } else {
+                  setSelectedWeek(prev => prev + 1);
+                }
+              }}
               className="p-2.5 hover:bg-white rounded-lg transition-all"
             >
               <HiChevronRight className="w-5 h-5 text-secondary-600" />

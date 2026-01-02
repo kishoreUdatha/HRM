@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { HiCog, HiOfficeBuilding, HiUsers, HiShieldCheck, HiBell, HiColorSwatch, HiPhotograph, HiUpload, HiTrash } from 'react-icons/hi';
+import { HiCog, HiOfficeBuilding, HiUsers, HiShieldCheck, HiBell, HiColorSwatch, HiPhotograph, HiUpload, HiTrash, HiLocationMarker } from 'react-icons/hi';
 import { useAppSelector, useAppDispatch } from '../hooks/useAppDispatch';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import { setTenant } from '../features/auth/authSlice';
+import GeofencingSettings from '../components/settings/GeofencingSettings';
 
 const Settings: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -126,6 +127,7 @@ const Settings: React.FC = () => {
   const tabs = [
     { id: 'general', name: 'General', icon: HiCog },
     { id: 'branding', name: 'Branding', icon: HiPhotograph },
+    { id: 'geofencing', name: 'Geo-Fencing', icon: HiLocationMarker },
     { id: 'organization', name: 'Organization', icon: HiOfficeBuilding },
     { id: 'users', name: 'Users & Roles', icon: HiUsers },
     { id: 'security', name: 'Security', icon: HiShieldCheck },
@@ -357,6 +359,8 @@ const Settings: React.FC = () => {
               </div>
             </div>
           )}
+
+          {activeTab === 'geofencing' && <GeofencingSettings />}
 
           {activeTab === 'organization' && (
             <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">

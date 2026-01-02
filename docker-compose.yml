@@ -11,8 +11,8 @@ services:
     container_name: hrm-mongodb
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-changeme}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD:-changeme}
     ports:
       - "27017:27017"
     volumes:
@@ -154,6 +154,8 @@ services:
       - PORT=3002
       - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_tenants?authSource=admin
       - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+    volumes:
+      - tenant-uploads:/app/uploads
     depends_on:
       mongodb:
         condition: service_healthy
@@ -234,6 +236,9 @@ services:
       - PORT=3006
       - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_payroll?authSource=admin
       - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+      - ATTENDANCE_SERVICE_URL=http://attendance-service:3004
+      - EMPLOYEE_SERVICE_URL=http://employee-service:3003
+      - TENANT_SERVICE_URL=http://tenant-service:3002
     depends_on:
       mongodb:
         condition: service_healthy
@@ -717,7 +722,7 @@ services:
     environment:
       - VITE_API_URL=http://localhost:3000/api
     ports:
-      - "5173:5173"
+      - "5173:8080"
     depends_on:
       - api-gateway
     networks:
@@ -731,3 +736,4 @@ volumes:
   mongodb_data:
   redis_data:
   rabbitmq_data:
+  tenant-uploads:

@@ -2,8 +2,14 @@
 export interface Tenant {
   _id: string;
   name: string;
+  companyName?: string;
   slug: string;
   logo?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pincode?: string;
   settings: TenantSettings;
   subscription: Subscription;
   status: 'active' | 'inactive' | 'suspended' | 'trial';
@@ -98,6 +104,8 @@ export interface Employee {
   status: 'active' | 'inactive' | 'terminated' | 'on-leave';
   avatar?: string;
   emergencyContact?: EmergencyContact;
+  selfyPunch?: boolean;
+  pin?: string;
 }
 
 export interface Address {

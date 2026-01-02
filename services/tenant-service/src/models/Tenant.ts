@@ -36,6 +36,19 @@ export interface ITenant extends Document {
       halfDayHours: number;
       fullDayHours: number;
     };
+    geofencing: {
+      enabled: boolean;
+      locations: Array<{
+        _id?: string;
+        name: string;
+        latitude: number;
+        longitude: number;
+        address?: string;
+        radius: number;
+      }>;
+      defaultRadius: number;
+      strictMode: boolean;
+    };
   };
   subscription: {
     plan: 'free' | 'starter' | 'professional' | 'enterprise';
@@ -133,6 +146,18 @@ const tenantSchema = new Schema<ITenant>(
         graceTimeMins: { type: Number, default: 15 },
         halfDayHours: { type: Number, default: 4 },
         fullDayHours: { type: Number, default: 8 },
+      },
+      geofencing: {
+        enabled: { type: Boolean, default: false },
+        locations: [{
+          name: { type: String, required: true },
+          latitude: { type: Number, required: true },
+          longitude: { type: Number, required: true },
+          address: { type: String },
+          radius: { type: Number, default: 100 },
+        }],
+        defaultRadius: { type: Number, default: 100 },
+        strictMode: { type: Boolean, default: true },
       },
     },
     subscription: {

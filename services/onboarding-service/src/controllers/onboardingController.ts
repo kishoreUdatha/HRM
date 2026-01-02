@@ -147,10 +147,7 @@ export const getOnboardings = async (req: Request, res: Response) => {
       Onboarding.find(query)
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(Number(limit))
-        .populate('employeeId', 'firstName lastName email')
-        .populate('buddyId', 'firstName lastName')
-        .populate('mentorId', 'firstName lastName'),
+        .limit(Number(limit)),
       Onboarding.countDocuments(query),
     ]);
 
@@ -173,9 +170,6 @@ export const getOnboardingById = async (req: Request, res: Response) => {
   try {
     const { tenantId, id } = req.params;
     const onboarding = await Onboarding.findOne({ _id: id, tenantId })
-      .populate('employeeId')
-      .populate('buddyId', 'firstName lastName email')
-      .populate('mentorId', 'firstName lastName email')
       .populate('templateId');
 
     if (!onboarding) {
@@ -190,9 +184,7 @@ export const getOnboardingById = async (req: Request, res: Response) => {
 export const getOnboardingByEmployee = async (req: Request, res: Response) => {
   try {
     const { tenantId, employeeId } = req.params;
-    const onboarding = await Onboarding.findOne({ tenantId, employeeId })
-      .populate('buddyId', 'firstName lastName email')
-      .populate('mentorId', 'firstName lastName email');
+    const onboarding = await Onboarding.findOne({ tenantId, employeeId });
 
     if (!onboarding) {
       return res.status(404).json({ success: false, message: 'Onboarding not found' });

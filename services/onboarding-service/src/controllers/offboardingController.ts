@@ -53,11 +53,17 @@ export const initiateOffboarding = async (req: Request, res: Response) => {
     const {
       employeeId,
       separationType,
+      reason,
       resignationDate,
       lastWorkingDate,
+      lastWorkingDay,
       noticePeriodDays,
       templateId,
     } = req.body;
+
+    // Support both field naming conventions
+    const finalSeparationType = separationType || reason || 'resignation';
+    const finalLastWorkingDate = lastWorkingDate || lastWorkingDay;
 
     // Check if offboarding already exists
     const existing = await Offboarding.findOne({
@@ -80,14 +86,14 @@ export const initiateOffboarding = async (req: Request, res: Response) => {
     if (templateId) {
       template = await OffboardingTemplate.findOne({ _id: templateId, tenantId });
       if (template) {
-        const lwdDate = new Date(lastWorkingDate);
+        const lwdDate = new Date(finalLastWorkingDate);
         tasks = template.tasks.map(task => ({
           taskId: new mongoose.Types.ObjectId(),
           title: task.title,
           description: task.description,
           category: task.category,
           assigneeType: task.assigneeType,
-          dueDate: new Date(lwdDate.getTime() - task.daysBeforeLWD * 24 * 60 * 60 * 1000),
+          dueDate: new Date(lwdDate.getTime() - (task.daysBeforeLWD || 0) * 24 * 60 * 60 * 1000),
           status: 'pending',
           isMandatory: task.isMandatory,
         }));
@@ -114,9 +120,9 @@ export const initiateOffboarding = async (req: Request, res: Response) => {
     const offboarding = new Offboarding({
       tenantId,
       employeeId,
-      separationType,
-      resignationDate,
-      lastWorkingDate,
+      separationType: finalSeparationType,
+      resignationDate: resignationDate || finalLastWorkingDate,
+      lastWorkingDate: finalLastWorkingDate,
       noticePeriodDays: noticePeriodDays || 0,
       tasks,
       clearance,
@@ -150,8 +156,7 @@ export const getOffboardings = async (req: Request, res: Response) => {
       Offboarding.find(query)
         .sort({ lastWorkingDate: 1 })
         .skip(skip)
-        .limit(Number(limit))
-        .populate('employeeId', 'firstName lastName email employeeCode'),
+        .limit(Number(limit)),
       Offboarding.countDocuments(query),
     ]);
 
@@ -173,8 +178,7 @@ export const getOffboardings = async (req: Request, res: Response) => {
 export const getOffboardingById = async (req: Request, res: Response) => {
   try {
     const { tenantId, id } = req.params;
-    const offboarding = await Offboarding.findOne({ _id: id, tenantId })
-      .populate('employeeId');
+    const offboarding = await Offboarding.findOne({ _id: id, tenantId });
 
     if (!offboarding) {
       return res.status(404).json({ success: false, message: 'Offboarding not found' });

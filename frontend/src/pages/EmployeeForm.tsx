@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { HiArrowLeft, HiSave, HiClock } from 'react-icons/hi';
+import { HiArrowLeft, HiSave, HiClock, HiDeviceMobile, HiRefresh } from 'react-icons/hi';
 import api from '../services/api';
 import type { Employee, Shift } from '../types';
 
@@ -53,7 +53,9 @@ const EmployeeForm: React.FC = () => {
       relationship: '',
       phone: '',
     },
+    selfyPunch: false,
   });
+  const [isResettingPin, setIsResettingPin] = useState(false);
 
   useEffect(() => {
     fetchDepartments();
@@ -126,6 +128,25 @@ const EmployeeForm: React.FC = () => {
       }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: checked }));
+  };
+
+  const handleResetPin = async () => {
+    if (!id) return;
+    setIsResettingPin(true);
+    try {
+      await api.post(`/employees/${id}/reset-pin`);
+      alert('PIN has been reset to default (1122)');
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to reset PIN';
+      alert(message);
+    } finally {
+      setIsResettingPin(false);
     }
   };
 
@@ -459,6 +480,68 @@ const EmployeeForm: React.FC = () => {
                 <option value="INR">INR</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        {/* Mobile App Access */}
+        <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+          <h2 className="text-lg font-semibold text-secondary-900 mb-4 flex items-center gap-2">
+            <HiDeviceMobile className="w-5 h-5 text-primary-600" />
+            Mobile App Access
+          </h2>
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="flex items-center h-6">
+                <input
+                  type="checkbox"
+                  id="selfyPunch"
+                  name="selfyPunch"
+                  checked={formData.selfyPunch || false}
+                  onChange={handleCheckboxChange}
+                  className="w-5 h-5 text-primary-600 border-secondary-300 rounded focus:ring-primary-500 cursor-pointer"
+                />
+              </div>
+              <div className="flex-1">
+                <label htmlFor="selfyPunch" className="text-sm font-medium text-secondary-900 cursor-pointer">
+                  Enable Mobile App Login
+                </label>
+                <p className="text-sm text-secondary-500 mt-1">
+                  When enabled, this employee can login to the mobile app using their phone number and PIN.
+                </p>
+              </div>
+            </div>
+
+            {formData.selfyPunch && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm text-blue-800 font-medium">Default PIN: 1122</p>
+                    <p className="text-sm text-blue-600 mt-1">
+                      Employee will use their phone number and this PIN to login. They can change the PIN from the mobile app.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isEditing && formData.selfyPunch && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleResetPin}
+                  disabled={isResettingPin}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-orange-700 bg-orange-100 rounded-lg hover:bg-orange-200 transition-colors disabled:opacity-50"
+                >
+                  <HiRefresh className={`w-4 h-4 ${isResettingPin ? 'animate-spin' : ''}`} />
+                  {isResettingPin ? 'Resetting...' : 'Reset PIN to Default (1122)'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
