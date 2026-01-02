@@ -1,5 +1,5 @@
 // Service Registry Configuration
-// Last updated: 2026-01-03 - Fixed internal service URLs for Azure Container Apps
+// Last updated: 2026-01-03 - Use HTTPS for Azure Container Apps internal communication
 export interface ServiceConfig {
   name: string;
   url: string;
