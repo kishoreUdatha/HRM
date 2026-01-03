@@ -16,7 +16,7 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
     }
 
     const mongoUri = process.env.MONGODB_URI || '';
-    const employeesDbUri = mongoUri.replace('/hrm_leaves', '/hrm_employees');
+    const employeesDbUri = mongoUri.replace('/hrm_leaves', '/hrm_employee');
     const authDbUri = mongoUri.replace('/hrm_leaves', '/hrm_auth');
 
     // Convert string IDs to ObjectIds
@@ -565,7 +565,7 @@ export const getLeaveBalance = async (req: Request, res: Response): Promise<void
 
     res.status(200).json({
       success: true,
-      data: { balances },
+      data: balances,
     });
   } catch (error) {
     console.error('[Leave Service] Get balance error:', error);
@@ -772,7 +772,7 @@ export const bulkInitializeBalances = async (req: Request, res: Response): Promi
 
     // Fetch all employees from employees database
     const mongoUri = process.env.MONGODB_URI || '';
-    const employeesDbUri = mongoUri.replace('/hrm_leaves', '/hrm_employees');
+    const employeesDbUri = mongoUri.replace('/hrm_leaves', '/hrm_employee');
     const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
 
     const employeeSchema = new mongoose.Schema({
