@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express, { Application, Request, Response, NextFunction } from 'express';
-import cors from 'cors';
+// cors import removed - using manual CORS middleware for better control with proxies
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { createProxyMiddleware, Options, fixRequestBody } from 'http-proxy-middleware';
@@ -17,15 +17,29 @@ const PORT = process.env.PORT || 3000;
 // Trust proxy (for rate limiting behind load balancer)
 app.set('trust proxy', 1);
 
-// CORS configuration - must be before helmet
-app.use(
-  cors({
-    origin: true, // Allow all origins
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID', 'X-Request-ID'],
-  })
-);
+// Manual CORS headers for ALL responses (including proxied ones)
+// This ensures CORS works even when http-proxy-middleware takes over the response
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Tenant-ID, X-Request-ID');
+  res.setHeader('Access-Control-Expose-Headers', 'X-Request-ID');
+
+  // Handle preflight requests immediately
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+    res.status(204).end();
+    return;
+  }
+
+  next();
+});
 
 // Security middleware - disable conflicting CORS policies
 app.use(helmet({
@@ -128,25 +142,15 @@ services.forEach((service) => {
         const requestId = authReq.headers['x-request-id'] || `req_${Date.now()}`;
         proxyReq.setHeader('x-request-id', requestId as string);
       },
-      proxyRes: (proxyRes, req, _res) => {
-        // Add CORS headers to ALL proxied responses (including errors)
-        const origin = req.headers.origin;
-        if (origin) {
-          proxyRes.headers['access-control-allow-origin'] = origin;
-          proxyRes.headers['access-control-allow-credentials'] = 'true';
-        }
+      proxyRes: (proxyRes) => {
+        // Mark response as proxied
         proxyRes.headers['x-proxied-by'] = 'hrm-api-gateway';
       },
-      error: (err, req, res) => {
+      error: (err, _req, res) => {
         console.error(`Proxy error for ${service.name}:`, err.message);
         if (res && 'status' in res && typeof res.status === 'function') {
           const response = res as Response;
-          // Add CORS headers to error responses
-          const origin = req.headers.origin;
-          if (origin) {
-            response.setHeader('Access-Control-Allow-Origin', origin as string);
-            response.setHeader('Access-Control-Allow-Credentials', 'true');
-          }
+          // CORS headers already set by middleware
           response.status(503).json({
             success: false,
             message: `Service ${service.name} is temporarily unavailable`,
@@ -176,14 +180,9 @@ app.use((_req: Request, res: Response) => {
 });
 
 // Global error handler
-app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Gateway error:', err);
-  // Add CORS headers to error responses
-  const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  }
+  // CORS headers already set by middleware
   res.status(500).json({
     success: false,
     message: 'Internal gateway error',
