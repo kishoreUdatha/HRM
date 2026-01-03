@@ -265,8 +265,9 @@ export const getAllTenants = async (
       ];
     }
 
+    // Note: Removed .sort() for Cosmos DB compatibility
     const [tenants, total] = await Promise.all([
-      Tenant.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
+      Tenant.find(filter).skip(skip).limit(limitNum).lean(),
       Tenant.countDocuments(filter),
     ]);
 
@@ -418,9 +419,9 @@ export const getTenantStats = async (
       Tenant.aggregate([
         { $group: { _id: '$subscription.plan', count: { $sum: 1 } } },
       ]),
+      // Note: Removed .sort() for Cosmos DB compatibility
       Tenant.find()
         .select('name slug status subscription.plan createdAt')
-        .sort({ createdAt: -1 })
         .limit(10)
         .lean(),
       Tenant.countDocuments({
@@ -729,22 +730,11 @@ export const getAdminTenantList = async (
       }
     }
 
-    // Build sort
-    const sortFieldMap: Record<string, string> = {
-      name: 'name',
-      createdAt: 'createdAt',
-      status: 'status',
-      plan: 'subscription.plan',
-      employeeCount: 'employeeCount',
-    };
-
-    const sortKey = sortFieldMap[sortField as string] || 'createdAt';
-    const sortDirection = sortOrder === 'asc' ? 1 : -1;
-    const sort: Record<string, 1 | -1> = { [sortKey]: sortDirection };
+    // Note: Removed dynamic .sort() for Cosmos DB compatibility
+    // sortField and sortOrder parameters are ignored
 
     const [tenants, total] = await Promise.all([
       Tenant.find(filter)
-        .sort(sort)
         .skip(skip)
         .limit(limitNum)
         .lean(),
