@@ -128,14 +128,26 @@ services.forEach((service) => {
         const requestId = authReq.headers['x-request-id'] || `req_${Date.now()}`;
         proxyReq.setHeader('x-request-id', requestId as string);
       },
-      proxyRes: (proxyRes, _req, _res) => {
-        // Add CORS headers to response
+      proxyRes: (proxyRes, req, _res) => {
+        // Add CORS headers to ALL proxied responses (including errors)
+        const origin = req.headers.origin;
+        if (origin) {
+          proxyRes.headers['access-control-allow-origin'] = origin;
+          proxyRes.headers['access-control-allow-credentials'] = 'true';
+        }
         proxyRes.headers['x-proxied-by'] = 'hrm-api-gateway';
       },
-      error: (err, _req, res) => {
+      error: (err, req, res) => {
         console.error(`Proxy error for ${service.name}:`, err.message);
         if (res && 'status' in res && typeof res.status === 'function') {
-          (res as Response).status(503).json({
+          const response = res as Response;
+          // Add CORS headers to error responses
+          const origin = req.headers.origin;
+          if (origin) {
+            response.setHeader('Access-Control-Allow-Origin', origin as string);
+            response.setHeader('Access-Control-Allow-Credentials', 'true');
+          }
+          response.status(503).json({
             success: false,
             message: `Service ${service.name} is temporarily unavailable`,
             service: service.name,
@@ -164,8 +176,14 @@ app.use((_req: Request, res: Response) => {
 });
 
 // Global error handler
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
   console.error('Gateway error:', err);
+  // Add CORS headers to error responses
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
   res.status(500).json({
     success: false,
     message: 'Internal gateway error',
