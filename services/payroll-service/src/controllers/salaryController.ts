@@ -54,7 +54,8 @@ export const getSalaryStructures = async (req: Request, res: Response): Promise<
       query.isActive = isActive === 'true';
     }
 
-    const salaryStructures = await SalaryStructure.find(query).sort({ name: 1 }).lean();
+    // Note: Removed .sort() for Cosmos DB compatibility
+    const salaryStructures = await SalaryStructure.find(query).lean();
 
     res.status(200).json({
       success: true,
@@ -268,10 +269,8 @@ export const getEmployeeSalary = async (req: Request, res: Response): Promise<vo
       query.isActive = true;
     }
 
-    const salaries = await EmployeeSalary.find(query)
-      .populate('salaryStructureId', 'name code components')
-      .sort({ effectiveFrom: -1 })
-      .lean();
+    // Note: Removed .sort() and .populate() for Cosmos DB compatibility
+    const salaries = await EmployeeSalary.find(query).lean();
 
     res.status(200).json({
       success: true,
