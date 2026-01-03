@@ -6,6 +6,29 @@ import { generateTokens, verifyRefreshToken, generateAccessToken } from '../serv
 
 // Employee service URL for internal communication
 const EMPLOYEE_SERVICE_URL = process.env.EMPLOYEE_SERVICE_URL || 'http://localhost:3003';
+const TENANT_SERVICE_URL = process.env.TENANT_SERVICE_URL || 'http://localhost:3002';
+
+// Helper to resolve company code/slug to tenant ObjectId
+const resolveTenantId = async (tenantIdOrSlug: string): Promise<string | null> => {
+  // If it's already a valid ObjectId, return it
+  if (mongoose.Types.ObjectId.isValid(tenantIdOrSlug)) {
+    return tenantIdOrSlug;
+  }
+
+  // Otherwise, treat it as a slug/company code and resolve it
+  try {
+    const response = await axios.get(
+      `${TENANT_SERVICE_URL}/by-slug/${tenantIdOrSlug}`,
+      { timeout: 5000 }
+    );
+    if (response.data.success && response.data.data?._id) {
+      return response.data.data._id;
+    }
+  } catch (error) {
+    console.log(`[Auth] Failed to resolve tenant slug: ${tenantIdOrSlug}`, error);
+  }
+  return null;
+};
 
 // Register new user (for a tenant)
 export const register = async (
@@ -151,12 +174,25 @@ export const loginWithMobile = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { mobileNumber, pin, tenantId } = req.body;
+    const { mobileNumber, pin, tenantId: rawTenantId } = req.body;
 
-    // Build query - if tenantId provided, use it
+    // Resolve tenant ID (might be ObjectId or company code/slug)
+    let resolvedTenantId: string | null = null;
+    if (rawTenantId) {
+      resolvedTenantId = await resolveTenantId(rawTenantId);
+      if (!resolvedTenantId) {
+        res.status(401).json({
+          success: false,
+          message: 'Organization not found',
+        });
+        return;
+      }
+    }
+
+    // Build query - if tenantId resolved, use it
     const query: { mobileNumber: string; tenantId?: mongoose.Types.ObjectId } = { mobileNumber };
-    if (tenantId && mongoose.Types.ObjectId.isValid(tenantId)) {
-      query.tenantId = new mongoose.Types.ObjectId(tenantId);
+    if (resolvedTenantId && mongoose.Types.ObjectId.isValid(resolvedTenantId)) {
+      query.tenantId = new mongoose.Types.ObjectId(resolvedTenantId);
     }
 
     // First, try to find user in auth database
@@ -215,7 +251,7 @@ export const loginWithMobile = async (
 
     // User not found in auth database - try employee-service
     // This allows employees with selfyPunch enabled to login directly
-    if (!tenantId) {
+    if (!resolvedTenantId) {
       res.status(401).json({
         success: false,
         message: 'Invalid mobile number or PIN',
@@ -227,7 +263,7 @@ export const loginWithMobile = async (
       const employeeResponse = await axios.post(
         `${EMPLOYEE_SERVICE_URL}/employees/verify-mobile-credentials`,
         {
-          tenantId,
+          tenantId: resolvedTenantId,
           phone: mobileNumber,
           pin,
         },
