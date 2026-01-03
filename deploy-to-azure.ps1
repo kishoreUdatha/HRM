@@ -88,6 +88,10 @@ Write-Host "[OK] MongoDB deployed" -ForegroundColor Green
 $MONGODB_FQDN = (& $AZ containerapp show --name $MONGODB_APP --resource-group $RESOURCE_GROUP --query "properties.configuration.ingress.fqdn" -o tsv)
 $MONGODB_URI = "mongodb://admin:HrmMongo2024!@$MONGODB_FQDN`:27017"
 
+# Get Container Apps Environment default domain for internal URLs
+$ENV_DEFAULT_DOMAIN = (& $AZ containerapp env show --name $CONTAINER_ENV --resource-group $RESOURCE_GROUP --query "properties.defaultDomain" -o tsv)
+Write-Host "[OK] Environment domain: $ENV_DEFAULT_DOMAIN" -ForegroundColor Green
+
 # Step 7: Deploy Backend Services
 Write-Host "`n[7/8] Deploying Backend Services..." -ForegroundColor Yellow
 
@@ -95,8 +99,24 @@ Write-Host "`n[7/8] Deploying Backend Services..." -ForegroundColor Yellow
 $JWT_SECRET = "hrm_saas_access_secret_2024_azure"
 $JWT_REFRESH = "hrm_saas_refresh_secret_2024_azure"
 
-# Deploy API Gateway
+# Deploy API Gateway with all internal service URLs
 Write-Host "  Deploying api-gateway..." -ForegroundColor Cyan
+$gatewayEnvVars = @(
+    "NODE_ENV=production",
+    "PORT=3000",
+    "JWT_ACCESS_SECRET=$JWT_SECRET",
+    "JWT_REFRESH_SECRET=$JWT_REFRESH",
+    "AUTH_SERVICE_URL=https://hrm-auth-service.internal.$ENV_DEFAULT_DOMAIN",
+    "TENANT_SERVICE_URL=https://hrm-tenant-service.internal.$ENV_DEFAULT_DOMAIN",
+    "EMPLOYEE_SERVICE_URL=https://hrm-employee-service.internal.$ENV_DEFAULT_DOMAIN",
+    "ATTENDANCE_SERVICE_URL=https://hrm-attendance-service.internal.$ENV_DEFAULT_DOMAIN",
+    "LEAVE_SERVICE_URL=https://hrm-leave-service.internal.$ENV_DEFAULT_DOMAIN",
+    "PAYROLL_SERVICE_URL=https://hrm-payroll-service.internal.$ENV_DEFAULT_DOMAIN",
+    "NOTIFICATION_SERVICE_URL=https://hrm-notification-service.internal.$ENV_DEFAULT_DOMAIN",
+    "TIMESHEET_SERVICE_URL=https://hrm-timesheet-service.internal.$ENV_DEFAULT_DOMAIN",
+    "ONBOARDING_SERVICE_URL=https://hrm-onboarding-service.internal.$ENV_DEFAULT_DOMAIN"
+) -join " "
+
 & $AZ containerapp create `
     --name hrm-api-gateway `
     --resource-group $RESOURCE_GROUP `
@@ -109,7 +129,7 @@ Write-Host "  Deploying api-gateway..." -ForegroundColor Cyan
     --ingress external `
     --cpu 0.5 --memory 1Gi `
     --min-replicas 1 --max-replicas 3 `
-    --env-vars "NODE_ENV=production" "PORT=3000" "JWT_ACCESS_SECRET=$JWT_SECRET" "JWT_REFRESH_SECRET=$JWT_REFRESH" `
+    --env-vars $gatewayEnvVars `
     --output none
 Write-Host "  [OK] api-gateway deployed" -ForegroundColor Green
 
@@ -137,7 +157,7 @@ foreach ($svc in $backendServices.GetEnumerator()) {
 
     # Add EMPLOYEE_SERVICE_URL for auth-service (needed for mobile login)
     if ($svc.Key -eq "auth-service") {
-        $envVars += " EMPLOYEE_SERVICE_URL=http://hrm-employee-service"
+        $envVars += " EMPLOYEE_SERVICE_URL=https://hrm-employee-service.internal.$ENV_DEFAULT_DOMAIN"
     }
 
     & $AZ containerapp create `
