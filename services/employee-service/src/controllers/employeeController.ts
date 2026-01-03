@@ -48,17 +48,12 @@ export const getAllEmployees = async (
     if (status) filter.status = status;
     if (employmentType) filter.employmentType = employmentType;
 
-    const sort: Record<string, 1 | -1> = {
-      [sortBy as string]: sortOrder === 'asc' ? 1 : -1,
-    };
-
+    // Note: Removed dynamic .sort() and .populate() for Cosmos DB compatibility
     const [employees, total] = await Promise.all([
       Employee.find(filter)
-        .sort(sort)
         .skip(skip)
         .limit(limitNum)
-        .populate('departmentId', 'name code')
-        .populate('reportingManagerId', 'firstName lastName email'),
+        .lean(),
       Employee.countDocuments(filter),
     ]);
 

@@ -48,7 +48,8 @@ export const getLeaveTypes = async (req: Request, res: Response): Promise<void> 
       query.isActive = isActive === 'true';
     }
 
-    const leaveTypes = await LeaveType.find(query).sort({ name: 1 }).lean();
+    // Note: Removed .sort() for Cosmos DB compatibility (requires index on sort field)
+    const leaveTypes = await LeaveType.find(query).lean();
 
     res.status(200).json({
       success: true,

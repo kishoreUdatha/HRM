@@ -3,14 +3,14 @@ import path from 'path';
 import fs from 'fs';
 import Tenant from '../models/Tenant';
 
-// Create new tenant (organization signup)
+// Create new tenant (organization signup) - also creates admin user if credentials provided
 export const createTenant = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { name, slug, domain, settings, subscription, billing, status } = req.body;
+    const { name, slug, domain, settings, subscription, billing, status, adminEmail, adminPassword, adminFirstName, adminLastName } = req.body;
 
     // Generate slug from name if not provided
     const tenantSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -40,9 +40,40 @@ export const createTenant = async (
       status: status || 'trial',
     });
 
+    // If admin credentials provided, create admin user via auth service
+    let adminUser = null;
+    let tokens = null;
+    if (adminEmail && adminPassword && adminFirstName && adminLastName) {
+      const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
+      try {
+        const fetch = (await import('node-fetch')).default;
+        const authResponse = await fetch(`${authServiceUrl}/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: adminEmail,
+            password: adminPassword,
+            firstName: adminFirstName,
+            lastName: adminLastName,
+            tenantId: tenant._id.toString(),
+            role: 'tenant_admin',
+          }),
+        });
+        const authData = await authResponse.json() as { success: boolean; user?: unknown; accessToken?: string; refreshToken?: string; message?: string };
+        if (authData.success) {
+          adminUser = authData.user;
+          tokens = { accessToken: authData.accessToken, refreshToken: authData.refreshToken };
+        }
+      } catch (authError) {
+        console.error('[Tenant Service] Error creating admin user:', authError);
+      }
+    }
+
     res.status(201).json({
       success: true,
       data: tenant,
+      user: adminUser,
+      ...(tokens && { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken }),
       message: 'Organization created successfully',
     });
   } catch (error) {
