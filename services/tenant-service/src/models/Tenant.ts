@@ -92,9 +92,9 @@ const tenantSchema = new Schema<ITenant>(
     },
     domain: {
       type: String,
-      unique: true,
-      sparse: true,
       lowercase: true,
+      // Note: unique+sparse not supported properly in Cosmos DB
+      // Domain uniqueness should be validated in application code
     },
     logo: {
       type: String,
