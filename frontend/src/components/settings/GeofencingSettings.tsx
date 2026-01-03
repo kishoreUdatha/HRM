@@ -110,21 +110,39 @@ const GeofencingSettings: React.FC = () => {
         // Update existing location
         const response = await api.put(`/tenants/current/geofencing/locations/${editingLocation._id}`, location);
         if (response.data.success) {
-          setConfig({
-            ...config,
-            locations: config.locations.map(l =>
-              l._id === editingLocation._id ? { ...location, _id: editingLocation._id } : l
-            ),
-          });
+          // API returns full config with all locations
+          const responseData = response.data.data;
+          if (responseData && Array.isArray(responseData.locations)) {
+            setConfig({
+              ...config,
+              enabled: responseData.enabled ?? config.enabled,
+              defaultRadius: responseData.defaultRadius ?? config.defaultRadius,
+              strictMode: responseData.strictMode ?? config.strictMode,
+              locations: responseData.locations,
+            });
+          } else {
+            // Fallback to manual update if API doesn't return full config
+            setConfig({
+              ...config,
+              locations: config.locations.map(l =>
+                l._id === editingLocation._id ? { ...location, _id: editingLocation._id } : l
+              ),
+            });
+          }
           toast.success('Location updated');
         }
       } else {
         // Add new location
         const response = await api.post('/tenants/current/geofencing/locations', location);
         if (response.data.success) {
+          // API returns full config with all locations, not just the new one
+          const responseData = response.data.data;
           setConfig({
             ...config,
-            locations: [...config.locations, response.data.data.location],
+            enabled: responseData.enabled ?? config.enabled,
+            defaultRadius: responseData.defaultRadius ?? config.defaultRadius,
+            strictMode: responseData.strictMode ?? config.strictMode,
+            locations: Array.isArray(responseData.locations) ? responseData.locations : [...config.locations, location],
           });
           toast.success('Location added');
         }
