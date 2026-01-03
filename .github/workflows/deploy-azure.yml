@@ -227,7 +227,8 @@ jobs:
           az containerapp update \
             --name hrm-auth-service \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/auth-service:${{ needs.build-push.outputs.image_tag }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/auth-service:${{ needs.build-push.outputs.image_tag }} \
+            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
 
       - name: Deploy Tenant Service
         run: |
@@ -248,7 +249,8 @@ jobs:
           az containerapp update \
             --name hrm-tenant-service \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/tenant-service:${{ needs.build-push.outputs.image_tag }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/tenant-service:${{ needs.build-push.outputs.image_tag }} \
+            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
 
       - name: Deploy Employee Service
         run: |
@@ -269,7 +271,8 @@ jobs:
           az containerapp update \
             --name hrm-employee-service \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/employee-service:${{ needs.build-push.outputs.image_tag }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/employee-service:${{ needs.build-push.outputs.image_tag }} \
+            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
 
       - name: Deploy Attendance Service
         run: |
@@ -290,7 +293,8 @@ jobs:
           az containerapp update \
             --name hrm-attendance-service \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/attendance-service:${{ needs.build-push.outputs.image_tag }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/attendance-service:${{ needs.build-push.outputs.image_tag }} \
+            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
 
       - name: Deploy Leave Service
         run: |
@@ -311,7 +315,8 @@ jobs:
           az containerapp update \
             --name hrm-leave-service \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/leave-service:${{ needs.build-push.outputs.image_tag }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/leave-service:${{ needs.build-push.outputs.image_tag }} \
+            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
 
       - name: Deploy Payroll Service
         run: |
@@ -332,7 +337,8 @@ jobs:
           az containerapp update \
             --name hrm-payroll-service \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/payroll-service:${{ needs.build-push.outputs.image_tag }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/payroll-service:${{ needs.build-push.outputs.image_tag }} \
+            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
 
       - name: Deploy Notification Service
         run: |
@@ -353,7 +359,8 @@ jobs:
           az containerapp update \
             --name hrm-notification-service \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/notification-service:${{ needs.build-push.outputs.image_tag }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/notification-service:${{ needs.build-push.outputs.image_tag }} \
+            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
 
       - name: Deploy Timesheet Service
         run: |
@@ -374,7 +381,8 @@ jobs:
           az containerapp update \
             --name hrm-timesheet-service \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/timesheet-service:${{ needs.build-push.outputs.image_tag }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/timesheet-service:${{ needs.build-push.outputs.image_tag }} \
+            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
 
       - name: Deploy Onboarding Service
         run: |
@@ -395,7 +403,8 @@ jobs:
           az containerapp update \
             --name hrm-onboarding-service \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/onboarding-service:${{ needs.build-push.outputs.image_tag }}
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/onboarding-service:${{ needs.build-push.outputs.image_tag }} \
+            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
 
       - name: Deploy Frontend
         run: |
