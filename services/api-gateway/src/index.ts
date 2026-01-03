@@ -142,15 +142,29 @@ services.forEach((service) => {
         const requestId = authReq.headers['x-request-id'] || `req_${Date.now()}`;
         proxyReq.setHeader('x-request-id', requestId as string);
       },
-      proxyRes: (proxyRes) => {
+      proxyRes: (proxyRes, req) => {
+        // Add CORS headers to ALL proxied responses (including errors from backend services)
+        // This is critical because http-proxy-middleware pipes responses directly,
+        // bypassing Express middleware headers
+        const origin = req.headers.origin;
+        proxyRes.headers['access-control-allow-origin'] = origin || '*';
+        proxyRes.headers['access-control-allow-credentials'] = 'true';
+        proxyRes.headers['access-control-allow-methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS';
+        proxyRes.headers['access-control-allow-headers'] = 'Content-Type, Authorization, X-Tenant-ID, X-Request-ID';
+        proxyRes.headers['access-control-expose-headers'] = 'X-Request-ID';
         // Mark response as proxied
         proxyRes.headers['x-proxied-by'] = 'hrm-api-gateway';
       },
-      error: (err, _req, res) => {
+      error: (err, req, res) => {
         console.error(`Proxy error for ${service.name}:`, err.message);
         if (res && 'status' in res && typeof res.status === 'function') {
           const response = res as Response;
-          // CORS headers already set by middleware
+          // Explicitly set CORS headers for proxy errors (no proxied response to modify)
+          const origin = req.headers.origin;
+          response.setHeader('Access-Control-Allow-Origin', origin || '*');
+          response.setHeader('Access-Control-Allow-Credentials', 'true');
+          response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+          response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Tenant-ID, X-Request-ID');
           response.status(503).json({
             success: false,
             message: `Service ${service.name} is temporarily unavailable`,
