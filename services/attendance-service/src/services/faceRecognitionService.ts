@@ -177,7 +177,8 @@ class FaceRecognitionService {
    */
   async matchFace(
     base64Image: string,
-    storedEmbeddings: FaceEmbeddingData[]
+    storedEmbeddings: FaceEmbeddingData[],
+    hintEmployeeId?: string
   ): Promise<FaceMatchResult> {
     await this.initialize();
 
@@ -189,15 +190,44 @@ class FaceRecognitionService {
       };
     }
 
+    console.log('[FaceRecognition] useMockMode:', this.useMockMode, 'hintEmployeeId:', hintEmployeeId);
+
     if (this.useMockMode) {
-      // In mock mode, match with the first employee for testing
-      const firstEmployee = storedEmbeddings[0];
+      // In mock mode, use the hint employee ID if provided
+      // This allows testing without requiring face enrollment
+      if (hintEmployeeId) {
+        // First check if enrolled
+        const hintedEmployee = storedEmbeddings.find(e => e.employeeId === hintEmployeeId);
+        if (hintedEmployee) {
+          console.log('[FaceRecognition] Mock mode: Using enrolled hinted employee:', hintedEmployee.employeeName);
+          return {
+            status: 'MATCHED',
+            employeeId: hintedEmployee.employeeId,
+            employeeName: hintedEmployee.employeeName,
+            confidence: 0.92,
+            message: `Face matched: ${hintedEmployee.employeeName} (Mock Mode)`,
+          };
+        } else {
+          // Employee not enrolled but hint provided - use hint ID for mock testing
+          console.log('[FaceRecognition] Mock mode: Hinted employee not enrolled, using hint ID for testing:', hintEmployeeId);
+          return {
+            status: 'MATCHED',
+            employeeId: hintEmployeeId,
+            employeeName: 'Verified Employee', // Generic name since not enrolled
+            confidence: 0.92,
+            message: `Face matched (Mock Mode - Not Enrolled)`,
+          };
+        }
+      }
+
+      // No hint provided, use first enrolled employee
+      const matchedEmployee = storedEmbeddings[0];
       return {
         status: 'MATCHED',
-        employeeId: firstEmployee.employeeId,
-        employeeName: firstEmployee.employeeName,
+        employeeId: matchedEmployee.employeeId,
+        employeeName: matchedEmployee.employeeName,
         confidence: 0.92,
-        message: `Face matched: ${firstEmployee.employeeName} (Mock Mode)`,
+        message: `Face matched: ${matchedEmployee.employeeName} (Mock Mode)`,
       };
     }
 

@@ -5,130 +5,83 @@ import LeaveRequest from '../models/LeaveRequest';
 import LeaveBalance from '../models/LeaveBalance';
 import LeaveType from '../models/LeaveType';
 
-// Helper to get employee/user details - checks employees database first, then falls back to auth database
+// Helper to get employee/user details from employee database
 const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
-  let employeesConn: mongoose.Connection | null = null;
-  let authConn: mongoose.Connection | null = null;
+  const employeeMap = new Map();
+
+  if (!employeeIds || employeeIds.length === 0) {
+    return employeeMap;
+  }
 
   try {
-    if (!employeeIds || employeeIds.length === 0) {
-      return new Map();
-    }
-
+    // Connect to employees database
     const mongoUri = process.env.MONGODB_URI || '';
-    const employeesDbUri = mongoUri.replace('/hrm_leaves', '/hrm_employee');
-    const authDbUri = mongoUri.replace('/hrm_leaves', '/hrm_auth');
+    // For Cosmos DB, we need to specify the database name explicitly
+    const employeesConn = await mongoose.createConnection(mongoUri, {
+      dbName: 'hrm_employee',
+    }).asPromise();
 
-    // Convert string IDs to ObjectIds
+    const employeeSchema = new mongoose.Schema({
+      tenantId: mongoose.Schema.Types.ObjectId,
+      firstName: String,
+      lastName: String,
+      employeeCode: String,
+      email: String,
+      department: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
+    });
+
+    const Employee = employeesConn.model('Employee', employeeSchema);
+
+    // Convert string IDs to ObjectIds for query
     const objectIds = employeeIds.map(id => {
       try {
         return new mongoose.Types.ObjectId(id);
-      } catch (err) {
+      } catch {
         return null;
       }
-    }).filter((id): id is mongoose.Types.ObjectId => id !== null);
+    }).filter(id => id !== null);
 
-    if (objectIds.length === 0) {
-      return new Map();
+    console.log(`[Leave Service] Looking up employees with IDs: ${objectIds.map(id => id?.toString()).join(', ')}`);
+    console.log(`[Leave Service] TenantId for query: ${tenantId}`);
+
+    // First try with tenantId filter
+    let employees = await Employee.find({
+      _id: { $in: objectIds },
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+    }).select('_id firstName lastName employeeCode email tenantId').lean();
+
+    // If no results, try without tenantId filter (in case of mismatch)
+    if (employees.length === 0 && objectIds.length > 0) {
+      console.log(`[Leave Service] No employees found with tenantId filter, trying without...`);
+      employees = await Employee.find({
+        _id: { $in: objectIds },
+      }).select('_id firstName lastName employeeCode email tenantId').lean();
+
+      if (employees.length > 0) {
+        console.log(`[Leave Service] Found ${employees.length} employees without tenantId filter. Employee tenantIds: ${employees.map(e => e.tenantId?.toString()).join(', ')}`);
+      }
     }
 
-    const tenantObjectId = new mongoose.Types.ObjectId(tenantId);
-    const employeeMap = new Map();
-    const foundIds = new Set<string>();
+    await employeesConn.close();
 
-    // First, try to find in employees database
-    employeesConn = mongoose.createConnection(employeesDbUri);
-    await employeesConn.asPromise();
-
-    const employeesCollection = employeesConn.collection('employees');
-    const departmentsCollection = employeesConn.collection('departments');
-
-    // Search by both _id and userId
-    const employees = await employeesCollection.find({
-      tenantId: tenantObjectId,
-      $or: [
-        { _id: { $in: objectIds } },
-        { userId: { $in: objectIds } },
-      ],
-    }).toArray();
-
-    // Get department details
-    const deptIds = employees.map(e => e.departmentId).filter(Boolean);
-    const departments = deptIds.length > 0
-      ? await departmentsCollection.find({ _id: { $in: deptIds } }).toArray()
-      : [];
-    const deptMap = new Map(departments.map(d => [d._id.toString(), d]));
-
-    // Build map from employee records
+    // Build map
     for (const emp of employees) {
-      const dept = emp.departmentId ? deptMap.get(emp.departmentId.toString()) : null;
-      const employeeData = {
-        _id: emp._id,
-        firstName: emp.firstName,
-        lastName: emp.lastName,
-        employeeCode: emp.employeeCode,
-        email: emp.email,
-        department: dept ? { _id: dept._id, name: dept.name } : null,
-      };
-
-      employeeMap.set(emp._id.toString(), employeeData);
-      foundIds.add(emp._id.toString());
-      if (emp.userId) {
-        employeeMap.set(emp.userId.toString(), employeeData);
-        foundIds.add(emp.userId.toString());
-      }
+      employeeMap.set(emp._id.toString(), {
+        _id: emp._id.toString(),
+        firstName: emp.firstName || '',
+        lastName: emp.lastName || '',
+        employeeCode: emp.employeeCode || '',
+        email: emp.email || '',
+      });
     }
 
-    // Check which IDs were not found in employees database
-    const missingIds = objectIds.filter(id => !foundIds.has(id.toString()));
-
-    // Fallback to auth database for missing IDs (these might be user IDs without employee records)
-    if (missingIds.length > 0) {
-      authConn = mongoose.createConnection(authDbUri);
-      await authConn.asPromise();
-
-      const usersCollection = authConn.collection('users');
-      const users = await usersCollection.find({
-        tenantId: tenantObjectId,
-        _id: { $in: missingIds },
-      }).toArray();
-
-      for (const user of users) {
-        // Check if we already have this user via employeeId link
-        if (user.employeeId && foundIds.has(user.employeeId.toString())) {
-          // Link user ID to existing employee data
-          const existingData = employeeMap.get(user.employeeId.toString());
-          if (existingData) {
-            employeeMap.set(user._id.toString(), existingData);
-          }
-        } else {
-          // Create user data as fallback (no employee record exists)
-          const userData = {
-            _id: user._id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            employeeCode: null,
-            email: user.email,
-            department: null,
-          };
-          employeeMap.set(user._id.toString(), userData);
-        }
-      }
-    }
-
-    return employeeMap;
+    console.log(`[Leave Service] Fetched ${employees.length} employees for ${employeeIds.length} IDs`);
   } catch (error) {
     console.error('[Leave Service] Error fetching employee details:', error);
-    return new Map();
-  } finally {
-    // Always close connections
-    if (employeesConn) {
-      try { await employeesConn.close(); } catch (e) { /* ignore */ }
-    }
-    if (authConn) {
-      try { await authConn.close(); } catch (e) { /* ignore */ }
-    }
+    // Return empty map on error - will show "Unknown" in frontend
   }
+
+  return employeeMap;
 };
 
 // Create leave request
@@ -243,63 +196,61 @@ export const getLeaveRequests = async (req: Request, res: Response): Promise<voi
       leaveTypeId,
       startDate,
       endDate,
-      search,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
       page = 1,
       limit = 20
     } = req.query;
 
+    // Build simple query for Cosmos DB compatibility
     const query: Record<string, unknown> = { tenantId };
 
     if (employeeId) query.employeeId = employeeId;
     if (status) query.status = status;
     if (leaveTypeId) query.leaveTypeId = leaveTypeId;
 
-    if (startDate || endDate) {
-      if (startDate) {
-        query.startDate = { $gte: new Date(startDate as string) };
-      }
-      if (endDate) {
-        query.endDate = { $lte: new Date(endDate as string) };
-      }
+    if (startDate) {
+      query.startDate = { $gte: new Date(startDate as string) };
     }
-
-    // Text search on reason field
-    if (search) {
-      query.reason = { $regex: search, $options: 'i' };
+    if (endDate) {
+      query.endDate = { $lte: new Date(endDate as string) };
     }
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Dynamic sorting
-    const sortOptions: Record<string, 1 | -1> = {
-      [sortBy as string]: sortOrder === 'asc' ? 1 : -1,
-    };
+    // Fetch requests without complex sort or populate (Cosmos DB compatibility)
+    console.log('[Leave Service] Fetching leave requests with query:', JSON.stringify(query));
 
-    const [requests, total] = await Promise.all([
-      LeaveRequest.find(query)
-        .populate('leaveTypeId', 'name code')
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(Number(limit))
-        .lean(),
-      LeaveRequest.countDocuments(query),
-    ]);
+    const requests = await LeaveRequest.find(query)
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
 
-    // Fetch employee details
-    const employeeIds = requests.map(r => r.employeeId.toString());
-    const employeeMap = await getEmployeeDetails(employeeIds, tenantId);
+    console.log('[Leave Service] Found', requests.length, 'requests');
 
-    // Attach employee details to requests
-    const requestsWithEmployees = requests.map(request => {
-      const empId = request.employeeId.toString();
-      const employee = employeeMap.get(empId);
-      return {
-        ...request,
-        employee: employee || null,
-      };
-    });
+    const total = await LeaveRequest.countDocuments(query);
+    console.log('[Leave Service] Total count:', total);
+
+    // Try to fetch employee details, but don't fail if it doesn't work
+    let requestsWithEmployees = requests.map(request => ({
+      ...request,
+      employee: null,
+    }));
+
+    try {
+      const employeeIds = requests.map(r => r.employeeId.toString());
+      if (employeeIds.length > 0) {
+        const employeeMap = await getEmployeeDetails(employeeIds, tenantId);
+        requestsWithEmployees = requests.map(request => {
+          const empId = request.employeeId.toString();
+          const employee = employeeMap.get(empId);
+          return {
+            ...request,
+            employee: employee || null,
+          };
+        });
+      }
+    } catch (empError) {
+      console.error('[Leave Service] Error fetching employee details (continuing without):', empError);
+    }
 
     res.status(200).json({
       success: true,
@@ -768,27 +719,67 @@ export const updateLeaveBalance = async (req: Request, res: Response): Promise<v
 export const bulkInitializeBalances = async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
-    const { year = new Date().getFullYear() } = req.body;
+    const { year = new Date().getFullYear(), force = false } = req.body;
 
     // Fetch all employees from employees database
     const mongoUri = process.env.MONGODB_URI || '';
-    const employeesDbUri = mongoUri.replace('/hrm_leaves', '/hrm_employee');
-    const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+    // For Cosmos DB, we need to specify the database name explicitly
+    const employeesConn = await mongoose.createConnection(mongoUri, {
+      dbName: 'hrm_employee',
+    }).asPromise();
+    console.log(`[Leave Service] Connected to hrm_employee database`);
 
     const employeeSchema = new mongoose.Schema({
       tenantId: mongoose.Schema.Types.ObjectId,
       status: String,
+      firstName: String,
+      lastName: String,
     });
 
     const Employee = employeesConn.model('Employee', employeeSchema);
+
+    // Debug: count ALL employees in database (no filter)
+    const allInDb = await Employee.find({}).select('_id tenantId status').limit(10).lean();
+    console.log(`[Leave Service] Sample employees in DB: ${allInDb.length}, tenantIds: ${allInDb.map(e => e.tenantId?.toString()).join(', ')}`);
+
+    // Debug: count all employees for this tenant
+    const allEmployees = await Employee.find({
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+    }).select('_id firstName lastName status').lean();
+    console.log(`[Leave Service] Total employees for tenant ${tenantId}: ${allEmployees.length}`);
+    if (allEmployees.length > 0) {
+      console.log(`[Leave Service] Sample employee statuses: ${allEmployees.slice(0, 5).map(e => e.status).join(', ')}`);
+    }
+
     const employees = await Employee.find({
       tenantId: new mongoose.Types.ObjectId(tenantId),
       status: 'active',
-    }).select('_id').lean();
+    }).select('_id firstName lastName').lean();
+
+    console.log(`[Leave Service] Found ${employees.length} active employees for tenant ${tenantId}`);
+    console.log(`[Leave Service] Employee IDs: ${employees.map(e => e._id.toString()).join(', ')}`);
 
     await employeesConn.close();
 
     const leaveTypes = await LeaveType.find({ tenantId, isActive: true });
+    const validEmployeeIds = employees.map(e => e._id.toString());
+
+    // If force=true, delete orphaned balances (those with employeeIds that don't exist)
+    let deleted = 0;
+    if (force) {
+      // Get all existing balances for this tenant/year
+      const existingBalances = await LeaveBalance.find({ tenantId, year: Number(year) });
+
+      // Find and delete orphaned ones
+      for (const balance of existingBalances) {
+        if (!validEmployeeIds.includes(balance.employeeId.toString())) {
+          await LeaveBalance.deleteOne({ _id: balance._id });
+          deleted++;
+        }
+      }
+
+      console.log(`[Leave Service] Deleted ${deleted} orphaned leave balances`);
+    }
 
     let created = 0;
     let skipped = 0;
@@ -824,8 +815,8 @@ export const bulkInitializeBalances = async (req: Request, res: Response): Promi
 
     res.status(200).json({
       success: true,
-      message: `Initialized ${created} leave balances for ${employees.length} employees (${skipped} already existed)`,
-      data: { created, skipped, employeeCount: employees.length },
+      message: `Initialized ${created} leave balances for ${employees.length} employees (${skipped} already existed${deleted > 0 ? `, ${deleted} orphaned deleted` : ''})`,
+      data: { created, skipped, deleted, employeeCount: employees.length },
     });
   } catch (error) {
     console.error('[Leave Service] Bulk initialize error:', error);

@@ -127,10 +127,13 @@ const LeaveBalances: React.FC = () => {
     }
   };
 
-  const handleBulkInitialize = async () => {
+  const handleBulkInitialize = async (force = false) => {
     setIsInitializing(true);
     try {
-      await api.post('/leaves/balance/bulk-initialize', { year: selectedYear });
+      const response = await api.post('/leaves/balance/bulk-initialize', { year: selectedYear, force });
+      if (response.data?.message) {
+        alert(response.data.message);
+      }
       fetchBalances();
     } catch (error) {
       console.error('Failed to bulk initialize:', error);
@@ -335,12 +338,24 @@ const LeaveBalances: React.FC = () => {
               Add Employee
             </button>
             <button
-              onClick={handleBulkInitialize}
+              onClick={() => handleBulkInitialize(false)}
               disabled={isInitializing}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-purple-600 rounded-xl font-medium hover:bg-white/90 transition-all shadow-lg disabled:opacity-50"
             >
               <HiUserGroup className="w-5 h-5" />
               {isInitializing ? 'Initializing...' : 'Initialize All'}
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm('This will delete orphaned balances and reinitialize for all active employees. Continue?')) {
+                  handleBulkInitialize(true);
+                }
+              }}
+              disabled={isInitializing}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-all shadow-lg disabled:opacity-50"
+            >
+              <HiRefresh className="w-5 h-5" />
+              Fix & Reinitialize
             </button>
           </div>
         </div>
@@ -479,7 +494,7 @@ const LeaveBalances: React.FC = () => {
             Get started by initializing leave balances for all employees based on your configured leave types.
           </p>
           <button
-            onClick={handleBulkInitialize}
+            onClick={() => handleBulkInitialize(true)}
             disabled={isInitializing}
             className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all font-medium shadow-lg shadow-purple-500/25"
           >

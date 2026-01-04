@@ -20,7 +20,7 @@ import Geolocation from '@react-native-community/geolocation';
 import RNFS from 'react-native-fs';
 import {useQueryClient} from '@tanstack/react-query';
 
-import {useAuthStore, useEmployee} from '../../store/authStore';
+import {useAuthStore, useUser} from '../../store/authStore';
 import {attendanceApi, VerifyFaceResponse, GeofencingConfig} from '../../api/attendanceApi';
 import {handleApiError} from '../../api/apiClient';
 import {Colors} from '../../theme/colors';
@@ -36,7 +36,7 @@ type VerificationState = 'camera' | 'verifying' | 'matched' | 'confirming' | 'su
 export default function FaceCheckInScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
-  const employee = useEmployee();
+  const user = useUser();
   const queryClient = useQueryClient();
   const isDarkMode = useAuthStore(state => state.isDarkMode);
   const colors = isDarkMode ? Colors.dark : Colors.light;
@@ -230,12 +230,18 @@ export default function FaceCheckInScreen() {
         base64Image = `captured:${Date.now()}:${photo.path.split('/').pop()}`;
       }
 
-      console.log('[FaceCheckIn] Calling verify-face API...');
+      // Use employeeId from user object (set during mobile login)
+      // Get fresh user from store to avoid stale closure
+      const currentUser = useAuthStore.getState().user;
+      const employeeId = currentUser?.employeeId || currentUser?._id;
+      console.log('[FaceCheckIn] User object:', JSON.stringify(currentUser));
+      console.log('[FaceCheckIn] Calling verify-face API with employeeId:', employeeId);
 
       // Call verify-face API
       const verifyResponse = await attendanceApi.verifyFace({
         faceImage: base64Image,
         location: currentLocation,
+        employeeId: employeeId, // Send logged-in employee ID as hint for mock mode
       });
 
       console.log('[FaceCheckIn] Verify response:', verifyResponse);
@@ -277,7 +283,7 @@ export default function FaceCheckInScreen() {
     } finally {
       setIsCapturing(false);
     }
-  }, []);
+  }, [user, navigation]);
 
   const handleConfirmCheckIn = async () => {
     if (!matchedEmployee || !location) return;
@@ -542,7 +548,7 @@ export default function FaceCheckInScreen() {
             <View style={styles.infoItem}>
               <Icon name="account" size={20} color="rgba(255,255,255,0.8)" />
               <Text style={styles.infoText}>
-                {employee?.firstName} {employee?.lastName}
+                {user?.firstName} {user?.lastName}
               </Text>
             </View>
             <View style={styles.infoItem}>
