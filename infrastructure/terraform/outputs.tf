@@ -1,10 +1,11 @@
-# ===========================================
+# ============================================================================
 # HRM SaaS Platform - Terraform Outputs
-# ===========================================
+# Budget-Optimized Production Deployment
+# ============================================================================
 
-# ===========================================
-# RESOURCE GROUP
-# ===========================================
+# ============================================================================
+# Resource Group
+# ============================================================================
 
 output "resource_group_name" {
   description = "Name of the resource group"
@@ -16,185 +17,158 @@ output "resource_group_location" {
   value       = azurerm_resource_group.hrm.location
 }
 
-# ===========================================
-# AZURE CONTAINER REGISTRY
-# ===========================================
-
-output "acr_login_server" {
-  description = "ACR login server URL"
-  value       = azurerm_container_registry.hrm.login_server
+output "resource_group_id" {
+  description = "ID of the resource group"
+  value       = azurerm_resource_group.hrm.id
 }
 
-output "acr_admin_username" {
-  description = "ACR admin username"
-  value       = azurerm_container_registry.hrm.admin_username
-  sensitive   = true
+# ============================================================================
+# Networking
+# ============================================================================
+
+output "virtual_network_name" {
+  description = "Virtual network name"
+  value       = azurerm_virtual_network.hrm.name
 }
 
-output "acr_admin_password" {
-  description = "ACR admin password"
-  value       = azurerm_container_registry.hrm.admin_password
-  sensitive   = true
+output "virtual_network_id" {
+  description = "Virtual network ID"
+  value       = azurerm_virtual_network.hrm.id
 }
 
-# ===========================================
-# AZURE KUBERNETES SERVICE
-# ===========================================
+# ============================================================================
+# Summary Output (for quick reference)
+# ============================================================================
 
-output "aks_cluster_name" {
-  description = "Name of the AKS cluster"
-  value       = azurerm_kubernetes_cluster.hrm.name
+output "deployment_summary" {
+  description = "Summary of deployed resources and their endpoints"
+  value = {
+    # Frontend
+    frontend_url = "https://${azurerm_static_site.frontend.default_host_name}"
+
+    # API
+    api_gateway_url = "https://${azurerm_container_app.gateway.ingress[0].fqdn}"
+
+    # Database
+    cosmosdb_endpoint = azurerm_cosmosdb_account.hrm.endpoint
+
+    # Cache
+    redis_host = azurerm_redis_cache.hrm.hostname
+
+    # Storage
+    storage_endpoint = azurerm_storage_account.hrm.primary_blob_endpoint
+
+    # Monitoring
+    app_insights_name = azurerm_application_insights.hrm.name
+
+    # Key Vault
+    key_vault_uri = azurerm_key_vault.hrm.vault_uri
+
+    # Container Registry
+    acr_login_server = azurerm_container_registry.hrm.login_server
+  }
 }
 
-output "aks_cluster_id" {
-  description = "ID of the AKS cluster"
-  value       = azurerm_kubernetes_cluster.hrm.id
+# ============================================================================
+# CI/CD Pipeline Variables
+# ============================================================================
+
+output "cicd_variables" {
+  description = "Variables needed for CI/CD pipelines"
+  value = {
+    azure_resource_group     = azurerm_resource_group.hrm.name
+    azure_location           = azurerm_resource_group.hrm.location
+    acr_login_server         = azurerm_container_registry.hrm.login_server
+    container_app_env_name   = azurerm_container_app_environment.hrm.name
+    static_webapp_name       = azurerm_static_site.frontend.name
+    key_vault_name           = azurerm_key_vault.hrm.name
+  }
+  sensitive = false
 }
 
-output "aks_kube_config" {
-  description = "Kubernetes config for kubectl"
-  value       = azurerm_kubernetes_cluster.hrm.kube_config_raw
-  sensitive   = true
+output "cicd_secrets" {
+  description = "Secrets needed for CI/CD pipelines (store securely)"
+  value = {
+    acr_username                 = azurerm_container_registry.hrm.admin_username
+    static_webapp_deployment_key = azurerm_static_site.frontend.api_key
+  }
+  sensitive = true
 }
 
-output "aks_host" {
-  description = "AKS API server host"
-  value       = azurerm_kubernetes_cluster.hrm.kube_config[0].host
-  sensitive   = true
+# ============================================================================
+# Environment Variables for Services
+# ============================================================================
+
+output "service_env_vars" {
+  description = "Environment variables for microservices"
+  value = {
+    NODE_ENV                        = "production"
+    MONGODB_URI                     = "Use Key Vault secret: cosmosdb-connection-string"
+    REDIS_URL                       = "Use Key Vault secret: redis-connection-string"
+    STORAGE_CONNECTION_STRING       = "Use Key Vault secret: storage-connection-string"
+    JWT_ACCESS_SECRET               = "Use Key Vault secret: jwt-access-secret"
+    JWT_REFRESH_SECRET              = "Use Key Vault secret: jwt-refresh-secret"
+    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.hrm.connection_string
+  }
+  sensitive = true
 }
 
-output "aks_cluster_fqdn" {
-  description = "AKS cluster FQDN"
-  value       = azurerm_kubernetes_cluster.hrm.fqdn
+# ============================================================================
+# Cost Estimation
+# ============================================================================
+
+output "estimated_monthly_cost" {
+  description = "Estimated monthly cost breakdown"
+  value = {
+    static_web_app      = "$9/month (Standard tier)"
+    container_apps      = "$250-350/month (scale-to-zero enabled)"
+    cosmosdb_serverless = "$250-350/month (pay per RU consumed)"
+    redis_basic         = "$40/month (Basic C1)"
+    key_vault           = "$3/month (Standard)"
+    container_registry  = "$5/month (Basic)"
+    storage             = "$5-10/month (LRS)"
+    monitoring          = "$0/month (5GB free tier)"
+    total_estimated     = "$562-767/month"
+  }
 }
 
-# ===========================================
-# MONGODB (Internal - Deployed in AKS)
-# ===========================================
-# MongoDB is deployed within the AKS cluster using Bitnami Helm chart.
-# Connection string: mongodb://root:password@mongodb.hrm-production.svc.cluster.local:27017
-# Get password: kubectl get secret mongodb -n hrm-production -o jsonpath="{.data.mongodb-root-password}" | base64 -d
+# ============================================================================
+# Next Steps
+# ============================================================================
 
-# ===========================================
-# AZURE CACHE FOR REDIS
-# ===========================================
+output "next_steps" {
+  description = "Next steps after deployment"
+  value = <<-EOT
 
-output "redis_hostname" {
-  description = "Redis cache hostname"
-  value       = azurerm_redis_cache.hrm.hostname
-}
+    ========================================
+    HRM Platform Deployed Successfully!
+    ========================================
 
-output "redis_port" {
-  description = "Redis cache SSL port"
-  value       = azurerm_redis_cache.hrm.ssl_port
-}
+    Next Steps:
 
-output "redis_connection_string" {
-  description = "Redis connection string"
-  value       = azurerm_redis_cache.hrm.primary_connection_string
-  sensitive   = true
-}
+    1. Build and push Docker images:
+       az acr login --name ${azurerm_container_registry.hrm.name}
+       docker build -t ${azurerm_container_registry.hrm.login_server}/hrm-api-gateway:latest ./services/api-gateway
+       docker push ${azurerm_container_registry.hrm.login_server}/hrm-api-gateway:latest
 
-output "redis_primary_access_key" {
-  description = "Redis primary access key"
-  value       = azurerm_redis_cache.hrm.primary_access_key
-  sensitive   = true
-}
+    2. Deploy frontend to Static Web App:
+       cd frontend
+       npm run build
+       swa deploy ./dist --deployment-token <use cicd_secrets.static_webapp_deployment_key>
 
-# ===========================================
-# STORAGE ACCOUNT
-# ===========================================
+    3. Configure custom domain (optional):
+       - Add CNAME record pointing to: ${azurerm_static_site.frontend.default_host_name}
+       - Add API CNAME pointing to: ${azurerm_container_app.gateway.ingress[0].fqdn}
 
-output "storage_account_name" {
-  description = "Storage account name"
-  value       = azurerm_storage_account.hrm.name
-}
+    4. Update mobile app API URL:
+       - Update to: https://${azurerm_container_app.gateway.ingress[0].fqdn}/api
 
-output "storage_account_primary_key" {
-  description = "Storage account primary access key"
-  value       = azurerm_storage_account.hrm.primary_access_key
-  sensitive   = true
-}
+    5. Monitor your application:
+       - Azure Portal > Application Insights > ${azurerm_application_insights.hrm.name}
 
-output "storage_connection_string" {
-  description = "Storage account connection string"
-  value       = azurerm_storage_account.hrm.primary_connection_string
-  sensitive   = true
-}
+    6. Access secrets:
+       az keyvault secret list --vault-name ${azurerm_key_vault.hrm.name}
 
-output "storage_blob_endpoint" {
-  description = "Storage account blob endpoint"
-  value       = azurerm_storage_account.hrm.primary_blob_endpoint
-}
-
-# ===========================================
-# KEY VAULT
-# ===========================================
-
-output "key_vault_name" {
-  description = "Key Vault name"
-  value       = azurerm_key_vault.hrm.name
-}
-
-output "key_vault_uri" {
-  description = "Key Vault URI"
-  value       = azurerm_key_vault.hrm.vault_uri
-}
-
-# ===========================================
-# MONITORING
-# ===========================================
-
-output "log_analytics_workspace_id" {
-  description = "Log Analytics workspace ID"
-  value       = azurerm_log_analytics_workspace.hrm.id
-}
-
-output "application_insights_instrumentation_key" {
-  description = "Application Insights instrumentation key"
-  value       = azurerm_application_insights.hrm.instrumentation_key
-  sensitive   = true
-}
-
-output "application_insights_connection_string" {
-  description = "Application Insights connection string"
-  value       = azurerm_application_insights.hrm.connection_string
-  sensitive   = true
-}
-
-# ===========================================
-# NETWORKING
-# ===========================================
-
-output "app_gateway_public_ip" {
-  description = "Application Gateway public IP address"
-  value       = azurerm_public_ip.appgw.ip_address
-}
-
-output "app_gateway_fqdn" {
-  description = "Application Gateway FQDN"
-  value       = azurerm_public_ip.appgw.fqdn
-}
-
-# ===========================================
-# GENERATED SECRETS (Reference only)
-# ===========================================
-
-output "jwt_access_secret_key_vault_id" {
-  description = "Key Vault secret ID for JWT access secret"
-  value       = azurerm_key_vault_secret.jwt_access_secret.id
-}
-
-output "jwt_refresh_secret_key_vault_id" {
-  description = "Key Vault secret ID for JWT refresh secret"
-  value       = azurerm_key_vault_secret.jwt_refresh_secret.id
-}
-
-# ===========================================
-# KUBECTL CONFIGURATION COMMAND
-# ===========================================
-
-output "configure_kubectl" {
-  description = "Command to configure kubectl"
-  value       = "az aks get-credentials --resource-group ${azurerm_resource_group.hrm.name} --name ${azurerm_kubernetes_cluster.hrm.name}"
+    ========================================
+  EOT
 }

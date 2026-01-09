@@ -134,7 +134,7 @@ jobs:
       - name: Build Frontend
         run: |
           docker build \
-            --build-arg VITE_API_URL=https://hrm-api-gateway.nicewave-ff385b56.eastus.azurecontainerapps.io/api \
+            --build-arg VITE_API_URL=https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api \
             -t ${{ env.ACR_LOGIN_SERVER }}/hrm/frontend:${{ steps.tags.outputs.sha }} \
             -t ${{ env.ACR_LOGIN_SERVER }}/hrm/frontend:latest \
             -f frontend/Dockerfile frontend
@@ -149,7 +149,7 @@ jobs:
     needs: build-push
     environment:
       name: production
-      url: https://hrm-frontend.nicewave-ff385b56.eastus.azurecontainerapps.io
+      url: https://brave-cliff-0a9fb0400.1.azurestaticapps.net
 
     steps:
       - name: Azure Login

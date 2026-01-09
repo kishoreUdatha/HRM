@@ -3,13 +3,13 @@ import {useAuthStore} from '../store/authStore';
 import {authStorage} from '../services/authStorage';
 import type {ApiResponse, AuthTokens} from '../types';
 
-// API Base URL - Production deployment (Azure Container Apps)
+// API Base URL - Production deployment (Azure Container Apps - Central India)
 // Change this URL when switching between environments:
 // - Android Emulator: http://10.0.2.2:3000/api (emulator uses 10.0.2.2 for host machine)
 // - Physical Device: http://192.168.29.46:3000/api (use your computer's IP)
-// - Production (VM): http://135.171.160.105/api
-// - Azure Container Apps: https://hrm-api-gateway.nicewave-ff385b56.eastus.azurecontainerapps.io/api
-const API_BASE_URL = 'https://hrm-api-gateway.nicewave-ff385b56.eastus.azurecontainerapps.io/api';
+// - Local Development: http://localhost:3000/api
+// - Production (Azure): https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api
+const API_BASE_URL = 'https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api';
 
 if (__DEV__) {
   console.log('[API] Using base URL:', API_BASE_URL);
