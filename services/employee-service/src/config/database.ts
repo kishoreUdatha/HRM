@@ -4,9 +4,12 @@ const connectDB = async (): Promise<void> => {
   try {
     const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/hrm_employees';
 
-    await mongoose.connect(mongoURI);
+    // For CosmosDB, explicitly specify the database name
+    await mongoose.connect(mongoURI, {
+      dbName: 'hrm_employees',
+    });
 
-    console.log('[Employee Service] MongoDB connected successfully');
+    console.log('[Employee Service] MongoDB connected successfully to hrm_employees database');
 
     mongoose.connection.on('error', (err) => {
       console.error('[Employee Service] MongoDB connection error:', err);
