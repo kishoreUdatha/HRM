@@ -1,7 +1,8 @@
 # ===========================================
 # HRM SaaS Platform - Azure Container Apps CI/CD
 # ===========================================
-# Deploys to Azure Container Apps (consumption tier - scales to 0)
+# Deploys to Azure Container Apps (Central India - Terraform managed)
+# Infrastructure is managed by Terraform in /infrastructure/terraform
 
 name: Deploy to Azure
 
@@ -13,21 +14,25 @@ on:
     paths:
       - 'services/**'
       - 'frontend/**'
-      - 'docker-compose.yml'
   workflow_dispatch:
     inputs:
       deploy_all:
         description: 'Deploy all services'
         required: false
-        default: 'false'
+        default: 'true'
         type: boolean
 
 env:
-  AZURE_RESOURCE_GROUP: hrm-saas
-  ACR_NAME: hrmsaasacr
-  ACR_LOGIN_SERVER: hrmsaasacr.azurecr.io
-  CONTAINER_APP_ENV: hrm-env
-  LOCATION: eastus
+  # Terraform-deployed resources (Central India)
+  AZURE_RESOURCE_GROUP: hrm-production-rg
+  ACR_NAME: hrmproductionacrohshda
+  ACR_LOGIN_SERVER: hrmproductionacrohshda.azurecr.io
+  CONTAINER_APP_ENV: hrm-production-env
+  LOCATION: centralindia
+
+  # Production URLs
+  API_URL: https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api
+  FRONTEND_URL: https://brave-cliff-0a9fb0400.1.azurestaticapps.net
 
 jobs:
   # ===========================================
@@ -60,88 +65,96 @@ jobs:
           SHA=$(echo ${{ github.sha }} | cut -c1-7)
           echo "sha=$SHA" >> $GITHUB_OUTPUT
 
-      # Build core services in parallel
+      # ===========================================
+      # Build API Gateway
+      # ===========================================
       - name: Build API Gateway
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm/api-gateway:${{ steps.tags.outputs.sha }} \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/api-gateway:latest \
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-api-gateway:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-api-gateway:latest \
             -f services/api-gateway/Dockerfile services/api-gateway
-          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm/api-gateway --all-tags
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-api-gateway --all-tags
 
+      # ===========================================
+      # Build Core Services (Auth, Tenant, Employee)
+      # ===========================================
       - name: Build Auth Service
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm/auth-service:${{ steps.tags.outputs.sha }} \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/auth-service:latest \
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-auth-service:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-auth-service:latest \
             -f services/auth-service/Dockerfile services/auth-service
-          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm/auth-service --all-tags
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-auth-service --all-tags
 
       - name: Build Tenant Service
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm/tenant-service:${{ steps.tags.outputs.sha }} \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/tenant-service:latest \
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-tenant-service:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-tenant-service:latest \
             -f services/tenant-service/Dockerfile services/tenant-service
-          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm/tenant-service --all-tags
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-tenant-service --all-tags
 
       - name: Build Employee Service
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm/employee-service:${{ steps.tags.outputs.sha }} \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/employee-service:latest \
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-employee-service:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-employee-service:latest \
             -f services/employee-service/Dockerfile services/employee-service
-          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm/employee-service --all-tags
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-employee-service --all-tags
 
+      # ===========================================
+      # Build HR Services (Attendance, Leave, Timesheet)
+      # ===========================================
       - name: Build Attendance Service
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm/attendance-service:${{ steps.tags.outputs.sha }} \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/attendance-service:latest \
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-attendance-service:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-attendance-service:latest \
             -f services/attendance-service/Dockerfile services/attendance-service
-          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm/attendance-service --all-tags
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-attendance-service --all-tags
 
       - name: Build Leave Service
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm/leave-service:${{ steps.tags.outputs.sha }} \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/leave-service:latest \
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-leave-service:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-leave-service:latest \
             -f services/leave-service/Dockerfile services/leave-service
-          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm/leave-service --all-tags
-
-      - name: Build Payroll Service
-        run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm/payroll-service:${{ steps.tags.outputs.sha }} \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/payroll-service:latest \
-            -f services/payroll-service/Dockerfile services/payroll-service
-          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm/payroll-service --all-tags
-
-      - name: Build Notification Service
-        run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm/notification-service:${{ steps.tags.outputs.sha }} \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/notification-service:latest \
-            -f services/notification-service/Dockerfile services/notification-service
-          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm/notification-service --all-tags
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-leave-service --all-tags
 
       - name: Build Timesheet Service
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm/timesheet-service:${{ steps.tags.outputs.sha }} \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/timesheet-service:latest \
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-timesheet-service:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-timesheet-service:latest \
             -f services/timesheet-service/Dockerfile services/timesheet-service
-          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm/timesheet-service --all-tags
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-timesheet-service --all-tags
 
+      # ===========================================
+      # Build Payroll Services
+      # ===========================================
+      - name: Build Payroll Service
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-payroll-service:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-payroll-service:latest \
+            -f services/payroll-service/Dockerfile services/payroll-service
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-payroll-service --all-tags
+
+      # ===========================================
+      # Build Communication Services
+      # ===========================================
+      - name: Build Notification Service
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-notification-service:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-notification-service:latest \
+            -f services/notification-service/Dockerfile services/notification-service
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-notification-service --all-tags
+
+      # ===========================================
+      # Build Workforce Services
+      # ===========================================
       - name: Build Onboarding Service
         run: |
-          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm/onboarding-service:${{ steps.tags.outputs.sha }} \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/onboarding-service:latest \
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-onboarding-service:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-onboarding-service:latest \
             -f services/onboarding-service/Dockerfile services/onboarding-service
-          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm/onboarding-service --all-tags
-
-      - name: Build Frontend
-        run: |
-          docker build \
-            --build-arg VITE_API_URL=https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/frontend:${{ steps.tags.outputs.sha }} \
-            -t ${{ env.ACR_LOGIN_SERVER }}/hrm/frontend:latest \
-            -f frontend/Dockerfile frontend
-          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm/frontend --all-tags
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-onboarding-service --all-tags
 
   # ===========================================
-  # DEPLOY TO AZURE CONTAINER APPS
+  # UPDATE CONTAINER APPS (Terraform-managed)
   # ===========================================
   deploy:
     name: Deploy
@@ -157,282 +170,68 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy API Gateway
+      - name: Update API Gateway
         run: |
-          # Get the environment's default domain for internal service URLs
-          ENV_DOMAIN=$(az containerapp env show --name ${{ env.CONTAINER_APP_ENV }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.defaultDomain" -o tsv)
-
-          # Internal services use HTTPS with .internal prefix
-          INTERNAL_DOMAIN="internal.${ENV_DOMAIN}"
-
-          az containerapp create \
-            --name hrm-api-gateway \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --environment ${{ env.CONTAINER_APP_ENV }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/api-gateway:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 3000 \
-            --ingress external \
-            --registry-server ${{ env.ACR_LOGIN_SERVER }} \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
-            --cpu 0.5 --memory 1.0Gi \
-            --min-replicas 0 --max-replicas 5 \
-            --env-vars \
-              "NODE_ENV=production" \
-              "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
-              "REDIS_URL=${{ secrets.REDIS_URL }}" \
-              "ADDITIONAL_CORS_ORIGINS=https://hrm-frontend.${ENV_DOMAIN}" \
-              "AUTH_SERVICE_URL=https://hrm-auth-service.${INTERNAL_DOMAIN}" \
-              "TENANT_SERVICE_URL=https://hrm-tenant-service.${INTERNAL_DOMAIN}" \
-              "EMPLOYEE_SERVICE_URL=https://hrm-employee-service.${INTERNAL_DOMAIN}" \
-              "ATTENDANCE_SERVICE_URL=https://hrm-attendance-service.${INTERNAL_DOMAIN}" \
-              "LEAVE_SERVICE_URL=https://hrm-leave-service.${INTERNAL_DOMAIN}" \
-              "PAYROLL_SERVICE_URL=https://hrm-payroll-service.${INTERNAL_DOMAIN}" \
-              "NOTIFICATION_SERVICE_URL=https://hrm-notification-service.${INTERNAL_DOMAIN}" \
-              "TIMESHEET_SERVICE_URL=https://hrm-timesheet-service.${INTERNAL_DOMAIN}" \
-              "ONBOARDING_SERVICE_URL=https://hrm-onboarding-service.${INTERNAL_DOMAIN}" \
-            2>/dev/null || \
           az containerapp update \
-            --name hrm-api-gateway \
+            --name hrm-production-gateway \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/api-gateway:${{ needs.build-push.outputs.image_tag }} \
-            --set-env-vars \
-              "ADDITIONAL_CORS_ORIGINS=https://hrm-frontend.${ENV_DOMAIN}" \
-              "AUTH_SERVICE_URL=https://hrm-auth-service.${INTERNAL_DOMAIN}" \
-              "TENANT_SERVICE_URL=https://hrm-tenant-service.${INTERNAL_DOMAIN}" \
-              "EMPLOYEE_SERVICE_URL=https://hrm-employee-service.${INTERNAL_DOMAIN}" \
-              "ATTENDANCE_SERVICE_URL=https://hrm-attendance-service.${INTERNAL_DOMAIN}" \
-              "LEAVE_SERVICE_URL=https://hrm-leave-service.${INTERNAL_DOMAIN}" \
-              "PAYROLL_SERVICE_URL=https://hrm-payroll-service.${INTERNAL_DOMAIN}" \
-              "NOTIFICATION_SERVICE_URL=https://hrm-notification-service.${INTERNAL_DOMAIN}" \
-              "TIMESHEET_SERVICE_URL=https://hrm-timesheet-service.${INTERNAL_DOMAIN}" \
-              "ONBOARDING_SERVICE_URL=https://hrm-onboarding-service.${INTERNAL_DOMAIN}"
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-api-gateway:${{ needs.build-push.outputs.image_tag }}
 
-      - name: Deploy Auth Service
+      - name: Update Core Services
         run: |
-          az containerapp create \
-            --name hrm-auth-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --environment ${{ env.CONTAINER_APP_ENV }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/auth-service:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 3001 \
-            --ingress internal \
-            --registry-server ${{ env.ACR_LOGIN_SERVER }} \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
-            --cpu 0.25 --memory 0.5Gi \
-            --min-replicas 0 --max-replicas 3 \
-            --env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
-            2>/dev/null || \
-          az containerapp update \
-            --name hrm-auth-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/auth-service:${{ needs.build-push.outputs.image_tag }} \
-            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
-
-      - name: Deploy Tenant Service
-        run: |
-          az containerapp create \
-            --name hrm-tenant-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --environment ${{ env.CONTAINER_APP_ENV }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/tenant-service:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 3002 \
-            --ingress internal \
-            --registry-server ${{ env.ACR_LOGIN_SERVER }} \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
-            --cpu 0.25 --memory 0.5Gi \
-            --min-replicas 0 --max-replicas 3 \
-            --env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
-            2>/dev/null || \
-          az containerapp update \
-            --name hrm-tenant-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/tenant-service:${{ needs.build-push.outputs.image_tag }} \
-            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
-
-      - name: Deploy Employee Service
-        run: |
-          az containerapp create \
-            --name hrm-employee-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --environment ${{ env.CONTAINER_APP_ENV }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/employee-service:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 3003 \
-            --ingress internal \
-            --registry-server ${{ env.ACR_LOGIN_SERVER }} \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
-            --cpu 0.25 --memory 0.5Gi \
-            --min-replicas 0 --max-replicas 3 \
-            --env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
-            2>/dev/null || \
-          az containerapp update \
-            --name hrm-employee-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/employee-service:${{ needs.build-push.outputs.image_tag }} \
-            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
-
-      - name: Deploy Attendance Service
-        run: |
-          az containerapp create \
-            --name hrm-attendance-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --environment ${{ env.CONTAINER_APP_ENV }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/attendance-service:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 3004 \
-            --ingress internal \
-            --registry-server ${{ env.ACR_LOGIN_SERVER }} \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
-            --cpu 0.25 --memory 0.5Gi \
-            --min-replicas 0 --max-replicas 3 \
-            --env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
-            2>/dev/null || \
-          az containerapp update \
-            --name hrm-attendance-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/attendance-service:${{ needs.build-push.outputs.image_tag }} \
-            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
-
-      - name: Deploy Leave Service
-        run: |
-          az containerapp create \
-            --name hrm-leave-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --environment ${{ env.CONTAINER_APP_ENV }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/leave-service:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 3005 \
-            --ingress internal \
-            --registry-server ${{ env.ACR_LOGIN_SERVER }} \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
-            --cpu 0.25 --memory 0.5Gi \
-            --min-replicas 0 --max-replicas 3 \
-            --env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
-            2>/dev/null || \
-          az containerapp update \
-            --name hrm-leave-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/leave-service:${{ needs.build-push.outputs.image_tag }} \
-            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
-
-      - name: Deploy Payroll Service
-        run: |
-          az containerapp create \
-            --name hrm-payroll-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --environment ${{ env.CONTAINER_APP_ENV }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/payroll-service:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 3006 \
-            --ingress internal \
-            --registry-server ${{ env.ACR_LOGIN_SERVER }} \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
-            --cpu 0.25 --memory 0.5Gi \
-            --min-replicas 0 --max-replicas 3 \
-            --env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
-            2>/dev/null || \
-          az containerapp update \
-            --name hrm-payroll-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/payroll-service:${{ needs.build-push.outputs.image_tag }} \
-            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
-
-      - name: Deploy Notification Service
-        run: |
-          az containerapp create \
-            --name hrm-notification-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --environment ${{ env.CONTAINER_APP_ENV }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/notification-service:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 3007 \
-            --ingress internal \
-            --registry-server ${{ env.ACR_LOGIN_SERVER }} \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
-            --cpu 0.25 --memory 0.5Gi \
-            --min-replicas 0 --max-replicas 3 \
-            --env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
-            2>/dev/null || \
-          az containerapp update \
-            --name hrm-notification-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/notification-service:${{ needs.build-push.outputs.image_tag }} \
-            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
-
-      - name: Deploy Timesheet Service
-        run: |
-          az containerapp create \
-            --name hrm-timesheet-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --environment ${{ env.CONTAINER_APP_ENV }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/timesheet-service:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 3024 \
-            --ingress internal \
-            --registry-server ${{ env.ACR_LOGIN_SERVER }} \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
-            --cpu 0.25 --memory 0.5Gi \
-            --min-replicas 0 --max-replicas 3 \
-            --env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
-            2>/dev/null || \
-          az containerapp update \
-            --name hrm-timesheet-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/timesheet-service:${{ needs.build-push.outputs.image_tag }} \
-            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
-
-      - name: Deploy Onboarding Service
-        run: |
-          az containerapp create \
-            --name hrm-onboarding-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --environment ${{ env.CONTAINER_APP_ENV }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/onboarding-service:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 3021 \
-            --ingress internal \
-            --registry-server ${{ env.ACR_LOGIN_SERVER }} \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
-            --cpu 0.25 --memory 0.5Gi \
-            --min-replicas 0 --max-replicas 3 \
-            --env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}" \
-            2>/dev/null || \
-          az containerapp update \
-            --name hrm-onboarding-service \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/onboarding-service:${{ needs.build-push.outputs.image_tag }} \
-            --set-env-vars "NODE_ENV=production" "MONGODB_URI=${{ secrets.MONGODB_URI }}"
-
-      - name: Deploy Frontend
-        run: |
-          az containerapp create \
-            --name hrm-frontend \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --environment ${{ env.CONTAINER_APP_ENV }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/frontend:${{ needs.build-push.outputs.image_tag }} \
-            --target-port 8080 \
-            --ingress external \
-            --registry-server ${{ env.ACR_LOGIN_SERVER }} \
-            --registry-username ${{ secrets.ACR_USERNAME }} \
-            --registry-password ${{ secrets.ACR_PASSWORD }} \
-            --cpu 0.25 --memory 0.5Gi \
-            --min-replicas 0 --max-replicas 3 \
-            2>/dev/null || \
-          az containerapp update \
-            --name hrm-frontend \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm/frontend:${{ needs.build-push.outputs.image_tag }}
+          # Note: Terraform creates consolidated Container Apps
+          # For now, update the gateway which handles routing
+          echo "Core services are consolidated in Terraform-managed Container Apps"
+          echo "Update hrm-production-core if using consolidated services"
 
       - name: Get Deployment URLs
         run: |
           echo "## Deployment URLs" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          FRONTEND_URL=$(az containerapp show --name hrm-frontend --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null || echo "pending")
-          API_URL=$(az containerapp show --name hrm-api-gateway --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null || echo "pending")
+          API_FQDN=$(az containerapp show --name hrm-production-gateway --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null || echo "pending")
 
-          echo "- **Frontend**: https://$FRONTEND_URL" >> $GITHUB_STEP_SUMMARY
-          echo "- **API Gateway**: https://$API_URL" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend (Static Web App)**: ${{ env.FRONTEND_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **API Gateway**: https://$API_FQDN" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Container Apps Status" >> $GITHUB_STEP_SUMMARY
+          az containerapp list --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "[].{Name:name, Status:properties.runningStatus}" -o table >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================
+  # DEPLOY FRONTEND TO STATIC WEB APP
+  # ===========================================
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: build-push
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_URL: ${{ env.API_URL }}
+        run: npm run build
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "frontend"
+          output_location: "dist"
+          skip_app_build: true
