@@ -18,7 +18,7 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
     const mongoUri = process.env.MONGODB_URI || '';
     // For Cosmos DB, we need to specify the database name explicitly
     const employeesConn = await mongoose.createConnection(mongoUri, {
-      dbName: 'hrm_employee',
+      dbName: 'hrm_employees',
     }).asPromise();
 
     const employeeSchema = new mongoose.Schema({
@@ -725,9 +725,9 @@ export const bulkInitializeBalances = async (req: Request, res: Response): Promi
     const mongoUri = process.env.MONGODB_URI || '';
     // For Cosmos DB, we need to specify the database name explicitly
     const employeesConn = await mongoose.createConnection(mongoUri, {
-      dbName: 'hrm_employee',
+      dbName: 'hrm_employees',
     }).asPromise();
-    console.log(`[Leave Service] Connected to hrm_employee database`);
+    console.log(`[Leave Service] Connected to hrm_employees database`);
 
     const employeeSchema = new mongoose.Schema({
       tenantId: mongoose.Schema.Types.ObjectId,
