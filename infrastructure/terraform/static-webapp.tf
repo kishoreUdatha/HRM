@@ -69,20 +69,10 @@ output "static_webapp_api_key" {
 output "custom_domain_validation_token" {
   description = "DNS TXT record value for domain validation (add as TXT record for apex domain)"
   value       = var.domain_name != "" ? azurerm_static_site_custom_domain.apex[0].validation_token : null
+  sensitive   = true
 }
 
-output "custom_domain_dns_instructions" {
-  description = "DNS configuration instructions"
-  value       = var.domain_name != "" ? <<-EOT
-    DNS Configuration for ${var.domain_name}:
-
-    1. Apex Domain (${var.domain_name}):
-       - Add TXT record: @ -> ${azurerm_static_site_custom_domain.apex[0].validation_token}
-       - Add ALIAS/ANAME record: @ -> ${azurerm_static_site.frontend.default_host_name}
-       (or use Azure DNS Zone for apex domain support)
-
-    2. WWW Subdomain (www.${var.domain_name}):
-       - Add CNAME record: www -> ${azurerm_static_site.frontend.default_host_name}
-  EOT
-  : null
+output "custom_domain_cname_target" {
+  description = "CNAME target for custom domain configuration"
+  value       = azurerm_static_site.frontend.default_host_name
 }
