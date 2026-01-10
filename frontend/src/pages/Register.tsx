@@ -103,13 +103,37 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+    <div className="min-h-screen bg-gradient-to-br from-secondary-900 via-purple-950 to-secondary-900 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Decorations */}
+      <div className="absolute top-20 left-10 w-72 h-72 bg-hrzi-cyan/20 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-20 right-10 w-96 h-96 bg-hrzi-purple/20 rounded-full blur-3xl"></div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-hrzi-magenta/10 rounded-full blur-3xl"></div>
+
+      <div className="relative w-full max-w-lg">
+        {/* Back to Home */}
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-white/60 hover:text-white mb-6 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Home
+        </Link>
+
+        <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-purple-500/20 p-8 border border-white/20">
           {/* Header */}
           <div className="text-center mb-8">
+            <div className="flex justify-center mb-4">
+              <div className="relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-hrzi-cyan via-hrzi-blue to-hrzi-purple rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/30">
+                  <span className="text-white font-bold text-2xl">H</span>
+                </div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-hrzi-magenta rounded-full animate-pulse"></div>
+              </div>
+            </div>
             <h1 className="text-3xl font-bold text-secondary-900">Create Your Organization</h1>
-            <p className="text-secondary-500 mt-2">Start your 14-day free trial</p>
+            <p className="text-secondary-500 mt-2">Start your 14-day free trial with <span className="bg-gradient-to-r from-hrzi-blue to-hrzi-purple bg-clip-text text-transparent font-semibold">HRZIO</span></p>
           </div>
 
           {/* Form */}
@@ -239,7 +263,7 @@ const Register: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading || slugAvailable === false}
-              className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center"
+              className="w-full bg-gradient-to-r from-hrzi-blue via-hrzi-purple to-hrzi-magenta hover:shadow-lg hover:shadow-purple-500/30 text-white font-medium py-3 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center"
             >
               {isLoading ? (
                 <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
@@ -255,7 +279,7 @@ const Register: React.FC = () => {
           {/* Login Link */}
           <p className="mt-6 text-center text-secondary-600">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary-600 hover:text-primary-700 font-medium">
+            <Link to="/login" className="text-hrzi-purple hover:text-hrzi-magenta font-semibold transition-colors">
               Sign in
             </Link>
           </p>

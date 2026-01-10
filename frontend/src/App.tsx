@@ -9,6 +9,11 @@ import { checkAuth } from './features/auth/authSlice';
 import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
+// Landing Page
+import LandingPage from './pages/LandingPage';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+
 // Pages
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -97,15 +102,23 @@ const AppRoutes: React.FC = () => {
 
   return (
     <Routes>
+      {/* Public Landing Page */}
+      <Route
+        path="/"
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />}
+      />
+
       {/* Public Routes */}
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/" replace /> : <Login />}
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />}
       />
       <Route
         path="/register"
-        element={isAuthenticated ? <Navigate to="/" replace /> : <Register />}
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />}
       />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
 
       {/* Protected Routes */}
       <Route
@@ -116,7 +129,7 @@ const AppRoutes: React.FC = () => {
         }
       >
         {/* Dashboard - accessible to all authenticated users */}
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
 
         {/* Employee Management - requires employees:read */}
         <Route path="/employees" element={
