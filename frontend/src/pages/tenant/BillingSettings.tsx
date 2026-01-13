@@ -17,6 +17,7 @@ import {
   HiLightningBolt,
   HiStar,
 } from 'react-icons/hi';
+import api from '../../services/api';
 
 interface Plan {
   id: string;
@@ -147,28 +148,17 @@ const BillingSettings: React.FC = () => {
   const fetchBillingData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      };
 
       // Fetch current subscription
-      const subResponse = await fetch('/api/billing/subscriptions/current', { headers });
-      if (subResponse.ok) {
-        const subData = await subResponse.json();
-        if (subData.success && subData.data) {
-          setSubscription(subData.data);
-        }
+      const subResponse = await api.get('/billing/subscriptions/current');
+      if (subResponse.data.success && subResponse.data.data) {
+        setSubscription(subResponse.data.data);
       }
 
       // Fetch invoices
-      const invResponse = await fetch('/api/billing/invoices', { headers });
-      if (invResponse.ok) {
-        const invData = await invResponse.json();
-        if (invData.success) {
-          setInvoices(invData.data || []);
-        }
+      const invResponse = await api.get('/billing/invoices');
+      if (invResponse.data.success) {
+        setInvoices(invResponse.data.data || []);
       }
     } catch (error) {
       console.error('Error fetching billing data:', error);
@@ -182,21 +172,13 @@ const BillingSettings: React.FC = () => {
 
     try {
       setUpgradeLoading(planId);
-      const token = localStorage.getItem('token');
 
-      const response = await fetch('/api/billing/subscriptions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          plan: planId,
-          billingCycle,
-        }),
+      const response = await api.post('/billing/subscriptions', {
+        plan: planId,
+        billingCycle,
       });
 
-      const data = await response.json();
+      const data = response.data;
 
       if (data.success && data.data?.razorpayOrderId) {
         // Initialize Razorpay payment
@@ -213,20 +195,13 @@ const BillingSettings: React.FC = () => {
             razorpay_signature: string;
           }) {
             // Verify payment
-            const verifyResponse = await fetch('/api/billing/verify-payment', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                razorpayOrderId: response.razorpay_order_id,
-                razorpayPaymentId: response.razorpay_payment_id,
-                razorpaySignature: response.razorpay_signature,
-              }),
+            const verifyResponse = await api.post('/billing/verify-payment', {
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
             });
 
-            const verifyData = await verifyResponse.json();
+            const verifyData = verifyResponse.data;
             if (verifyData.success) {
               alert('Payment successful! Your subscription has been activated.');
               fetchBillingData();
@@ -261,16 +236,9 @@ const BillingSettings: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/billing/subscriptions/cancel', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.post('/billing/subscriptions/cancel');
 
-      const data = await response.json();
+      const data = response.data;
       if (data.success) {
         alert('Subscription cancelled. You will have access until the end of your billing period.');
         fetchBillingData();

@@ -21,7 +21,7 @@ if (!ACCESS_SECRET || !REFRESH_SECRET) {
 }
 
 export const generateTokens = (payload: JwtPayload): TokenPair => {
-  const accessToken = jwt.sign(payload, ACCESS_SECRET, { expiresIn: '15m' });
+  const accessToken = jwt.sign(payload, ACCESS_SECRET, { expiresIn: '24h' });
   const refreshToken = jwt.sign(payload, REFRESH_SECRET, { expiresIn: '7d' });
 
   return { accessToken, refreshToken };
@@ -36,7 +36,7 @@ export const verifyRefreshToken = (token: string): JwtPayload => {
 };
 
 export const generateAccessToken = (payload: JwtPayload): string => {
-  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: '15m' });
+  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: '24h' });
 };
 
 export const decodeToken = (token: string): JwtPayload | null => {

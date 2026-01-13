@@ -8,6 +8,8 @@ import mongoose from 'mongoose';
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
+    console.log('[getUsers] TenantId:', tenantId);
+
     const { role, status, search, page = 1, limit = 20 } = req.query;
 
     const query: Record<string, unknown> = { tenantId };
@@ -80,6 +82,25 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
     const tenantId = req.headers['x-tenant-id'] as string;
     const adminUserId = req.headers['x-user-id'] as string;
     const { email, password, firstName, lastName, role, employeeId } = req.body;
+
+    console.log('[createUser] Request body:', { email, firstName, lastName, role, hasPassword: !!password });
+    console.log('[createUser] Headers:', { tenantId, adminUserId });
+
+    // Validate required fields
+    if (!email || !password || !firstName || !lastName || !role) {
+      res.status(400).json({
+        success: false,
+        message: 'Missing required fields',
+        missing: {
+          email: !email,
+          password: !password,
+          firstName: !firstName,
+          lastName: !lastName,
+          role: !role
+        }
+      });
+      return;
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ email: email.toLowerCase() });
@@ -422,6 +443,7 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
 export const getUserStats = async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
+    console.log('[getUserStats] TenantId:', tenantId, 'Type:', typeof tenantId);
 
     const [totalUsers, byRole, byStatus, recentLogins] = await Promise.all([
       User.countDocuments({ tenantId }),
