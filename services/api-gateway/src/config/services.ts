@@ -89,6 +89,35 @@ export const services: ServiceConfig[] = [
     timeout: 30000,
     requiresAuth: false,
   },
+  // Protected auth routes (me, change-password, etc.)
+  {
+    name: 'auth-protected-service',
+    url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+    pathPrefix: '/api/auth/me',
+    targetPath: '/me',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication
+  },
+  {
+    name: 'auth-change-password',
+    url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+    pathPrefix: '/api/auth/change-password',
+    targetPath: '/change-password',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication
+  },
+  {
+    name: 'auth-users',
+    url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+    pathPrefix: '/api/auth/users',
+    targetPath: '/users',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication
+  },
+  // Public auth routes (login, register, refresh) - MUST come after protected routes
   {
     name: 'auth-service',
     url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
@@ -96,7 +125,7 @@ export const services: ServiceConfig[] = [
     targetPath: '',
     healthCheck: '/health',
     timeout: 30000,
-    requiresAuth: false,  // Public - login/register endpoints
+    requiresAuth: false,  // Public - login/register/refresh endpoints
   },
   // Tenant admin routes (super admin only) - must come before public tenant routes
   {
