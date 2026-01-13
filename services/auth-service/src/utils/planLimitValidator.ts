@@ -44,9 +44,17 @@ async function getTenantPlan(tenantId: string): Promise<string | null> {
 async function getPlanLimits(planCode: string): Promise<PlanLimits | null> {
   try {
     const billingServiceUrl = process.env.BILLING_SERVICE_URL || 'http://localhost:3027';
-    const response = await axios.get(`${billingServiceUrl}/api/billing/admin/plans/${planCode}`);
+    // Use public plans endpoint instead of admin endpoint (no auth required)
+    const response = await axios.get(`${billingServiceUrl}/api/billing/plans`);
 
-    const plan = response.data.data;
+    const plans = response.data.data;
+    const plan = plans.find((p: any) => p.planCode === planCode);
+
+    if (!plan) {
+      console.error(`[PlanLimitValidator] Plan '${planCode}' not found in billing service`);
+      return null;
+    }
+
     return plan.limits;
   } catch (error) {
     console.error('[PlanLimitValidator] Failed to fetch plan limits from database:', error);
