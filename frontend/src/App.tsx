@@ -111,7 +111,7 @@ const AppRoutes: React.FC = () => {
       {/* Public Routes */}
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />}
+        element={<Login />}
       />
       <Route
         path="/register"
