@@ -154,6 +154,16 @@ jobs:
             -f services/onboarding-service/Dockerfile services/onboarding-service
           docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-onboarding-service --all-tags
 
+      # ===========================================
+      # Build Billing Service
+      # ===========================================
+      - name: Build Billing Service
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-billing-service:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-billing-service:latest \
+            -f services/billing-service/Dockerfile services/billing-service
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-billing-service --all-tags
+
   # ===========================================
   # UPDATE CONTAINER APPS (Terraform-managed)
   # ===========================================
@@ -211,6 +221,9 @@ jobs:
 
           az containerapp update --name hrm-onboarding-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-onboarding-service:$IMAGE_TAG &
+
+          az containerapp update --name hrm-billing-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-billing-service:$IMAGE_TAG &
 
           # Wait for all background updates to complete
           wait
