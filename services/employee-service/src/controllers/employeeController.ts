@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Employee from '../models/Employee';
 import { peekNextSequence } from '../models/Counter';
 import { publishEvent } from '../config/rabbitmq';
+import { validateEmployeeLimit } from '../utils/planLimitValidator';
 
 // Get all employees for tenant
 export const getAllEmployees = async (
@@ -122,6 +123,18 @@ export const createEmployee = async (
 
     if (!tenantId) {
       res.status(400).json({ success: false, message: 'Tenant ID required' });
+      return;
+    }
+
+    // Validate plan limits before creating employee
+    try {
+      await validateEmployeeLimit(tenantId);
+    } catch (limitError) {
+      res.status(403).json({
+        success: false,
+        message: limitError instanceof Error ? limitError.message : 'Employee limit exceeded',
+        code: 'PLAN_LIMIT_EXCEEDED',
+      });
       return;
     }
 

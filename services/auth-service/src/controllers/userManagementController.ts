@@ -3,6 +3,7 @@ import User from '../models/User';
 import { createAuditLog } from './auditController';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
+import { validateAdminLimit, validateUserLimit } from '../utils/planLimitValidator';
 
 // Get all users for tenant with filtering
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
@@ -104,6 +105,24 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
           lastName: !lastName,
           role: !role
         }
+      });
+      return;
+    }
+
+    // Validate plan limits before creating user
+    try {
+      // First check overall user limit
+      await validateUserLimit(tenantId);
+
+      // If creating an admin, check admin limit too
+      if (role === 'admin' || role === 'owner') {
+        await validateAdminLimit(tenantId);
+      }
+    } catch (limitError) {
+      res.status(403).json({
+        success: false,
+        message: limitError instanceof Error ? limitError.message : 'Plan limit exceeded',
+        code: 'PLAN_LIMIT_EXCEEDED',
       });
       return;
     }

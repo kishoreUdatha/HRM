@@ -3,6 +3,7 @@ import crypto from 'crypto';
 
 // Plan pricing configuration (in paise - 100 paise = 1 INR)
 export const PLAN_PRICING = {
+  trial: { monthly: 0, yearly: 0 }, // 14-day trial - free
   free: { monthly: 0, yearly: 0 },
   starter: { monthly: 149900, yearly: 1499000 }, // ₹1,499/mo or ₹14,990/yr
   professional: { monthly: 399900, yearly: 3999000 }, // ₹3,999/mo or ₹39,990/yr
@@ -11,20 +12,29 @@ export const PLAN_PRICING = {
 
 // Plan features
 export const PLAN_FEATURES = {
+  trial: {
+    employeeLimit: 5,
+    adminLimit: 1,
+    features: ['Basic HR', 'Leave Management', 'Attendance', '14-day trial'],
+  },
   free: {
     employeeLimit: 10,
+    adminLimit: 1,
     features: ['Basic HR', 'Leave Management', 'Attendance'],
   },
   starter: {
     employeeLimit: 50,
+    adminLimit: 3,
     features: ['All Free features', 'Payroll', 'Reports', 'Email Support'],
   },
   professional: {
     employeeLimit: 200,
+    adminLimit: 10,
     features: ['All Starter features', 'Performance Management', 'Recruitment', 'API Access', 'Priority Support'],
   },
   enterprise: {
     employeeLimit: -1, // Unlimited
+    adminLimit: 100,
     features: ['All Professional features', 'Custom Integrations', 'SSO', 'Dedicated Support', 'SLA'],
   },
 };

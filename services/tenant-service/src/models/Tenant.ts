@@ -217,6 +217,7 @@ tenantSchema.pre('save', function () {
   // Set subscription features based on plan
   if (this.isModified('subscription.plan')) {
     const planFeatures: Record<string, string[]> = {
+      trial: ['employees', 'attendance', 'basic_leaves'],  // Trial has same features as free
       free: ['employees', 'attendance', 'basic_leaves'],
       starter: ['employees', 'attendance', 'leaves', 'basic_payroll', 'reports'],
       professional: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access'],
@@ -224,6 +225,7 @@ tenantSchema.pre('save', function () {
     };
 
     const planLimits: Record<string, { maxEmployees: number; maxAdmins: number }> = {
+      trial: { maxEmployees: 5, maxAdmins: 1 },  // 14-day trial with limited access
       free: { maxEmployees: 10, maxAdmins: 1 },
       starter: { maxEmployees: 50, maxAdmins: 3 },
       professional: { maxEmployees: 200, maxAdmins: 10 },
