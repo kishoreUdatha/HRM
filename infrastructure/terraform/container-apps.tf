@@ -183,7 +183,7 @@ resource "azurerm_container_app" "core" {
   revision_mode                = "Single"
 
   template {
-    min_replicas = 0  # Scale to zero when idle
+    min_replicas = 1  # Keep at least 1 replica running to avoid cold starts
     max_replicas = 3
 
     container {
@@ -298,7 +298,7 @@ resource "azurerm_container_app" "hr" {
   revision_mode                = "Single"
 
   template {
-    min_replicas = 0
+    min_replicas = 1  # Keep at least 1 replica running to avoid cold starts
     max_replicas = 3
 
     container {
@@ -393,7 +393,7 @@ resource "azurerm_container_app" "payroll" {
   revision_mode                = "Single"
 
   template {
-    min_replicas = 0
+    min_replicas = 1  # Keep at least 1 replica running to avoid cold starts
     max_replicas = 3
 
     container {
@@ -488,7 +488,7 @@ resource "azurerm_container_app" "comm" {
   revision_mode                = "Single"
 
   template {
-    min_replicas = 0
+    min_replicas = 1  # Keep at least 1 replica running to avoid cold starts
     max_replicas = 3
 
     container {
@@ -583,7 +583,7 @@ resource "azurerm_container_app" "analytics" {
   revision_mode                = "Single"
 
   template {
-    min_replicas = 0
+    min_replicas = 1  # Keep at least 1 replica running to avoid cold starts
     max_replicas = 3
 
     container {
@@ -678,7 +678,7 @@ resource "azurerm_container_app" "workforce" {
   revision_mode                = "Single"
 
   template {
-    min_replicas = 0
+    min_replicas = 1  # Keep at least 1 replica running to avoid cold starts
     max_replicas = 3
 
     container {
