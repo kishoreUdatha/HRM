@@ -11,10 +11,17 @@ interface TenantData {
   subscription: TenantSubscription;
 }
 
+interface PlanLimits {
+  maxEmployees: number;
+  maxAdmins: number;
+  maxStorage: number;
+  maxApiCalls: number;
+}
+
 /**
- * Fetch tenant subscription limits from tenant service
+ * Fetch tenant's current plan from tenant service
  */
-async function getTenantLimits(tenantId: string): Promise<TenantSubscription | null> {
+async function getTenantPlan(tenantId: string): Promise<string | null> {
   try {
     const tenantServiceUrl = process.env.TENANT_SERVICE_URL || 'http://localhost:3002';
     const response = await axios.get(`${tenantServiceUrl}/api/tenants/${tenantId}`, {
@@ -24,22 +31,46 @@ async function getTenantLimits(tenantId: string): Promise<TenantSubscription | n
     });
 
     const tenant: TenantData = response.data.data || response.data;
-    return tenant.subscription;
+    return tenant.subscription?.plan || 'free';
   } catch (error) {
-    console.error('[PlanLimitValidator] Failed to fetch tenant limits:', error);
+    console.error('[PlanLimitValidator] Failed to fetch tenant plan:', error);
     return null;
   }
 }
 
 /**
- * Check if tenant can add more admin users based on their plan
+ * Fetch plan limits from billing service (dynamic from database)
+ */
+async function getPlanLimits(planCode: string): Promise<PlanLimits | null> {
+  try {
+    const billingServiceUrl = process.env.BILLING_SERVICE_URL || 'http://localhost:3027';
+    const response = await axios.get(`${billingServiceUrl}/api/billing/admin/plans/${planCode}`);
+
+    const plan = response.data.data;
+    return plan.limits;
+  } catch (error) {
+    console.error('[PlanLimitValidator] Failed to fetch plan limits from database:', error);
+    // Fallback to basic limits if service is down
+    return { maxEmployees: 10, maxAdmins: 1, maxStorage: 1024, maxApiCalls: 10000 };
+  }
+}
+
+/**
+ * Check if tenant can add more admin users based on their plan (dynamic from database)
  */
 export async function canAddAdmin(tenantId: string): Promise<{ allowed: boolean; message?: string; currentCount?: number; limit?: number }> {
   try {
-    // Fetch tenant limits
-    const subscription = await getTenantLimits(tenantId);
-    if (!subscription) {
-      console.warn('[PlanLimitValidator] Could not fetch tenant limits, allowing admin creation');
+    // Fetch tenant's current plan
+    const planCode = await getTenantPlan(tenantId);
+    if (!planCode) {
+      console.warn('[PlanLimitValidator] Could not fetch tenant plan, allowing admin creation');
+      return { allowed: true };
+    }
+
+    // Fetch plan limits from billing service database
+    const planLimits = await getPlanLimits(planCode);
+    if (!planLimits) {
+      console.warn('[PlanLimitValidator] Could not fetch plan limits, allowing admin creation');
       return { allowed: true };
     }
 
@@ -50,7 +81,7 @@ export async function canAddAdmin(tenantId: string): Promise<{ allowed: boolean;
     });
 
     // Check if limit is exceeded
-    const limit = subscription.maxAdmins;
+    const limit = planLimits.maxAdmins;
 
     // Enterprise plan has high admin limit
     if (limit === -1 || limit >= 1000) {
@@ -60,7 +91,7 @@ export async function canAddAdmin(tenantId: string): Promise<{ allowed: boolean;
     if (currentAdminCount >= limit) {
       return {
         allowed: false,
-        message: `Admin user limit exceeded. Your ${subscription.plan} plan allows maximum ${limit} admin user(s). You currently have ${currentAdminCount} admin(s). Please upgrade your plan to add more administrators.`,
+        message: `Admin user limit exceeded. Your ${planCode} plan allows maximum ${limit} admin user(s). You currently have ${currentAdminCount} admin(s). Please upgrade your plan to add more administrators.`,
         currentCount: currentAdminCount,
         limit,
       };
@@ -75,16 +106,23 @@ export async function canAddAdmin(tenantId: string): Promise<{ allowed: boolean;
 }
 
 /**
- * Check if tenant can add more users (any role) based on employee limit
+ * Check if tenant can add more users (any role) based on employee limit (dynamic from database)
  * This is a secondary check - employees are managed in employee-service,
  * but users in auth-service can also count toward employee limit
  */
 export async function canAddUser(tenantId: string): Promise<{ allowed: boolean; message?: string; currentCount?: number; limit?: number }> {
   try {
-    // Fetch tenant limits
-    const subscription = await getTenantLimits(tenantId);
-    if (!subscription) {
-      console.warn('[PlanLimitValidator] Could not fetch tenant limits, allowing user creation');
+    // Fetch tenant's current plan
+    const planCode = await getTenantPlan(tenantId);
+    if (!planCode) {
+      console.warn('[PlanLimitValidator] Could not fetch tenant plan, allowing user creation');
+      return { allowed: true };
+    }
+
+    // Fetch plan limits from billing service database
+    const planLimits = await getPlanLimits(planCode);
+    if (!planLimits) {
+      console.warn('[PlanLimitValidator] Could not fetch plan limits, allowing user creation');
       return { allowed: true };
     }
 
@@ -92,7 +130,7 @@ export async function canAddUser(tenantId: string): Promise<{ allowed: boolean; 
     const currentUserCount = await User.countDocuments({ tenantId });
 
     // Check if limit is exceeded
-    const limit = subscription.maxEmployees;
+    const limit = planLimits.maxEmployees;
 
     // Enterprise plan has unlimited users
     if (limit === -1 || limit >= 10000) {
@@ -102,7 +140,7 @@ export async function canAddUser(tenantId: string): Promise<{ allowed: boolean; 
     if (currentUserCount >= limit) {
       return {
         allowed: false,
-        message: `User limit exceeded. Your ${subscription.plan} plan allows maximum ${limit} users. You currently have ${currentUserCount} users. Please upgrade your plan to add more.`,
+        message: `User limit exceeded. Your ${planCode} plan allows maximum ${limit} users. You currently have ${currentUserCount} users. Please upgrade your plan to add more.`,
         currentCount: currentUserCount,
         limit,
       };

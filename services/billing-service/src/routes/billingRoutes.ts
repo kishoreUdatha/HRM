@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { Request, Response, NextFunction } from 'express';
 import * as billingController from '../controllers/billingController';
 import * as webhookController from '../controllers/webhookController';
+import * as planManagementController from '../controllers/planManagementController';
 
 const router = Router();
 
@@ -34,8 +35,8 @@ const requireSuperAdmin = (req: Request, res: Response, next: NextFunction): voi
 
 // ==================== PUBLIC ROUTES ====================
 
-// Get pricing plans (public)
-router.get('/plans', billingController.getPricingPlans);
+// Get pricing plans (public - from database)
+router.get('/plans', planManagementController.getPublicPlans);
 
 // ==================== TENANT ROUTES ====================
 
@@ -104,6 +105,42 @@ router.get('/admin/invoices/:id/download', requireSuperAdmin, billingController.
 
 // Update tenant subscription
 router.put('/admin/tenants/:tenantId/subscription', requireSuperAdmin, billingController.updateTenantSubscription);
+
+// ==================== PLAN MANAGEMENT ROUTES (SUPER ADMIN) ====================
+
+// Get all plans (including inactive)
+router.get('/admin/plans', requireSuperAdmin, planManagementController.getAllPlans);
+
+// Get plan by code
+router.get('/admin/plans/:planCode', requireSuperAdmin, planManagementController.getPlanByCode);
+
+// Create new plan
+router.post(
+  '/admin/plans',
+  requireSuperAdmin,
+  [
+    body('planCode').notEmpty().withMessage('Plan code is required'),
+    body('displayName').notEmpty().withMessage('Display name is required'),
+    body('description').notEmpty().withMessage('Description is required'),
+    body('pricing').isObject().withMessage('Pricing object is required'),
+    body('limits').isObject().withMessage('Limits object is required'),
+    body('features').isArray().withMessage('Features must be an array'),
+  ],
+  validate,
+  planManagementController.createPlan
+);
+
+// Update plan
+router.put('/admin/plans/:planCode', requireSuperAdmin, planManagementController.updatePlan);
+
+// Update plan limits only
+router.patch('/admin/plans/:planCode/limits', requireSuperAdmin, planManagementController.updatePlanLimits);
+
+// Update plan features only
+router.patch('/admin/plans/:planCode/features', requireSuperAdmin, planManagementController.updatePlanFeatures);
+
+// Delete/deactivate plan
+router.delete('/admin/plans/:planCode', requireSuperAdmin, planManagementController.deletePlan);
 
 // ==================== WEBHOOK ROUTES ====================
 
