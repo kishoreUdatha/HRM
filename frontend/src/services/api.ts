@@ -37,6 +37,9 @@ api.interceptors.request.use(
   }
 );
 
+// Flag to prevent multiple tabs from clearing storage simultaneously
+let isLoggingOut = false;
+
 // Response interceptor for token refresh
 api.interceptors.response.use(
   (response) => response,
@@ -68,29 +71,38 @@ api.interceptors.response.use(
           // Handle regular user token refresh
           const refreshToken = localStorage.getItem('refreshToken');
           if (refreshToken) {
+            console.log('[API Interceptor] Attempting token refresh');
             const response = await axios.post(`${API_URL}/auth/refresh`, {
               refreshToken,
             });
 
             const { accessToken } = response.data;
             localStorage.setItem('accessToken', accessToken);
+            console.log('[API Interceptor] Token refreshed successfully');
 
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
             return api(originalRequest);
           }
         }
-      } catch {
-        if (isSuperAdmin) {
-          localStorage.removeItem('superAdminAccessToken');
-          localStorage.removeItem('superAdminRefreshToken');
-          localStorage.removeItem('superAdminRole');
-          localStorage.removeItem('superAdminUser');
-          window.location.href = '/super-admin/login';
-        } else {
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('tenantId');
-          window.location.href = '/login';
+      } catch (refreshError) {
+        console.error('[API Interceptor] Token refresh failed:', refreshError);
+
+        // Only clear storage once per session to prevent race conditions across tabs
+        if (!isLoggingOut) {
+          isLoggingOut = true;
+
+          if (isSuperAdmin) {
+            localStorage.removeItem('superAdminAccessToken');
+            localStorage.removeItem('superAdminRefreshToken');
+            localStorage.removeItem('superAdminRole');
+            localStorage.removeItem('superAdminUser');
+            window.location.href = '/super-admin/login';
+          } else {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('tenantId');
+            window.location.href = '/login';
+          }
         }
         return Promise.reject(error);
       }

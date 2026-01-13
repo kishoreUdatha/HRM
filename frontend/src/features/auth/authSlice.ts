@@ -123,10 +123,8 @@ export const checkAuth = createAsyncThunk(
 
       // Check if token is expired before making API call
       if (isTokenExpired(token)) {
-        console.log('[checkAuth] Token is expired');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('tenantId');
+        console.log('[checkAuth] Token is expired - will attempt refresh via interceptor');
+        // DON'T clear localStorage - let the axios interceptor attempt token refresh first
         return rejectWithValue('Token expired');
       }
 
@@ -148,9 +146,8 @@ export const checkAuth = createAsyncThunk(
       return { user, tenant };
     } catch (error: unknown) {
       console.error('[checkAuth] Authentication failed:', error);
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('tenantId');
+      // DON'T clear localStorage here - let the axios interceptor handle token refresh
+      // Only clear if it's truly expired (caught by interceptor after refresh fails)
       const err = error as { response?: { data?: { message?: string } } };
       return rejectWithValue(err.response?.data?.message || 'Session expired');
     }

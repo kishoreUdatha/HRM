@@ -48,6 +48,12 @@ export const authenticateToken = (
 
     next();
   } catch (error) {
+    console.error('[Gateway Auth] Token verification failed:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      tokenPrefix: token.substring(0, 20),
+      hasSecret: !!JWT_SECRET,
+      secretPrefix: JWT_SECRET?.substring(0, 10)
+    });
     res.status(401).json({
       success: false,
       message: 'Invalid or expired token',
