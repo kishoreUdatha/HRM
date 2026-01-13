@@ -30,7 +30,7 @@ class NotificationClient {
         body: JSON.stringify(data),
       });
 
-      const result = await response.json();
+      const result = await response.json() as { message?: string };
 
       if (!response.ok) {
         console.error(`[NotificationClient] Failed to send ${endpoint}:`, result);

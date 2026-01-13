@@ -28,8 +28,8 @@ class TenantClient {
         return null;
       }
 
-      const result = await response.json();
-      const tenant = result.data || result;
+      const result = await response.json() as { data?: any } | any;
+      const tenant = (result as { data?: any }).data || result;
 
       return {
         tenantId: tenant._id || tenantId,
