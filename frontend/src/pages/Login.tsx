@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { HiMail, HiLockClosed, HiOfficeBuilding } from 'react-icons/hi';
 import { toast } from 'react-hot-toast';
 import { useAppDispatch, useAppSelector } from '../hooks/useAppDispatch';
@@ -18,6 +18,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 const Login: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { isLoading, isAuthenticated, error, tenant } = useAppSelector((state) => state.auth);
   const [tenantSlug, setTenantSlug] = useState(searchParams.get('org') || '');
@@ -33,9 +34,11 @@ const Login: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      // Redirect to the original page they were trying to access, or dashboard as fallback
+      const from = (location.state as any)?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, location]);
 
   useEffect(() => {
     if (error) {

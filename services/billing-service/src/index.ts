@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import connectDB from './config/database';
 import billingRoutes from './routes/billingRoutes';
+import { startSubscriptionExpiryJob } from './jobs/subscriptionExpiryJob';
 
 dotenv.config();
 
@@ -45,6 +46,9 @@ const startServer = async () => {
   try {
     // Connect to MongoDB
     await connectDB();
+
+    // Start subscription expiry cron job
+    startSubscriptionExpiryJob();
 
     app.listen(PORT, () => {
       console.log(`Billing Service running on port ${PORT}`);

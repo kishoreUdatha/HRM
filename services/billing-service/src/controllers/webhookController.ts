@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import Subscription from '../models/Subscription';
 import Invoice from '../models/Invoice';
 import razorpayService from '../services/razorpayService';
+import notificationClient from '../services/notificationClient';
+import tenantClient from '../services/tenantClient';
 import mongoose from 'mongoose';
 
 // Razorpay webhook handler
@@ -108,6 +110,20 @@ async function handlePaymentCaptured(payment: any) {
 
       await subscription.save();
       console.log(`Subscription ${subscription._id} activated`);
+
+      // Send payment success email
+      const tenant = await tenantClient.getTenantBillingInfo(tenantId);
+      if (tenant && tenant.billingEmail) {
+        await notificationClient.sendPaymentSuccess(tenantId, {
+          email: tenant.billingEmail,
+          tenantName: tenant.name,
+          planName: formatPlanName(subscription.plan),
+          amount: payment.amount / 100,
+          currency: payment.currency?.toUpperCase() || 'INR',
+          billingCycle: subscription.billingCycle,
+          paymentDate: new Date().toLocaleDateString(),
+        });
+      }
     }
   }
 }
@@ -119,8 +135,19 @@ async function handlePaymentFailed(payment: any) {
   const tenantId = payment.notes?.tenantId;
   if (!tenantId) return;
 
-  // You could notify the tenant about the failed payment here
-  // Or update their subscription status
+  // Send payment failed email
+  const tenant = await tenantClient.getTenantBillingInfo(tenantId);
+  if (tenant && tenant.billingEmail) {
+    const subscription = await Subscription.findOne({ tenantId });
+    await notificationClient.sendPaymentFailed(tenantId, {
+      email: tenant.billingEmail,
+      tenantName: tenant.name,
+      planName: formatPlanName(subscription?.plan || tenant.plan),
+      amount: payment.amount / 100,
+      currency: payment.currency?.toUpperCase() || 'INR',
+      billingCycle: subscription?.billingCycle || tenant.billingCycle,
+    });
+  }
 }
 
 // Handle subscription.authenticated event
@@ -149,15 +176,30 @@ async function handleSubscriptionActivated(subscription: any) {
   const now = new Date();
   const periodEnd = new Date(subscription.current_end * 1000);
 
-  await Subscription.findOneAndUpdate(
+  const sub = await Subscription.findOneAndUpdate(
     { tenantId },
     {
       razorpaySubscriptionId: subscription.id,
       status: 'active',
       currentPeriodStart: now,
       currentPeriodEnd: periodEnd,
-    }
+    },
+    { new: true }
   );
+
+  // Send subscription activated email
+  const tenant = await tenantClient.getTenantBillingInfo(tenantId);
+  if (tenant && tenant.billingEmail && sub) {
+    await notificationClient.sendSubscriptionActivated(tenantId, {
+      email: tenant.billingEmail,
+      tenantName: tenant.name,
+      planName: formatPlanName(sub.plan),
+      amount: sub.amount,
+      currency: sub.currency || 'INR',
+      billingCycle: sub.billingCycle,
+      expiryDate: periodEnd.toLocaleDateString(),
+    });
+  }
 }
 
 // Handle subscription.charged event
@@ -177,11 +219,12 @@ async function handleSubscriptionCharged(subscription: any, payment: any) {
 
     // Create invoice record
     if (payment) {
+      const invoiceNumber = `INV-${Date.now()}`;
       await Invoice.create({
         tenantId: new mongoose.Types.ObjectId(tenantId),
         subscriptionId: sub._id,
         razorpayPaymentId: payment.id,
-        invoiceNumber: `INV-${Date.now()}`,
+        invoiceNumber,
         amount: payment.amount / 100,
         amountPaid: payment.amount / 100,
         amountDue: 0,
@@ -193,13 +236,28 @@ async function handleSubscriptionCharged(subscription: any, payment: any) {
         paidAt: new Date(),
         lineItems: [
           {
-            description: `${sub.plan} Plan - ${sub.billingCycle}`,
+            description: `${formatPlanName(sub.plan)} Plan - ${sub.billingCycle}`,
             quantity: 1,
             unitAmount: payment.amount / 100,
             amount: payment.amount / 100,
           },
         ],
       });
+
+      // Send invoice generated email
+      const tenant = await tenantClient.getTenantBillingInfo(tenantId);
+      if (tenant && tenant.billingEmail) {
+        await notificationClient.sendInvoiceGenerated(tenantId, {
+          email: tenant.billingEmail,
+          tenantName: tenant.name,
+          planName: formatPlanName(sub.plan),
+          amount: payment.amount / 100,
+          currency: payment.currency?.toUpperCase() || 'INR',
+          billingCycle: sub.billingCycle,
+          invoiceNumber,
+          paymentDate: new Date().toLocaleDateString(),
+        });
+      }
     }
   }
 }
@@ -229,7 +287,19 @@ async function handleSubscriptionHalted(subscription: any) {
     { status: 'halted' }
   );
 
-  // You might want to limit tenant access here
+  // Send payment failed email (subscription halted due to payment issues)
+  const tenant = await tenantClient.getTenantBillingInfo(tenantId);
+  if (tenant && tenant.billingEmail) {
+    const sub = await Subscription.findOne({ tenantId });
+    await notificationClient.sendPaymentFailed(tenantId, {
+      email: tenant.billingEmail,
+      tenantName: tenant.name,
+      planName: formatPlanName(sub?.plan || tenant.plan),
+      amount: sub?.amount || 0,
+      currency: sub?.currency || 'INR',
+      billingCycle: sub?.billingCycle || tenant.billingCycle,
+    });
+  }
 }
 
 // Handle subscription.cancelled event
@@ -239,13 +309,25 @@ async function handleSubscriptionCancelled(subscription: any) {
   const tenantId = subscription.notes?.tenantId;
   if (!tenantId) return;
 
-  await Subscription.findOneAndUpdate(
+  const sub = await Subscription.findOneAndUpdate(
     { tenantId },
     {
       status: 'cancelled',
       cancelledAt: new Date(),
-    }
+    },
+    { new: true }
   );
+
+  // Send subscription cancelled email
+  const tenant = await tenantClient.getTenantBillingInfo(tenantId);
+  if (tenant && tenant.billingEmail && sub) {
+    await notificationClient.sendSubscriptionCancelled(tenantId, {
+      email: tenant.billingEmail,
+      tenantName: tenant.name,
+      planName: formatPlanName(sub.plan),
+      expiryDate: sub.currentPeriodEnd?.toLocaleDateString(),
+    });
+  }
 }
 
 // Handle subscription.completed event
@@ -285,4 +367,27 @@ async function handleInvoiceExpired(invoice: any) {
     { razorpayInvoiceId: invoice.id },
     { status: 'expired' }
   );
+
+  // Send payment failed/reminder email
+  const tenantId = invoice.notes?.tenantId;
+  if (tenantId) {
+    const tenant = await tenantClient.getTenantBillingInfo(tenantId);
+    if (tenant && tenant.billingEmail) {
+      const sub = await Subscription.findOne({ tenantId });
+      await notificationClient.sendPaymentFailed(tenantId, {
+        email: tenant.billingEmail,
+        tenantName: tenant.name,
+        planName: formatPlanName(sub?.plan || tenant.plan),
+        amount: invoice.amount / 100,
+        currency: invoice.currency?.toUpperCase() || 'INR',
+        billingCycle: sub?.billingCycle || tenant.billingCycle,
+      });
+    }
+  }
+}
+
+// Helper function to format plan name
+function formatPlanName(plan: string): string {
+  if (!plan) return 'Unknown';
+  return plan.charAt(0).toUpperCase() + plan.slice(1);
 }
