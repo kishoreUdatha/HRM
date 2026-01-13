@@ -29,12 +29,18 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
     const [users, total] = await Promise.all([
       User.find(query)
         .select('-password -refreshTokens')
-        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
         .lean(),
       User.countDocuments(query),
     ]);
+
+    // Sort in-memory to avoid CosmosDB index issues
+    users.sort((a: any, b: any) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
 
     res.status(200).json({
       success: true,
@@ -457,10 +463,18 @@ export const getUserStats = async (req: Request, res: Response): Promise<void> =
       ]),
       User.find({ tenantId, lastLogin: { $exists: true } })
         .select('firstName lastName email lastLogin')
-        .sort({ lastLogin: -1 })
-        .limit(10)
+        .limit(50)  // Fetch more, sort in-memory, then limit
         .lean(),
     ]);
+
+    // Sort recent logins in-memory to avoid CosmosDB index issues
+    const sortedRecentLogins = recentLogins
+      .sort((a: any, b: any) => {
+        const dateA = a.lastLogin ? new Date(a.lastLogin).getTime() : 0;
+        const dateB = b.lastLogin ? new Date(b.lastLogin).getTime() : 0;
+        return dateB - dateA;
+      })
+      .slice(0, 10);
 
     res.status(200).json({
       success: true,
@@ -468,7 +482,7 @@ export const getUserStats = async (req: Request, res: Response): Promise<void> =
         totalUsers,
         byRole: Object.fromEntries(byRole.map(r => [r._id, r.count])),
         byStatus: Object.fromEntries(byStatus.map(s => [s._id, s.count])),
-        recentLogins,
+        recentLogins: sortedRecentLogins,
       },
     });
   } catch (error) {
