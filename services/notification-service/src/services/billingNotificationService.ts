@@ -1,4 +1,4 @@
-import resendService from './resendService';
+import resendService, { SendEmailResult } from './resendService';
 import {
   BillingEmailData,
   paymentSuccessTemplate,
@@ -37,7 +37,7 @@ class BillingNotificationService {
     };
   }
 
-  async sendPaymentSuccess(tenantId: string, email: string, data: Partial<BillingEmailData>) {
+  async sendPaymentSuccess(tenantId: string, email: string, data: Partial<BillingEmailData>): Promise<SendEmailResult> {
     const enrichedData = this.enrichData(data);
     const template = paymentSuccessTemplate(enrichedData);
 
@@ -50,7 +50,7 @@ class BillingNotificationService {
     });
   }
 
-  async sendPaymentFailed(tenantId: string, email: string, data: Partial<BillingEmailData>) {
+  async sendPaymentFailed(tenantId: string, email: string, data: Partial<BillingEmailData>): Promise<SendEmailResult> {
     const enrichedData = this.enrichData(data);
     const template = paymentFailedTemplate(enrichedData);
 
@@ -63,7 +63,7 @@ class BillingNotificationService {
     });
   }
 
-  async sendInvoiceGenerated(tenantId: string, email: string, data: Partial<BillingEmailData>) {
+  async sendInvoiceGenerated(tenantId: string, email: string, data: Partial<BillingEmailData>): Promise<SendEmailResult> {
     const enrichedData = this.enrichData(data);
     const template = invoiceGeneratedTemplate(enrichedData);
 
@@ -76,7 +76,7 @@ class BillingNotificationService {
     });
   }
 
-  async sendSubscriptionActivated(tenantId: string, email: string, data: Partial<BillingEmailData>) {
+  async sendSubscriptionActivated(tenantId: string, email: string, data: Partial<BillingEmailData>): Promise<SendEmailResult> {
     const enrichedData = this.enrichData(data);
     const template = subscriptionActivatedTemplate(enrichedData);
 
@@ -89,7 +89,7 @@ class BillingNotificationService {
     });
   }
 
-  async sendPlanExpiring(tenantId: string, email: string, data: Partial<BillingEmailData>) {
+  async sendPlanExpiring(tenantId: string, email: string, data: Partial<BillingEmailData>): Promise<SendEmailResult> {
     const enrichedData = this.enrichData(data);
     const template = planExpiringTemplate(enrichedData);
 
@@ -102,7 +102,7 @@ class BillingNotificationService {
     });
   }
 
-  async sendPlanExpired(tenantId: string, email: string, data: Partial<BillingEmailData>) {
+  async sendPlanExpired(tenantId: string, email: string, data: Partial<BillingEmailData>): Promise<SendEmailResult> {
     const enrichedData = this.enrichData(data);
     const template = planExpiredTemplate(enrichedData);
 
@@ -115,7 +115,7 @@ class BillingNotificationService {
     });
   }
 
-  async sendSubscriptionCancelled(tenantId: string, email: string, data: Partial<BillingEmailData>) {
+  async sendSubscriptionCancelled(tenantId: string, email: string, data: Partial<BillingEmailData>): Promise<SendEmailResult> {
     const enrichedData = this.enrichData(data);
     const template = subscriptionCancelledTemplate(enrichedData);
 
