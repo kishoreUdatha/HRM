@@ -24,6 +24,15 @@ const Login: React.FC = () => {
   const [tenantSlug, setTenantSlug] = useState(searchParams.get('org') || '');
   const [tenantVerified, setTenantVerified] = useState(false);
 
+  // Store the redirect path from location state
+  const from = (location.state as any)?.from?.pathname || '/dashboard';
+
+  // Debug: Log the redirect target
+  useEffect(() => {
+    console.log('[Login] Location state:', location.state);
+    console.log('[Login] Redirect target:', from);
+  }, [location.state, from]);
+
   const {
     register,
     handleSubmit,
@@ -35,10 +44,10 @@ const Login: React.FC = () => {
   useEffect(() => {
     if (isAuthenticated) {
       // Redirect to the original page they were trying to access, or dashboard as fallback
-      const from = (location.state as any)?.from?.pathname || '/dashboard';
+      console.log('[Login] Redirecting authenticated user to:', from);
       navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate, location]);
+  }, [isAuthenticated, navigate, from]);
 
   useEffect(() => {
     if (error) {
