@@ -180,10 +180,42 @@ jobs:
 
       - name: Update Core Services
         run: |
-          # Note: Terraform creates consolidated Container Apps
-          # For now, update the gateway which handles routing
-          echo "Core services are consolidated in Terraform-managed Container Apps"
-          echo "Update hrm-production-core if using consolidated services"
+          IMAGE_TAG="${{ needs.build-push.outputs.image_tag }}"
+
+          # Update individual microservices
+          echo "Updating all microservices to image tag: $IMAGE_TAG"
+
+          az containerapp update --name hrm-auth-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-auth-service:$IMAGE_TAG &
+
+          az containerapp update --name hrm-tenant-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-tenant-service:$IMAGE_TAG &
+
+          az containerapp update --name hrm-employee-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-employee-service:$IMAGE_TAG &
+
+          az containerapp update --name hrm-attendance-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-attendance-service:$IMAGE_TAG &
+
+          az containerapp update --name hrm-leave-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-leave-service:$IMAGE_TAG &
+
+          az containerapp update --name hrm-timesheet-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-timesheet-service:$IMAGE_TAG &
+
+          az containerapp update --name hrm-payroll-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-payroll-service:$IMAGE_TAG &
+
+          az containerapp update --name hrm-notification-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-notification-service:$IMAGE_TAG &
+
+          az containerapp update --name hrm-onboarding-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-onboarding-service:$IMAGE_TAG &
+
+          # Wait for all background updates to complete
+          wait
+
+          echo "✓ All microservices updated successfully"
 
       - name: Get Deployment URLs
         run: |
