@@ -23,12 +23,18 @@ export const login = createAsyncThunk(
   'auth/login',
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
+      console.log('[login] Attempting login');
       const response = await authService.login(credentials);
+      console.log('[login] Login successful, saving tokens');
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('refreshToken', response.refreshToken);
       localStorage.setItem('tenantId', response.user.tenantId);
+      console.log('[login] Tokens saved to localStorage');
+      console.log('[login] AccessToken:', response.accessToken.substring(0, 20) + '...');
+      console.log('[login] TenantId:', response.user.tenantId);
       return response;
     } catch (error: unknown) {
+      console.error('[login] Login failed:', error);
       const err = error as { response?: { data?: { message?: string } } };
       return rejectWithValue(err.response?.data?.message || 'Login failed');
     }
@@ -86,8 +92,18 @@ const isTokenExpired = (token: string): boolean => {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
     const exp = payload.exp * 1000; // Convert to milliseconds
-    return Date.now() >= exp;
-  } catch {
+    const now = Date.now();
+    const isExpired = now >= exp;
+
+    console.log('[isTokenExpired] Token expiration check:');
+    console.log('[isTokenExpired] Current time:', new Date(now).toISOString());
+    console.log('[isTokenExpired] Token expires:', new Date(exp).toISOString());
+    console.log('[isTokenExpired] Is expired:', isExpired);
+    console.log('[isTokenExpired] Time until expiry (minutes):', ((exp - now) / 1000 / 60).toFixed(2));
+
+    return isExpired;
+  } catch (error) {
+    console.error('[isTokenExpired] Failed to parse token:', error);
     return true; // If we can't parse the token, consider it expired
   }
 };
@@ -96,31 +112,42 @@ export const checkAuth = createAsyncThunk(
   'auth/checkAuth',
   async (_, { rejectWithValue }) => {
     try {
+      console.log('[checkAuth] Starting authentication check');
       const token = localStorage.getItem('accessToken');
+      console.log('[checkAuth] Token found:', token ? 'Yes' : 'No');
+
       if (!token) {
+        console.log('[checkAuth] No token found in localStorage');
         return rejectWithValue('No token found');
       }
 
       // Check if token is expired before making API call
       if (isTokenExpired(token)) {
+        console.log('[checkAuth] Token is expired');
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('tenantId');
         return rejectWithValue('Token expired');
       }
 
+      console.log('[checkAuth] Token is valid, fetching user data');
       const user = await authService.getCurrentUser();
+      console.log('[checkAuth] User data fetched:', user?.email);
+
       const tenantId = localStorage.getItem('tenantId');
       let tenant: Tenant | null = null;
       if (tenantId) {
         try {
           tenant = await authService.getTenantById(tenantId);
+          console.log('[checkAuth] Tenant data fetched:', tenant?.slug);
         } catch {
-          // Tenant fetch failed, continue without tenant
+          console.warn('[checkAuth] Tenant fetch failed, continuing without tenant');
         }
       }
+      console.log('[checkAuth] Authentication successful');
       return { user, tenant };
     } catch (error: unknown) {
+      console.error('[checkAuth] Authentication failed:', error);
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('tenantId');

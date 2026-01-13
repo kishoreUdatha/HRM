@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   HiCreditCard,
   HiDocumentText,
@@ -106,7 +107,15 @@ const plans: Plan[] = [
 ];
 
 const BillingSettings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'subscription' | 'invoices' | 'upgrade'>('subscription');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const invoiceRefs = useRef<{ [key: string]: HTMLTableRowElement | null }>({});
+
+  // Read query parameters for initial state
+  const tabParam = searchParams.get('tab');
+  const invoiceParam = searchParams.get('invoice');
+  const initialTab = (tabParam === 'invoices' || tabParam === 'upgrade') ? tabParam : 'subscription';
+
+  const [activeTab, setActiveTab] = useState<'subscription' | 'invoices' | 'upgrade'>(initialTab);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -116,6 +125,24 @@ const BillingSettings: React.FC = () => {
   useEffect(() => {
     fetchBillingData();
   }, []);
+
+  // Handle invoice highlighting and scrolling when data loads
+  useEffect(() => {
+    if (invoiceParam && invoices.length > 0 && activeTab === 'invoices') {
+      // Wait for DOM to render
+      setTimeout(() => {
+        const invoiceRef = invoiceRefs.current[invoiceParam];
+        if (invoiceRef) {
+          invoiceRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Add temporary highlight effect
+          invoiceRef.classList.add('bg-primary-50', 'ring-2', 'ring-primary-500');
+          setTimeout(() => {
+            invoiceRef.classList.remove('bg-primary-50', 'ring-2', 'ring-primary-500');
+          }, 3000);
+        }
+      }, 100);
+    }
+  }, [invoices, invoiceParam, activeTab]);
 
   const fetchBillingData = async () => {
     try {
@@ -294,6 +321,18 @@ const BillingSettings: React.FC = () => {
     return plans.find((p) => p.id === (subscription?.plan || 'free')) || plans[0];
   };
 
+  const handleTabChange = (tab: 'subscription' | 'invoices' | 'upgrade') => {
+    setActiveTab(tab);
+    // Update URL to reflect current tab
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', tab);
+    // Remove invoice parameter when switching away from invoices tab
+    if (tab !== 'invoices') {
+      newParams.delete('invoice');
+    }
+    setSearchParams(newParams);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -320,7 +359,7 @@ const BillingSettings: React.FC = () => {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as typeof activeTab)}
+              onClick={() => handleTabChange(tab.id as typeof activeTab)}
               className={`
                 flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
                 ${
@@ -465,7 +504,7 @@ const BillingSettings: React.FC = () => {
                 Upgrade your plan to unlock more features and capacity.
               </p>
               <button
-                onClick={() => setActiveTab('upgrade')}
+                onClick={() => handleTabChange('upgrade')}
                 className="w-full py-2 bg-white text-primary-600 rounded-lg font-medium hover:bg-primary-50 transition-colors"
               >
                 View Plans
@@ -513,7 +552,13 @@ const BillingSettings: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {invoices.map((invoice) => (
-                    <tr key={invoice._id} className="hover:bg-gray-50">
+                    <tr
+                      key={invoice._id}
+                      ref={(el) => {
+                        if (el) invoiceRefs.current[invoice.invoiceNumber] = el;
+                      }}
+                      className="hover:bg-gray-50 transition-colors duration-300"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <HiDocumentText className="w-5 h-5 text-gray-400 mr-3" />

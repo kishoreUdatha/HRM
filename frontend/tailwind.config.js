@@ -52,6 +52,8 @@ export default {
         'float': 'float 6s ease-in-out infinite',
         'glow': 'glow 2s ease-in-out infinite alternate',
         'gradient': 'gradient 8s ease infinite',
+        'fadeIn': 'fadeIn 0.3s ease-out',
+        'scaleIn': 'scaleIn 0.3s ease-out',
       },
       keyframes: {
         float: {
@@ -65,6 +67,14 @@ export default {
         gradient: {
           '0%, 100%': { backgroundPosition: '0% 50%' },
           '50%': { backgroundPosition: '100% 50%' },
+        },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        scaleIn: {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
         },
       },
     },

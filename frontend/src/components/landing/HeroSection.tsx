@@ -1,8 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HiPlay, HiCheck, HiSparkles, HiLightningBolt } from 'react-icons/hi';
+import VideoModal from '../common/VideoModal';
+
+// Demo video URL - Replace with your actual product demo video
+const DEMO_VIDEO_URL = 'https://www.youtube.com/embed/dQw4w9WgXcQ';
 
 const HeroSection: React.FC = () => {
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+
   return (
     <section className="relative min-h-screen pt-20 overflow-hidden">
       {/* Vibrant Animated Background */}
@@ -71,7 +77,10 @@ const HeroSection: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </Link>
-              <button className="group inline-flex items-center justify-center gap-3 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all border-2 border-white/30">
+              <button
+                onClick={() => setIsVideoModalOpen(true)}
+                className="group inline-flex items-center justify-center gap-3 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all border-2 border-white/30"
+              >
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-orange-500 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
                   <HiPlay className="w-6 h-6 text-white ml-0.5" />
                 </div>
@@ -201,6 +210,14 @@ const HeroSection: React.FC = () => {
           <path d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z" fill="white"/>
         </svg>
       </div>
+
+      {/* Video Modal */}
+      <VideoModal
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+        videoUrl={DEMO_VIDEO_URL}
+        title="HRZIO Product Demo"
+      />
     </section>
   );
 };
