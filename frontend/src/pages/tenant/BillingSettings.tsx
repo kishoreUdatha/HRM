@@ -183,7 +183,7 @@ const BillingSettings: React.FC = () => {
       if (data.success && data.data?.razorpayOrderId) {
         // Initialize Razorpay payment
         const options = {
-          key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
+          key: data.data.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_S4E9RUxaKrKzMH',
           amount: data.data.amount,
           currency: 'INR',
           name: 'HRM Platform',
