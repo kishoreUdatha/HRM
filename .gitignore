@@ -131,3 +131,8 @@ azure.json
 # Local test files
 test-*.js
 test-*.ps1
+services/tenant-service/list-tenants.js
+services/tenant-service/update-candy-plan.js
+services/tenant-service/update-tenant-plan.js
+update-tenant-plan.js
+infrastructure/terraform/tfplan-domain

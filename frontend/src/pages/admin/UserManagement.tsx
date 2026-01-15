@@ -95,22 +95,44 @@ const UserManagement = () => {
         // Show error toast with upgrade option
         toast.error(
           (t) => (
-            <div className="flex flex-col gap-2">
-              <span className="font-medium">Plan Limit Exceeded</span>
-              <p className="text-sm">{errorMessage}</p>
-              <div className="flex gap-2 mt-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontWeight: '600', fontSize: '15px' }}>Plan Limit Exceeded</span>
+              <p style={{ fontSize: '14px', lineHeight: '1.4' }}>{errorMessage}</p>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <button
                   onClick={() => {
                     toast.dismiss(t.id);
                     navigate('/billing?tab=upgrade');
                   }}
-                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
                 >
                   Upgrade Plan
                 </button>
                 <button
                   onClick={() => toast.dismiss(t.id)}
-                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#e5e7eb',
+                    color: '#374151',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d1d5db'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#e5e7eb'}
                 >
                   Dismiss
                 </button>
@@ -159,22 +181,44 @@ const UserManagement = () => {
       if (errorCode === 'PLAN_LIMIT_EXCEEDED') {
         toast.error(
           (t) => (
-            <div className="flex flex-col gap-2">
-              <span className="font-medium">Plan Limit Exceeded</span>
-              <p className="text-sm">{errorMessage}</p>
-              <div className="flex gap-2 mt-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <span style={{ fontWeight: '600', fontSize: '15px' }}>Plan Limit Exceeded</span>
+              <p style={{ fontSize: '14px', lineHeight: '1.4' }}>{errorMessage}</p>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <button
                   onClick={() => {
                     toast.dismiss(t.id);
                     navigate('/billing?tab=upgrade');
                   }}
-                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#2563eb',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
                 >
                   Upgrade Plan
                 </button>
                 <button
                   onClick={() => toast.dismiss(t.id)}
-                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#e5e7eb',
+                    color: '#374151',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d1d5db'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#e5e7eb'}
                 >
                   Dismiss
                 </button>
