@@ -288,10 +288,9 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
 
     // Fetch tenant details for email
     try {
-      const tenantResponse = await axios.get(`${process.env.TENANT_SERVICE_URL || 'http://tenant-service:3001'}/api/tenants/${tenantId}/details`, {
+      const tenantResponse = await axios.get(`${process.env.TENANT_SERVICE_URL || 'http://tenant-service:3001'}/api/tenants/internal/${tenantId}`, {
         headers: {
-          'x-tenant-id': tenantId,
-          'x-service-auth': process.env.INTERNAL_SERVICE_TOKEN || 'dev-secret-token',
+          'x-internal-api-key': process.env.INTERNAL_API_KEY || 'dev-secret-token-12345',
         },
       });
 
@@ -300,8 +299,8 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
       // Send payment success email
       await sendPaymentEmail('success', {
         tenantId,
-        tenantEmail: tenant.contactEmail || tenant.email,
-        tenantName: tenant.name || tenant.organizationName,
+        tenantEmail: tenant.email || tenant.contactEmail,
+        tenantName: tenant.name,
         planName: subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1),
         amount: paymentAmount / 100,
         currency: payment.currency.toUpperCase(),
@@ -311,8 +310,14 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
         billingPeriodEnd: periodEnd,
         lineItems,
       });
-    } catch (emailError) {
-      console.error('Failed to send payment success email:', emailError);
+      console.log(`Payment success email sent to ${tenant.email} for tenant ${tenant.name}`);
+    } catch (emailError: any) {
+      console.error('Failed to send payment success email:');
+      console.error('Error:', emailError.message);
+      if (emailError.response) {
+        console.error('Response status:', emailError.response.status);
+        console.error('Response data:', JSON.stringify(emailError.response.data));
+      }
       // Don't fail the payment if email fails
     }
 
