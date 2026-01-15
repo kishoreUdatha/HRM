@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { HiArrowLeft, HiSave, HiClock, HiDeviceMobile, HiRefresh } from 'react-icons/hi';
+import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import type { Employee, Shift } from '../types';
 
@@ -179,15 +180,58 @@ const EmployeeForm: React.FC = () => {
     try {
       if (isEditing) {
         await api.put(`/employees/${id}`, formData);
+        toast.success('Employee updated successfully!');
       } else {
         // Remove employeeCode for new employees - backend will auto-generate it
         const { employeeCode, ...dataWithoutCode } = formData;
         await api.post('/employees', dataWithoutCode);
+        toast.success('Employee created successfully!');
       }
       navigate('/employees');
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to save employee';
-      setErrors({ submit: message });
+      const errorMessage = error.response?.data?.message || 'Failed to save employee';
+      const errorCode = error.response?.data?.code;
+
+      // Set form error for display
+      setErrors({ submit: errorMessage });
+
+      // Special handling for plan limit exceeded errors
+      if (errorCode === 'PLAN_LIMIT_EXCEEDED') {
+        toast.error(
+          (t) => (
+            <div className="flex flex-col gap-2">
+              <span className="font-medium">Plan Limit Exceeded</span>
+              <p className="text-sm">{errorMessage}</p>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    navigate('/billing?tab=upgrade');
+                  }}
+                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                >
+                  Upgrade Plan
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ),
+          {
+            duration: 8000,
+            style: {
+              minWidth: '350px',
+            },
+          }
+        );
+      } else {
+        // Standard error toast
+        toast.error(errorMessage);
+      }
     } finally {
       setIsSaving(false);
     }

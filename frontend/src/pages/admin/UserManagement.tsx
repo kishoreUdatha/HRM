@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import api from '../../services/api';
 
 interface User {
@@ -19,6 +21,7 @@ interface UserStats {
 }
 
 const UserManagement = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,32 +78,119 @@ const UserManagement = () => {
     e.preventDefault();
     try {
       await api.post('/auth/admin/users', newUser);
+      toast.success(`User ${newUser.firstName} ${newUser.lastName} created successfully!`);
       setShowCreateModal(false);
       setNewUser({ email: '', password: '', firstName: '', lastName: '', role: 'employee' });
       fetchUsers();
       fetchStats();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to create user:', error);
+
+      // Extract error details
+      const errorMessage = error.response?.data?.message || 'Failed to create user. Please try again.';
+      const errorCode = error.response?.data?.code;
+
+      // Special handling for plan limit exceeded errors
+      if (errorCode === 'PLAN_LIMIT_EXCEEDED') {
+        // Show error toast with upgrade option
+        toast.error(
+          (t) => (
+            <div className="flex flex-col gap-2">
+              <span className="font-medium">Plan Limit Exceeded</span>
+              <p className="text-sm">{errorMessage}</p>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    navigate('/billing?tab=upgrade');
+                  }}
+                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                >
+                  Upgrade Plan
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ),
+          {
+            duration: 8000,
+            style: {
+              minWidth: '350px',
+            },
+          }
+        );
+      } else {
+        // Standard error toast
+        toast.error(errorMessage);
+      }
     }
   };
 
   const handleStatusChange = async (userId: string, status: string) => {
     try {
       await api.put(`/auth/admin/users/${userId}/status`, { status });
+      toast.success(`User status updated to ${status}`);
       fetchUsers();
       fetchStats();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update status:', error);
+      toast.error(error.response?.data?.message || 'Failed to update user status');
     }
   };
 
   const handleRoleChange = async (userId: string, role: string) => {
     try {
       await api.put(`/auth/admin/users/${userId}/role`, { role });
+      toast.success(`User role updated to ${role.replace('_', ' ')}`);
       fetchUsers();
       fetchStats();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to update role:', error);
+
+      const errorMessage = error.response?.data?.message || 'Failed to update user role';
+      const errorCode = error.response?.data?.code;
+
+      // Special handling for plan limit exceeded errors
+      if (errorCode === 'PLAN_LIMIT_EXCEEDED') {
+        toast.error(
+          (t) => (
+            <div className="flex flex-col gap-2">
+              <span className="font-medium">Plan Limit Exceeded</span>
+              <p className="text-sm">{errorMessage}</p>
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    navigate('/billing?tab=upgrade');
+                  }}
+                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                >
+                  Upgrade Plan
+                </button>
+                <button
+                  onClick={() => toast.dismiss(t.id)}
+                  className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ),
+          {
+            duration: 8000,
+            style: {
+              minWidth: '350px',
+            },
+          }
+        );
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -112,11 +202,13 @@ const UserManagement = () => {
         action,
         value,
       });
+      toast.success(`Bulk action completed for ${selectedUsers.length} user(s)`);
       setSelectedUsers([]);
       fetchUsers();
       fetchStats();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to perform bulk action:', error);
+      toast.error(error.response?.data?.message || 'Failed to perform bulk action');
     }
   };
 
