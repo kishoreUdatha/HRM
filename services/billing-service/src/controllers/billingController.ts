@@ -48,7 +48,7 @@ export const createCustomer = async (req: Request, res: Response): Promise<void>
     const { name, email, contact } = req.body;
 
     // Check if subscription already exists for tenant
-    let subscription = await Subscription.findOne({ tenantId });
+    let subscription = await Subscription.findOne({ tenantId: new mongoose.Types.ObjectId(tenantId) });
 
     if (subscription?.razorpayCustomerId) {
       res.json({
@@ -108,7 +108,7 @@ export const createSubscription = async (req: Request, res: Response): Promise<v
     }
 
     // Get subscription record
-    const subscription = await Subscription.findOne({ tenantId });
+    const subscription = await Subscription.findOne({ tenantId: new mongoose.Types.ObjectId(tenantId) });
 
     if (!subscription?.razorpayCustomerId) {
       res.status(400).json({
@@ -184,7 +184,7 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
     const payment = await razorpayService.getPayment(razorpayPaymentId);
 
     // Update subscription
-    const subscription = await Subscription.findOne({ tenantId });
+    const subscription = await Subscription.findOne({ tenantId: new mongoose.Types.ObjectId(tenantId) });
     if (!subscription) {
       res.status(404).json({
         success: false,
@@ -256,7 +256,7 @@ export const getCurrentSubscription = async (req: Request, res: Response): Promi
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
 
-    const subscription = await Subscription.findOne({ tenantId });
+    const subscription = await Subscription.findOne({ tenantId: new mongoose.Types.ObjectId(tenantId) });
 
     if (!subscription) {
       res.json({
@@ -300,7 +300,7 @@ export const cancelSubscription = async (req: Request, res: Response): Promise<v
     const tenantId = req.headers['x-tenant-id'] as string;
     const { cancelImmediately } = req.body;
 
-    const subscription = await Subscription.findOne({ tenantId });
+    const subscription = await Subscription.findOne({ tenantId: new mongoose.Types.ObjectId(tenantId) });
 
     if (!subscription) {
       res.status(404).json({
@@ -346,12 +346,12 @@ export const getInvoices = async (req: Request, res: Response): Promise<void> =>
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
 
-    const invoices = await Invoice.find({ tenantId })
+    const invoices = await Invoice.find({ tenantId: new mongoose.Types.ObjectId(tenantId) })
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
-    const total = await Invoice.countDocuments({ tenantId });
+    const total = await Invoice.countDocuments({ tenantId: new mongoose.Types.ObjectId(tenantId) });
 
     res.json({
       success: true,
@@ -378,7 +378,7 @@ export const getInvoiceById = async (req: Request, res: Response): Promise<void>
     const tenantId = req.headers['x-tenant-id'] as string;
     const { id } = req.params;
 
-    const invoice = await Invoice.findOne({ _id: id, tenantId });
+    const invoice = await Invoice.findOne({ _id: id, tenantId: new mongoose.Types.ObjectId(tenantId) });
 
     if (!invoice) {
       res.status(404).json({
