@@ -47,10 +47,19 @@ interface Invoice {
   _id: string;
   invoiceNumber: string;
   amount: number;
+  amountPaid?: number;
   status: string;
   createdAt: string;
   paidAt?: string;
   invoicePdf?: string;
+  billingPeriodStart?: string;
+  billingPeriodEnd?: string;
+  lineItems?: Array<{
+    description: string;
+    quantity: number;
+    unitAmount: number;
+    amount: number;
+  }>;
 }
 
 const plans: Plan[] = [
