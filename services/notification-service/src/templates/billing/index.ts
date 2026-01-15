@@ -365,6 +365,12 @@ export const invoiceGeneratedTemplate = (data: BillingEmailData): { subject: str
   `,
 });
 
+// Placeholder templates for future use
+export const subscriptionActivatedTemplate = (data: BillingEmailData) => paymentSuccessTemplate(data);
+export const planExpiringTemplate = (data: BillingEmailData) => paymentFailedTemplate(data);
+export const planExpiredTemplate = (data: BillingEmailData) => paymentFailedTemplate(data);
+export const subscriptionCancelledTemplate = (data: BillingEmailData) => invoiceGeneratedTemplate(data);
+
 export const billingTemplates = {
   PAYMENT_SUCCESS: paymentSuccessTemplate,
   PAYMENT_FAILED: paymentFailedTemplate,

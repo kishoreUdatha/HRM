@@ -2,6 +2,10 @@ import resendService, { SendEmailResult } from './resendService';
 import {
   BillingEmailData,
   billingTemplates,
+  subscriptionActivatedTemplate,
+  planExpiringTemplate,
+  planExpiredTemplate,
+  subscriptionCancelledTemplate,
 } from '../templates/billing';
 
 const {
