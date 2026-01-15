@@ -23,9 +23,8 @@ async function sendPaymentEmail(type: 'success' | 'failed', data: {
   lineItems?: any[];
 }) {
   try {
-    const emailTemplate = type === 'success' ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED';
-
-    await axios.post(`${NOTIFICATION_SERVICE_URL}/billing/payment-${type}`, {
+    const url = `${NOTIFICATION_SERVICE_URL}/billing/payment-${type}`;
+    const payload = {
       email: data.tenantEmail,
       tenantName: data.tenantName,
       planName: data.planName,
@@ -38,15 +37,36 @@ async function sendPaymentEmail(type: 'success' | 'failed', data: {
       lineItems: data.lineItems,
       paymentDate: new Date().toISOString(),
       expiryDate: data.billingPeriodEnd?.toISOString(),
-    }, {
+    };
+
+    console.log(`[EMAIL] Sending ${type} email to notification service`);
+    console.log(`[EMAIL] URL: ${url}`);
+    console.log(`[EMAIL] Payload:`, JSON.stringify(payload, null, 2));
+
+    const response = await axios.post(url, payload, {
       headers: {
         'x-tenant-id': data.tenantId,
+        'Content-Type': 'application/json',
       },
     });
 
+    console.log(`[EMAIL] Success! Response:`, response.data);
     console.log(`Payment ${type} email sent to ${data.tenantEmail}`);
-  } catch (error) {
-    console.error(`Failed to send payment ${type} email:`, error);
+  } catch (error: any) {
+    console.error(`[EMAIL] Failed to send payment ${type} email`);
+    console.error(`[EMAIL] Error message:`, error.message);
+    if (error.response) {
+      console.error(`[EMAIL] Response status:`, error.response.status);
+      console.error(`[EMAIL] Response data:`, JSON.stringify(error.response.data, null, 2));
+      console.error(`[EMAIL] Response headers:`, error.response.headers);
+    }
+    if (error.request) {
+      console.error(`[EMAIL] Request config:`, {
+        url: error.config?.url,
+        method: error.config?.method,
+        headers: error.config?.headers,
+      });
+    }
     // Don't throw - email failure shouldn't block payment processing
   }
 }
