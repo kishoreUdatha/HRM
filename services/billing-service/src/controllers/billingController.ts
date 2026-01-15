@@ -25,7 +25,7 @@ async function sendPaymentEmail(type: 'success' | 'failed', data: {
   try {
     const emailTemplate = type === 'success' ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED';
 
-    await axios.post(`${NOTIFICATION_SERVICE_URL}/api/notifications/billing/payment-${type}`, {
+    await axios.post(`${NOTIFICATION_SERVICE_URL}/billing/payment-${type}`, {
       email: data.tenantEmail,
       tenantName: data.tenantName,
       planName: data.planName,
