@@ -124,6 +124,7 @@ const BillingSettings: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [upgradeLoading, setUpgradeLoading] = useState<string | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
 
   useEffect(() => {
     fetchBillingData();
@@ -574,17 +575,13 @@ const BillingSettings: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        {invoice.invoicePdf && (
-                          <a
-                            href={invoice.invoicePdf}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1"
-                          >
-                            <HiDownload className="w-4 h-4" />
-                            Download
-                          </a>
-                        )}
+                        <button
+                          onClick={() => setSelectedInvoice(invoice)}
+                          className="text-primary-600 hover:text-primary-700 inline-flex items-center gap-1 font-medium"
+                        >
+                          <HiDocumentText className="w-4 h-4" />
+                          View Invoice
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -743,6 +740,110 @@ const BillingSettings: React.FC = () => {
                 <p className="text-sm text-gray-600">
                   Yes, you can cancel your subscription anytime. You'll retain access until the end of your billing period.
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Details Modal */}
+      {selectedInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900">Invoice Details</h3>
+                <button
+                  onClick={() => setSelectedInvoice(null)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            {/* Invoice Content */}
+            <div className="p-6 space-y-6">
+              {/* Header Info */}
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="text-2xl font-bold text-gray-900">HRM Platform</h4>
+                  <p className="text-gray-600 mt-1">Invoice #{selectedInvoice.invoiceNumber}</p>
+                </div>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedInvoice.status)}`}>
+                  {selectedInvoice.status.charAt(0).toUpperCase() + selectedInvoice.status.slice(1)}
+                </span>
+              </div>
+
+              {/* Invoice Details Grid */}
+              <div className="grid grid-cols-2 gap-6 py-4 border-y border-gray-200">
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Invoice Date</p>
+                  <p className="font-medium text-gray-900">{formatDate(selectedInvoice.createdAt)}</p>
+                </div>
+                {selectedInvoice.paidAt && (
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Payment Date</p>
+                    <p className="font-medium text-gray-900">{formatDate(selectedInvoice.paidAt)}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Billing Period</p>
+                  <p className="font-medium text-gray-900">
+                    {selectedInvoice.billingPeriodStart && selectedInvoice.billingPeriodEnd
+                      ? `${formatDate(selectedInvoice.billingPeriodStart)} - ${formatDate(selectedInvoice.billingPeriodEnd)}`
+                      : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Payment Method</p>
+                  <p className="font-medium text-gray-900">Card/UPI</p>
+                </div>
+              </div>
+
+              {/* Line Items */}
+              <div>
+                <h5 className="font-semibold text-gray-900 mb-3">Items</h5>
+                <div className="space-y-2">
+                  {selectedInvoice.lineItems?.map((item: any, index: number) => (
+                    <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100">
+                      <div>
+                        <p className="font-medium text-gray-900">{item.description}</p>
+                        <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
+                      </div>
+                      <p className="font-medium text-gray-900">{formatCurrency(item.amount)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Total */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-gray-600">Subtotal</span>
+                  <span className="font-medium text-gray-900">{formatCurrency(selectedInvoice.amount)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                  <span className="text-lg font-bold text-gray-900">Total Paid</span>
+                  <span className="text-2xl font-bold text-primary-600">{formatCurrency(selectedInvoice.amountPaid || selectedInvoice.amount)}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => window.print()}
+                  className="flex-1 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+                >
+                  Print Invoice
+                </button>
+                <button
+                  onClick={() => setSelectedInvoice(null)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
