@@ -115,7 +115,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       await validateUserLimit(tenantId);
 
       // If creating an admin, check admin limit too
-      if (role === 'admin' || role === 'owner') {
+      if (role === 'tenant_admin' || role === 'admin' || role === 'owner') {
         await validateAdminLimit(tenantId);
       }
     } catch (limitError) {

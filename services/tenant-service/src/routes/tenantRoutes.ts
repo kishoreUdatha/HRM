@@ -84,6 +84,31 @@ const requireSuperAdmin = (req: Request, res: Response, next: NextFunction): voi
   next();
 };
 
+// Internal service authentication middleware
+const requireInternalAuth = (req: Request, res: Response, next: NextFunction): void => {
+  const internalApiKey = req.headers['x-internal-api-key'] as string;
+  const expectedKey = process.env.INTERNAL_API_KEY;
+
+  if (!expectedKey) {
+    console.error('[InternalAuth] INTERNAL_API_KEY not configured');
+    res.status(500).json({
+      success: false,
+      message: 'Internal authentication not configured',
+    });
+    return;
+  }
+
+  if (internalApiKey !== expectedKey) {
+    res.status(403).json({
+      success: false,
+      message: 'Invalid internal API key',
+    });
+    return;
+  }
+
+  next();
+};
+
 // Validation middleware
 const validate = (req: Request, res: Response, next: NextFunction): void => {
   const errors = validationResult(req);
@@ -116,6 +141,9 @@ const updateSubscriptionValidation = [
 router.get('/check-slug/:slug', checkSlugAvailability);
 router.get('/by-slug/:slug', getTenantBySlug);
 router.post('/', createTenantValidation, validate, createTenant);
+
+// Internal service routes (require internal API key)
+router.get('/internal/:id', requireInternalAuth, getTenantById);
 
 // Protected routes
 router.get('/current', getCurrentTenant);

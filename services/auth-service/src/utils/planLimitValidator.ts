@@ -1,4 +1,5 @@
 import axios from 'axios';
+import mongoose from 'mongoose';
 import User from '../models/User';
 
 interface TenantSubscription {
@@ -24,8 +25,16 @@ interface PlanLimits {
 async function getTenantPlan(tenantId: string): Promise<string | null> {
   try {
     const tenantServiceUrl = process.env.TENANT_SERVICE_URL || 'http://localhost:3002';
-    const response = await axios.get(`${tenantServiceUrl}/api/tenants/${tenantId}`, {
+    const internalApiKey = process.env.INTERNAL_API_KEY;
+
+    if (!internalApiKey) {
+      console.error('[PlanLimitValidator] INTERNAL_API_KEY not configured');
+      return null;
+    }
+
+    const response = await axios.get(`${tenantServiceUrl}/internal/${tenantId}`, {
       headers: {
+        'x-internal-api-key': internalApiKey,
         'x-tenant-id': tenantId,
       },
     });
@@ -71,21 +80,27 @@ export async function canAddAdmin(tenantId: string): Promise<{ allowed: boolean;
     // Fetch tenant's current plan
     const planCode = await getTenantPlan(tenantId);
     if (!planCode) {
-      console.warn('[PlanLimitValidator] Could not fetch tenant plan, allowing admin creation');
-      return { allowed: true };
+      console.error('[PlanLimitValidator] Could not fetch tenant plan - BLOCKING admin creation');
+      return {
+        allowed: false,
+        message: 'Unable to verify tenant plan. Please try again or contact support.'
+      };
     }
 
     // Fetch plan limits from billing service database
     const planLimits = await getPlanLimits(planCode);
     if (!planLimits) {
-      console.warn('[PlanLimitValidator] Could not fetch plan limits, allowing admin creation');
-      return { allowed: true };
+      console.error('[PlanLimitValidator] Could not fetch plan limits - BLOCKING admin creation');
+      return {
+        allowed: false,
+        message: 'Unable to fetch plan limits from billing service. Please try again or contact support.'
+      };
     }
 
     // Count current admin users for this tenant
     const currentAdminCount = await User.countDocuments({
-      tenantId,
-      role: { $in: ['admin', 'owner'] }, // Count both admin and owner roles
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+      role: { $in: ['tenant_admin', 'admin', 'owner'] }, // Count all admin-type roles
     });
 
     // Check if limit is exceeded
@@ -108,8 +123,11 @@ export async function canAddAdmin(tenantId: string): Promise<{ allowed: boolean;
     return { allowed: true, currentCount: currentAdminCount, limit };
   } catch (error) {
     console.error('[PlanLimitValidator] Error checking admin limit:', error);
-    // In case of error, allow creation but log it
-    return { allowed: true };
+    // In case of error, BLOCK creation for security
+    return {
+      allowed: false,
+      message: `Unable to verify plan limits. Error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again or contact support.`
+    };
   }
 }
 
