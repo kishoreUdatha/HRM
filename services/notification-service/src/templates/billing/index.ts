@@ -205,7 +205,7 @@ export const paymentSuccessTemplate = (data: BillingEmailData): { subject: strin
             </div>
 
             <div style="text-align: center;">
-              <a href="${data.dashboardUrl || 'https://thankfulriver-4edafef0.centralindia.5.azurestaticapps.net'}/billing?tab=invoices&invoice=${data.invoiceNumber}" class="btn">View Invoice</a>
+              <a href="${data.dashboardUrl || 'https://hrzio.com'}/billing?tab=invoices&invoice=${data.invoiceNumber}" class="btn">View Invoice</a>
             </div>
 
             <div class="highlight-box">
@@ -220,7 +220,7 @@ export const paymentSuccessTemplate = (data: BillingEmailData): { subject: strin
           <div class="footer">
             <p style="font-weight: 600; color: #1e293b; margin-bottom: 12px;">HRM Platform</p>
             <p>Modern Human Resource Management System</p>
-            <p>Need help? Email us at <a href="mailto:${data.supportEmail || 'support@hrm.com'}">${data.supportEmail || 'support@hrm.com'}</a></p>
+            <p>Need help? Email us at <a href="mailto:${data.supportEmail || 'support@hrzio.com'}">${data.supportEmail || 'support@hrzio.com'}</a></p>
             <p style="margin-top: 20px; color: #94a3b8;">© ${new Date().getFullYear()} HRM Platform. All rights reserved.</p>
           </div>
         </div>
@@ -273,7 +273,7 @@ export const paymentFailedTemplate = (data: BillingEmailData): { subject: string
             </div>
 
             <div style="text-align: center;">
-              <a href="${data.dashboardUrl || 'https://thankfulriver-4edafef0.centralindia.5.azurestaticapps.net'}/billing" class="btn">Update Payment Method</a>
+              <a href="${data.dashboardUrl || 'https://hrzio.com'}/billing" class="btn">Update Payment Method</a>
             </div>
 
             <div class="highlight-box">
@@ -297,7 +297,7 @@ export const paymentFailedTemplate = (data: BillingEmailData): { subject: string
           </div>
           <div class="footer">
             <p style="font-weight: 600; color: #1e293b; margin-bottom: 12px;">HRM Platform</p>
-            <p>Need immediate help? Email us at <a href="mailto:${data.supportEmail || 'support@hrm.com'}">${data.supportEmail || 'support@hrm.com'}</a></p>
+            <p>Need immediate help? Email us at <a href="mailto:${data.supportEmail || 'support@hrzio.com'}">${data.supportEmail || 'support@hrzio.com'}</a></p>
             <p style="margin-top: 20px; color: #94a3b8;">© ${new Date().getFullYear()} HRM Platform. All rights reserved.</p>
           </div>
         </div>
@@ -348,14 +348,14 @@ export const invoiceGeneratedTemplate = (data: BillingEmailData): { subject: str
             </div>
 
             <div style="text-align: center;">
-              <a href="${data.dashboardUrl || 'https://thankfulriver-4edafef0.centralindia.5.azurestaticapps.net'}/billing?tab=invoices&invoice=${data.invoiceNumber}" class="btn">View Invoice</a>
+              <a href="${data.dashboardUrl || 'https://hrzio.com'}/billing?tab=invoices&invoice=${data.invoiceNumber}" class="btn">View Invoice</a>
             </div>
 
             <p>Thank you for choosing HRM Platform for your human resource management needs.</p>
           </div>
           <div class="footer">
             <p style="font-weight: 600; color: #1e293b; margin-bottom: 12px;">HRM Platform</p>
-            <p>Questions? Email us at <a href="mailto:${data.supportEmail || 'support@hrm.com'}">${data.supportEmail || 'support@hrm.com'}</a></p>
+            <p>Questions? Email us at <a href="mailto:${data.supportEmail || 'support@hrzio.com'}">${data.supportEmail || 'support@hrzio.com'}</a></p>
             <p style="margin-top: 20px; color: #94a3b8;">© ${new Date().getFullYear()} HRM Platform. All rights reserved.</p>
           </div>
         </div>

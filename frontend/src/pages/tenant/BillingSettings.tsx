@@ -234,15 +234,15 @@ const BillingSettings: React.FC = () => {
           },
           prefill: {
             email: userEmail,
+            contact: '',
           },
           theme: {
             color: '#6366f1',
           },
-          method: {
-            netbanking: true,
-            card: true,
-            upi: true,
-            wallet: true,
+          modal: {
+            ondismiss: function() {
+              console.log('Razorpay payment modal closed');
+            }
           },
         };
 

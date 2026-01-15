@@ -15,8 +15,8 @@ class BillingNotificationService {
   private supportEmail: string;
 
   constructor() {
-    this.dashboardUrl = process.env.DASHBOARD_URL || 'https://thankfulriver-4edafef0.centralindia.5.azurestaticapps.net';
-    this.supportEmail = process.env.SUPPORT_EMAIL || 'support@hrm.com';
+    this.dashboardUrl = process.env.DASHBOARD_URL || 'https://hrzio.com';
+    this.supportEmail = process.env.SUPPORT_EMAIL || 'support@hrzio.com';
   }
 
   private enrichData(data: Partial<BillingEmailData>): BillingEmailData {
