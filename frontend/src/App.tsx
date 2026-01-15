@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from 'react-redux';
+import { Toaster } from 'react-hot-toast';
 import { store } from './store';
 import { useAppDispatch, useAppSelector } from './hooks/useAppDispatch';
 import { checkAuth } from './features/auth/authSlice';
@@ -382,6 +383,31 @@ const App: React.FC = () => {
   return (
     <Provider store={store}>
       <Router>
+        <Toaster
+          position="top-right"
+          reverseOrder={false}
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              iconTheme: {
+                primary: '#10b981',
+                secondary: '#fff',
+              },
+            },
+            error: {
+              duration: 4000,
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: '#fff',
+              },
+            },
+          }}
+        />
         <AuthCheck>
           <AppRoutes />
         </AuthCheck>
