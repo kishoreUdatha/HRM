@@ -1,22 +1,22 @@
 import resendService, { SendEmailResult } from './resendService';
 import {
   BillingEmailData,
-  paymentSuccessTemplate,
-  paymentFailedTemplate,
-  invoiceGeneratedTemplate,
-  subscriptionActivatedTemplate,
-  planExpiringTemplate,
-  planExpiredTemplate,
-  subscriptionCancelledTemplate,
+  billingTemplates,
 } from '../templates/billing';
+
+const {
+  PAYMENT_SUCCESS: paymentSuccessTemplate,
+  PAYMENT_FAILED: paymentFailedTemplate,
+  INVOICE_GENERATED: invoiceGeneratedTemplate,
+} = billingTemplates;
 
 class BillingNotificationService {
   private dashboardUrl: string;
   private supportEmail: string;
 
   constructor() {
-    this.dashboardUrl = process.env.DASHBOARD_URL || 'https://app.hrzio.com';
-    this.supportEmail = process.env.SUPPORT_EMAIL || 'support@hrzio.com';
+    this.dashboardUrl = process.env.DASHBOARD_URL || 'https://thankfulriver-4edafef0.centralindia.5.azurestaticapps.net';
+    this.supportEmail = process.env.SUPPORT_EMAIL || 'support@hrm.com';
   }
 
   private enrichData(data: Partial<BillingEmailData>): BillingEmailData {
@@ -34,6 +34,10 @@ class BillingNotificationService {
       daysUntilExpiry: data.daysUntilExpiry,
       dashboardUrl: this.dashboardUrl,
       supportEmail: this.supportEmail,
+      lineItems: data.lineItems,
+      billingPeriodStart: data.billingPeriodStart,
+      billingPeriodEnd: data.billingPeriodEnd,
+      paymentMethod: data.paymentMethod,
     };
   }
 

@@ -4,6 +4,52 @@ import Invoice from '../models/Invoice';
 import PaymentMethod from '../models/PaymentMethod';
 import razorpayService, { PLAN_PRICING, PLAN_FEATURES } from '../services/razorpayService';
 import mongoose from 'mongoose';
+import axios from 'axios';
+
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3029';
+
+// Helper function to send payment email
+async function sendPaymentEmail(type: 'success' | 'failed', data: {
+  tenantId: string;
+  tenantEmail: string;
+  tenantName: string;
+  planName: string;
+  amount: number;
+  currency: string;
+  billingCycle: 'monthly' | 'yearly';
+  invoiceNumber?: string;
+  billingPeriodStart?: Date;
+  billingPeriodEnd?: Date;
+  lineItems?: any[];
+}) {
+  try {
+    const emailTemplate = type === 'success' ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED';
+
+    await axios.post(`${NOTIFICATION_SERVICE_URL}/api/notifications/billing/payment-${type}`, {
+      email: data.tenantEmail,
+      tenantName: data.tenantName,
+      planName: data.planName,
+      amount: data.amount,
+      currency: data.currency,
+      billingCycle: data.billingCycle,
+      invoiceNumber: data.invoiceNumber,
+      billingPeriodStart: data.billingPeriodStart?.toISOString(),
+      billingPeriodEnd: data.billingPeriodEnd?.toISOString(),
+      lineItems: data.lineItems,
+      paymentDate: new Date().toISOString(),
+      expiryDate: data.billingPeriodEnd?.toISOString(),
+    }, {
+      headers: {
+        'x-tenant-id': data.tenantId,
+      },
+    });
+
+    console.log(`Payment ${type} email sent to ${data.tenantEmail}`);
+  } catch (error) {
+    console.error(`Failed to send payment ${type} email:`, error);
+    // Don't throw - email failure shouldn't block payment processing
+  }
+}
 
 // Get pricing plans
 export const getPricingPlans = async (req: Request, res: Response): Promise<void> => {
@@ -212,12 +258,22 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
 
     // Create invoice
     const paymentAmount = Number(payment.amount);
+    const invoiceNumber = `INV-${Date.now()}`;
+    const lineItems = [
+      {
+        description: `${subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)} Plan - ${subscription.billingCycle}`,
+        quantity: 1,
+        unitAmount: paymentAmount / 100,
+        amount: paymentAmount / 100,
+      },
+    ];
+
     await Invoice.create({
       tenantId: new mongoose.Types.ObjectId(tenantId),
       subscriptionId: subscription._id,
       razorpayPaymentId,
       razorpayOrderId,
-      invoiceNumber: `INV-${Date.now()}`,
+      invoiceNumber,
       amount: paymentAmount / 100,
       amountPaid: paymentAmount / 100,
       amountDue: 0,
@@ -227,15 +283,38 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
       billingPeriodEnd: periodEnd,
       dueDate: now,
       paidAt: now,
-      lineItems: [
-        {
-          description: `${subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)} Plan - ${subscription.billingCycle}`,
-          quantity: 1,
-          unitAmount: paymentAmount / 100,
-          amount: paymentAmount / 100,
-        },
-      ],
+      lineItems,
     });
+
+    // Fetch tenant details for email
+    try {
+      const tenantResponse = await axios.get(`${process.env.TENANT_SERVICE_URL || 'http://tenant-service:3001'}/api/tenants/${tenantId}/details`, {
+        headers: {
+          'x-tenant-id': tenantId,
+          'x-service-auth': process.env.INTERNAL_SERVICE_TOKEN || 'dev-secret-token',
+        },
+      });
+
+      const tenant = tenantResponse.data.data;
+
+      // Send payment success email
+      await sendPaymentEmail('success', {
+        tenantId,
+        tenantEmail: tenant.contactEmail || tenant.email,
+        tenantName: tenant.name || tenant.organizationName,
+        planName: subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1),
+        amount: paymentAmount / 100,
+        currency: payment.currency.toUpperCase(),
+        billingCycle: subscription.billingCycle,
+        invoiceNumber,
+        billingPeriodStart: now,
+        billingPeriodEnd: periodEnd,
+        lineItems,
+      });
+    } catch (emailError) {
+      console.error('Failed to send payment success email:', emailError);
+      // Don't fail the payment if email fails
+    }
 
     res.json({
       success: true,

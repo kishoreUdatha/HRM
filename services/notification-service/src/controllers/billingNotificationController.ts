@@ -17,7 +17,7 @@ export const sendPaymentSuccess = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const { email, tenantName, planName, amount, currency, billingCycle, invoiceNumber, invoiceUrl, paymentDate } = req.body;
+    const { email, tenantName, planName, amount, currency, billingCycle, invoiceNumber, invoiceUrl, paymentDate, billingPeriodStart, billingPeriodEnd, lineItems, expiryDate } = req.body;
 
     const result = await billingNotificationService.sendPaymentSuccess(tenantId, email, {
       tenantName,
@@ -29,6 +29,10 @@ export const sendPaymentSuccess = async (req: Request, res: Response): Promise<v
       invoiceNumber,
       invoiceUrl,
       paymentDate,
+      billingPeriodStart,
+      billingPeriodEnd,
+      lineItems,
+      expiryDate,
     });
 
     if (result.success) {
