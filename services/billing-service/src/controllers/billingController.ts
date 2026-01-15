@@ -123,10 +123,13 @@ export const createSubscription = async (req: Request, res: Response): Promise<v
 
     // For now, create an order instead of subscription (simpler for demo)
     // In production, you'd use Razorpay Subscriptions with pre-created plans
+    // Create receipt: max 40 chars (Razorpay limit)
+    // Format: sub_<last8charsOfTenantId>_<timestamp>
+    const shortTenantId = tenantId.slice(-8);
     const order = await razorpayService.createOrder({
       amount,
       currency: 'INR',
-      receipt: `sub_${tenantId}_${Date.now()}`,
+      receipt: `sub_${shortTenantId}_${Date.now()}`,
       notes: {
         tenantId,
         plan,
@@ -150,11 +153,12 @@ export const createSubscription = async (req: Request, res: Response): Promise<v
         keyId: process.env.RAZORPAY_KEY_ID,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating subscription:', error);
+    const errorMessage = error.error?.description || error.message || 'Failed to create subscription';
     res.status(500).json({
       success: false,
-      message: 'Failed to create subscription',
+      message: errorMessage,
     });
   }
 };
