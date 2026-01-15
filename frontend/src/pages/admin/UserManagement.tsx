@@ -92,6 +92,10 @@ const UserManagement = () => {
 
       // Special handling for plan limit exceeded errors
       if (errorCode === 'PLAN_LIMIT_EXCEEDED') {
+        // Close modal and reset form
+        setShowCreateModal(false);
+        setNewUser({ email: '', password: '', firstName: '', lastName: '', role: 'employee' });
+
         // Show error toast with upgrade option
         toast.error(
           (t) => (
