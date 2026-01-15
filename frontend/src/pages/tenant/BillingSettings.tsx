@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useAppSelector } from '../../hooks/useAppDispatch';
 import {
   HiCreditCard,
   HiDocumentText,
@@ -108,6 +109,7 @@ const plans: Plan[] = [
 ];
 
 const BillingSettings: React.FC = () => {
+  const { user } = useAppSelector((state) => state.auth);
   const [searchParams, setSearchParams] = useSearchParams();
   const invoiceRefs = useRef<{ [key: string]: HTMLTableRowElement | null }>({});
 
@@ -173,6 +175,21 @@ const BillingSettings: React.FC = () => {
     try {
       setUpgradeLoading(planId);
 
+      // First, ensure customer exists
+      const userEmail = user?.email || '';
+      const userName = user ? `${user.firstName} ${user.lastName}` : 'User';
+
+      try {
+        await api.post('/billing/customers', {
+          name: userName,
+          email: userEmail,
+          contact: '',
+        });
+      } catch (customerError: any) {
+        // Customer might already exist, continue with subscription creation
+        console.log('Customer creation response:', customerError.response?.data?.message);
+      }
+
       const response = await api.post('/billing/subscriptions', {
         plan: planId,
         billingCycle,
@@ -180,37 +197,42 @@ const BillingSettings: React.FC = () => {
 
       const data = response.data;
 
-      if (data.success && data.data?.razorpayOrderId) {
+      if (data.success && data.data?.orderId) {
         // Initialize Razorpay payment
         const options = {
           key: data.data.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_S4E9RUxaKrKzMH',
           amount: data.data.amount,
-          currency: 'INR',
+          currency: data.data.currency || 'INR',
           name: 'HRM Platform',
           description: `${planId.charAt(0).toUpperCase() + planId.slice(1)} Plan - ${billingCycle}`,
-          order_id: data.data.razorpayOrderId,
+          order_id: data.data.orderId,
           handler: async function (response: {
             razorpay_payment_id: string;
             razorpay_order_id: string;
             razorpay_signature: string;
           }) {
             // Verify payment
-            const verifyResponse = await api.post('/billing/verify-payment', {
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-            });
+            try {
+              const verifyResponse = await api.post('/billing/verify-payment', {
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              });
 
-            const verifyData = verifyResponse.data;
-            if (verifyData.success) {
-              alert('Payment successful! Your subscription has been activated.');
-              fetchBillingData();
-            } else {
-              alert('Payment verification failed. Please contact support.');
+              const verifyData = verifyResponse.data;
+              if (verifyData.success) {
+                alert('Payment successful! Your subscription has been activated.');
+                fetchBillingData();
+              } else {
+                alert('Payment verification failed. Please contact support.');
+              }
+            } catch (verifyError: any) {
+              console.error('Error verifying payment:', verifyError);
+              alert(verifyError.response?.data?.message || 'Payment verification failed. Please contact support.');
             }
           },
           prefill: {
-            email: localStorage.getItem('userEmail') || '',
+            email: userEmail,
           },
           theme: {
             color: '#6366f1',
@@ -222,9 +244,10 @@ const BillingSettings: React.FC = () => {
       } else {
         alert(data.message || 'Failed to create subscription');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error upgrading plan:', error);
-      alert('An error occurred. Please try again.');
+      const errorMessage = error.response?.data?.message || error.message || 'An error occurred. Please try again.';
+      alert(errorMessage);
     } finally {
       setUpgradeLoading(null);
     }
