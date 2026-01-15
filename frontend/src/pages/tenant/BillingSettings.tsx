@@ -237,6 +237,12 @@ const BillingSettings: React.FC = () => {
           theme: {
             color: '#6366f1',
           },
+          method: {
+            netbanking: true,
+            card: true,
+            upi: true,
+            wallet: true,
+          },
         };
 
         const razorpay = new (window as unknown as { Razorpay: new (options: object) => { open: () => void } }).Razorpay(options);
