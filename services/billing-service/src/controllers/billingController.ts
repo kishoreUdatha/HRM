@@ -316,10 +316,33 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
 
       const tenant = tenantResponse.data.data;
 
+      // Get email from billing.email, fallback to any other email field
+      let tenantEmail = tenant.billing?.email || tenant.email || tenant.contactEmail;
+
+      // If no email found on tenant, try to fetch admin user email from auth service
+      if (!tenantEmail) {
+        try {
+          const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://auth-service:3010';
+          const adminResponse = await axios.get(`${authServiceUrl}/internal/tenant-admin/${tenantId}`, {
+            headers: {
+              'x-internal-api-key': process.env.INTERNAL_API_KEY || 'dev-secret-token-12345',
+            },
+          });
+          tenantEmail = adminResponse.data.data?.email;
+        } catch (adminErr) {
+          console.error('Failed to fetch admin email:', adminErr);
+        }
+      }
+
+      if (!tenantEmail) {
+        console.error('No email found for tenant:', tenant.name);
+        throw new Error('No email configured for tenant');
+      }
+
       // Send payment success email
       await sendPaymentEmail('success', {
         tenantId,
-        tenantEmail: tenant.email || tenant.contactEmail,
+        tenantEmail,
         tenantName: tenant.name,
         planName: subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1),
         amount: paymentAmount / 100,
