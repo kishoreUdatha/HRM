@@ -255,7 +255,7 @@ SUPPORT_EMAIL=support@hrzio.com
 
 ### Billing Service (.env)
 ```bash
-NOTIFICATION_SERVICE_URL=http://localhost:3025/api/notifications
+NOTIFICATION_SERVICE_URL=http://localhost:3007
 TENANT_SERVICE_URL=http://localhost:3021/api/tenants
 ```
 

@@ -6,7 +6,7 @@ import razorpayService, { PLAN_PRICING, PLAN_FEATURES } from '../services/razorp
 import mongoose from 'mongoose';
 import axios from 'axios';
 
-const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3029';
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3007';
 
 // Helper function to send payment email
 async function sendPaymentEmail(type: 'success' | 'failed', data: {

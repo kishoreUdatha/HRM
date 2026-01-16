@@ -16,7 +16,7 @@ class NotificationClient {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3025/api/notifications';
+    this.baseUrl = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3007';
   }
 
   private async sendRequest(endpoint: string, tenantId: string, data: BillingEmailData): Promise<{ success: boolean; error?: string }> {
