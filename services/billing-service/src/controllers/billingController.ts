@@ -8,6 +8,22 @@ import axios from 'axios';
 
 const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://notification-service:3007';
 
+// Helper function to validate and convert tenantId to ObjectId
+function validateTenantId(tenantId: string | undefined): mongoose.Types.ObjectId | null {
+  if (!tenantId || typeof tenantId !== 'string') {
+    return null;
+  }
+  // Check if it's a valid 24-character hex string
+  if (!/^[a-fA-F0-9]{24}$/.test(tenantId)) {
+    return null;
+  }
+  try {
+    return new mongoose.Types.ObjectId(tenantId);
+  } catch {
+    return null;
+  }
+}
+
 // Helper function to send payment email
 async function sendPaymentEmail(type: 'success' | 'failed', data: {
   tenantId: string;
@@ -112,10 +128,19 @@ export const getPricingPlans = async (req: Request, res: Response): Promise<void
 export const createCustomer = async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
+    const tenantObjectId = validateTenantId(tenantId);
     const { name, email, contact } = req.body;
 
+    if (!tenantObjectId) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid or missing tenant ID',
+      });
+      return;
+    }
+
     // Check if subscription already exists for tenant
-    let subscription = await Subscription.findOne({ tenantId: new mongoose.Types.ObjectId(tenantId) });
+    let subscription = await Subscription.findOne({ tenantId: tenantObjectId });
 
     if (subscription?.razorpayCustomerId) {
       res.json({
@@ -140,7 +165,7 @@ export const createCustomer = async (req: Request, res: Response): Promise<void>
       await subscription.save();
     } else {
       subscription = await Subscription.create({
-        tenantId: new mongoose.Types.ObjectId(tenantId),
+        tenantId: tenantObjectId,
         razorpayCustomerId: customer.id,
         plan: 'free',
         status: 'created',
@@ -164,7 +189,16 @@ export const createCustomer = async (req: Request, res: Response): Promise<void>
 export const createSubscription = async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
+    const tenantObjectId = validateTenantId(tenantId);
     const { plan, billingCycle } = req.body;
+
+    if (!tenantObjectId) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid or missing tenant ID',
+      });
+      return;
+    }
 
     if (!['starter', 'professional', 'enterprise'].includes(plan)) {
       res.status(400).json({
@@ -175,7 +209,7 @@ export const createSubscription = async (req: Request, res: Response): Promise<v
     }
 
     // Get subscription record
-    const subscription = await Subscription.findOne({ tenantId: new mongoose.Types.ObjectId(tenantId) });
+    const subscription = await Subscription.findOne({ tenantId: tenantObjectId });
 
     if (!subscription?.razorpayCustomerId) {
       res.status(400).json({
@@ -387,8 +421,23 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
 export const getCurrentSubscription = async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
+    const tenantObjectId = validateTenantId(tenantId);
 
-    const subscription = await Subscription.findOne({ tenantId: new mongoose.Types.ObjectId(tenantId) });
+    if (!tenantObjectId) {
+      // No valid tenant ID - return free plan
+      const freeFeatures = await razorpayService.getPlanFeaturesAsync('free');
+      res.json({
+        success: true,
+        data: {
+          plan: 'free',
+          status: 'active',
+          features: freeFeatures,
+        },
+      });
+      return;
+    }
+
+    const subscription = await Subscription.findOne({ tenantId: tenantObjectId });
 
     if (!subscription) {
       // Get free plan features from database
