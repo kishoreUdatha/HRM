@@ -1,17 +1,19 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
+import SubscriptionPlan, { ISubscriptionPlan } from '../models/SubscriptionPlan';
 
-// Plan pricing configuration (in paise - 100 paise = 1 INR)
-export const PLAN_PRICING = {
-  trial: { monthly: 0, yearly: 0 }, // 14-day trial - free
+// Fallback plan pricing configuration (in paise - 100 paise = 1 INR)
+// Used only if database plans are not available
+const FALLBACK_PLAN_PRICING: Record<string, { monthly: number; yearly: number }> = {
+  trial: { monthly: 0, yearly: 0 },
   free: { monthly: 0, yearly: 0 },
-  starter: { monthly: 149900, yearly: 1499000 }, // ₹1,499/mo or ₹14,990/yr
-  professional: { monthly: 399900, yearly: 3999000 }, // ₹3,999/mo or ₹39,990/yr
-  enterprise: { monthly: 999900, yearly: 9999000 }, // ₹9,999/mo or ₹99,990/yr
+  starter: { monthly: 149900, yearly: 1499000 },
+  professional: { monthly: 399900, yearly: 3999000 },
+  enterprise: { monthly: 999900, yearly: 9999000 },
 };
 
-// Plan features
-export const PLAN_FEATURES = {
+// Fallback plan features
+const FALLBACK_PLAN_FEATURES: Record<string, { employeeLimit: number; adminLimit: number; features: string[] }> = {
   trial: {
     employeeLimit: 5,
     adminLimit: 1,
@@ -33,11 +35,16 @@ export const PLAN_FEATURES = {
     features: ['All Starter features', 'Performance Management', 'Recruitment', 'API Access', 'Priority Support'],
   },
   enterprise: {
-    employeeLimit: -1, // Unlimited
+    employeeLimit: -1,
     adminLimit: 100,
     features: ['All Professional features', 'Custom Integrations', 'SSO', 'Dedicated Support', 'SLA'],
   },
 };
+
+// Cache for plans to avoid repeated database queries
+let plansCache: ISubscriptionPlan[] | null = null;
+let plansCacheTime: number = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
 class RazorpayService {
   private razorpay: Razorpay;
@@ -346,23 +353,102 @@ class RazorpayService {
     }
   }
 
-  // Get pricing for a plan
-  getPlanPricing(plan: keyof typeof PLAN_PRICING, cycle: 'monthly' | 'yearly') {
-    return PLAN_PRICING[plan][cycle];
+  // Refresh plans cache from database
+  async refreshPlansCache(): Promise<ISubscriptionPlan[]> {
+    try {
+      const plans = await SubscriptionPlan.find({ isActive: true });
+      plansCache = plans;
+      plansCacheTime = Date.now();
+      return plans;
+    } catch (error) {
+      console.error('Error refreshing plans cache:', error);
+      return [];
+    }
   }
 
-  // Get plan features
-  getPlanFeatures(plan: keyof typeof PLAN_FEATURES) {
-    return PLAN_FEATURES[plan];
+  // Get all plans from database (with caching)
+  async getPlansFromDb(): Promise<ISubscriptionPlan[]> {
+    const now = Date.now();
+    if (plansCache && (now - plansCacheTime) < CACHE_TTL) {
+      return plansCache;
+    }
+    return this.refreshPlansCache();
   }
 
-  // Calculate discount for yearly billing
-  getYearlyDiscount(plan: keyof typeof PLAN_PRICING) {
-    const monthlyTotal = PLAN_PRICING[plan].monthly * 12;
-    const yearlyPrice = PLAN_PRICING[plan].yearly;
-    const savings = monthlyTotal - yearlyPrice;
-    const discountPercent = Math.round((savings / monthlyTotal) * 100);
-    return { savings, discountPercent };
+  // Get a specific plan from database
+  async getPlanFromDb(planCode: string): Promise<ISubscriptionPlan | null> {
+    const plans = await this.getPlansFromDb();
+    return plans.find(p => p.planCode === planCode) || null;
+  }
+
+  // Get pricing for a plan (async - fetches from database)
+  async getPlanPricingAsync(planCode: string, cycle: 'monthly' | 'yearly'): Promise<number> {
+    const plan = await this.getPlanFromDb(planCode);
+    if (plan) {
+      return plan.pricing[cycle];
+    }
+    // Fallback to hardcoded values if plan not found in database
+    const fallback = FALLBACK_PLAN_PRICING[planCode];
+    return fallback ? fallback[cycle] : 0;
+  }
+
+  // Get plan features (async - fetches from database)
+  async getPlanFeaturesAsync(planCode: string): Promise<{ employeeLimit: number; adminLimit: number; features: string[] }> {
+    const plan = await this.getPlanFromDb(planCode);
+    if (plan) {
+      return {
+        employeeLimit: plan.limits.maxEmployees,
+        adminLimit: plan.limits.maxAdmins,
+        features: plan.features,
+      };
+    }
+    // Fallback to hardcoded values if plan not found in database
+    return FALLBACK_PLAN_FEATURES[planCode] || FALLBACK_PLAN_FEATURES.free;
+  }
+
+  // Calculate discount for yearly billing (async - fetches from database)
+  async getYearlyDiscountAsync(planCode: string): Promise<{ savings: number; discountPercent: number }> {
+    const plan = await this.getPlanFromDb(planCode);
+    if (plan) {
+      const monthlyTotal = plan.pricing.monthly * 12;
+      const yearlyPrice = plan.pricing.yearly;
+      const savings = monthlyTotal - yearlyPrice;
+      const discountPercent = monthlyTotal > 0 ? Math.round((savings / monthlyTotal) * 100) : 0;
+      return { savings, discountPercent };
+    }
+    // Fallback
+    const fallback = FALLBACK_PLAN_PRICING[planCode];
+    if (fallback) {
+      const monthlyTotal = fallback.monthly * 12;
+      const yearlyPrice = fallback.yearly;
+      const savings = monthlyTotal - yearlyPrice;
+      const discountPercent = monthlyTotal > 0 ? Math.round((savings / monthlyTotal) * 100) : 0;
+      return { savings, discountPercent };
+    }
+    return { savings: 0, discountPercent: 0 };
+  }
+
+  // Legacy synchronous methods (use fallback data)
+  // Kept for backward compatibility
+  getPlanPricing(plan: string, cycle: 'monthly' | 'yearly'): number {
+    const fallback = FALLBACK_PLAN_PRICING[plan];
+    return fallback ? fallback[cycle] : 0;
+  }
+
+  getPlanFeatures(plan: string): { employeeLimit: number; adminLimit: number; features: string[] } {
+    return FALLBACK_PLAN_FEATURES[plan] || FALLBACK_PLAN_FEATURES.free;
+  }
+
+  getYearlyDiscount(plan: string): { savings: number; discountPercent: number } {
+    const fallback = FALLBACK_PLAN_PRICING[plan];
+    if (fallback) {
+      const monthlyTotal = fallback.monthly * 12;
+      const yearlyPrice = fallback.yearly;
+      const savings = monthlyTotal - yearlyPrice;
+      const discountPercent = monthlyTotal > 0 ? Math.round((savings / monthlyTotal) * 100) : 0;
+      return { savings, discountPercent };
+    }
+    return { savings: 0, discountPercent: 0 };
   }
 }
 

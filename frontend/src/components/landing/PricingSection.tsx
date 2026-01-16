@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { HiCheck, HiX, HiSparkles, HiLightningBolt } from 'react-icons/hi';
 
@@ -12,10 +12,60 @@ interface PricingPlan {
   cta: string;
   gradient: string;
   bgGradient: string;
+  planCode: string;
 }
 
-const plans: PricingPlan[] = [
+interface ApiPlan {
+  planCode: string;
+  displayName: string;
+  description: string;
+  pricing: {
+    monthly: number;
+    yearly: number;
+    yearlyPerMonth: number;
+    currency: string;
+  };
+  limits: {
+    maxEmployees: number;
+    maxAdmins: number;
+    maxStorage: number;
+    maxApiCalls: number;
+  };
+  features: string[];
+  trialDays?: number;
+}
+
+// Gradient styles for each plan
+const planStyles: Record<string, { gradient: string; bgGradient: string; popular?: boolean; cta: string }> = {
+  starter: {
+    gradient: 'from-cyan-400 to-blue-600',
+    bgGradient: 'from-cyan-500 to-blue-600',
+    cta: 'Start Free Trial',
+  },
+  professional: {
+    gradient: 'from-purple-400 to-pink-600',
+    bgGradient: 'from-purple-500 to-pink-600',
+    popular: true,
+    cta: 'Start Free Trial',
+  },
+  enterprise: {
+    gradient: 'from-orange-400 to-red-500',
+    bgGradient: 'from-orange-500 to-red-500',
+    cta: 'Contact Sales',
+  },
+};
+
+// Default gradient for unknown plans
+const defaultStyle = {
+  gradient: 'from-gray-400 to-gray-600',
+  bgGradient: 'from-gray-500 to-gray-600',
+  cta: 'Get Started',
+};
+
+// Fallback plans in case API fails
+const fallbackPlans: PricingPlan[] = [
   {
+    planCode: 'starter',
     name: 'Starter',
     description: 'Perfect for small teams getting started.',
     monthlyPrice: 99,
@@ -29,12 +79,11 @@ const plans: PricingPlan[] = [
       { name: 'Attendance Tracking', included: true },
       { name: 'Basic Reports', included: true },
       { name: 'Email Support', included: true },
-      { name: 'Payroll Management', included: false },
-      { name: 'Performance Reviews', included: false },
     ],
     cta: 'Start Free Trial',
   },
   {
+    planCode: 'professional',
     name: 'Professional',
     description: 'For growing companies with full HR needs.',
     monthlyPrice: 199,
@@ -47,14 +96,12 @@ const plans: PricingPlan[] = [
       { name: 'Everything in Starter', included: true },
       { name: 'Payroll Management', included: true },
       { name: 'Performance Reviews', included: true },
-      { name: 'Recruitment Module', included: true },
-      { name: 'Advanced Reports', included: true },
       { name: 'Priority Support', included: true },
-      { name: 'Custom Workflows', included: true },
     ],
     cta: 'Start Free Trial',
   },
   {
+    planCode: 'enterprise',
     name: 'Enterprise',
     description: 'For large organizations with custom needs.',
     monthlyPrice: 349,
@@ -66,10 +113,7 @@ const plans: PricingPlan[] = [
       { name: 'Everything in Pro', included: true },
       { name: 'Advanced Analytics', included: true },
       { name: 'API Access', included: true },
-      { name: 'Custom Integrations', included: true },
-      { name: 'Dedicated Manager', included: true },
-      { name: '24/7 Phone Support', included: true },
-      { name: 'SLA Guarantee', included: true },
+      { name: 'Dedicated Support', included: true },
     ],
     cta: 'Contact Sales',
   },
@@ -77,6 +121,59 @@ const plans: PricingPlan[] = [
 
 const PricingSection: React.FC = () => {
   const [isYearly, setIsYearly] = useState(true);
+  const [plans, setPlans] = useState<PricingPlan[]>(fallbackPlans);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const fetchPlans = async () => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api';
+      const response = await fetch(`${API_URL}/billing/plans`);
+      const data = await response.json();
+
+      if (data.success && data.data && data.data.length > 0) {
+        const transformedPlans: PricingPlan[] = data.data
+          .filter((plan: ApiPlan) => plan.planCode !== 'free' && plan.planCode !== 'trial')
+          .map((plan: ApiPlan) => {
+            const style = planStyles[plan.planCode] || defaultStyle;
+
+            // Transform features array to feature objects
+            const features = plan.features.map((feature: string) => ({
+              name: feature,
+              included: true,
+            }));
+
+            // Add employee limit as first feature
+            const employeeLimit = plan.limits.maxEmployees === -1
+              ? 'Unlimited employees'
+              : `Up to ${plan.limits.maxEmployees} employees`;
+            features.unshift({ name: employeeLimit, included: true });
+
+            return {
+              planCode: plan.planCode,
+              name: plan.displayName,
+              description: plan.description,
+              monthlyPrice: plan.pricing.monthly,
+              yearlyPrice: plan.pricing.yearlyPerMonth,
+              features,
+              ...style,
+            };
+          });
+
+        if (transformedPlans.length > 0) {
+          setPlans(transformedPlans);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching pricing plans:', error);
+      // Keep using fallback plans
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <section id="pricing" className="py-24 lg:py-32 bg-white relative overflow-hidden">
@@ -128,7 +225,23 @@ const PricingSection: React.FC = () => {
 
         {/* Pricing Cards */}
         <div className="grid lg:grid-cols-3 gap-8">
-          {plans.map((plan) => (
+          {loading ? (
+            // Loading skeleton
+            [...Array(3)].map((_, index) => (
+              <div key={index} className="bg-white rounded-3xl border-2 border-gray-100 p-8 animate-pulse">
+                <div className="w-16 h-16 bg-gray-200 rounded-2xl mb-6"></div>
+                <div className="h-8 bg-gray-200 rounded w-2/3 mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-full mb-6"></div>
+                <div className="h-12 bg-gray-200 rounded mb-8"></div>
+                <div className="space-y-3">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-4 bg-gray-200 rounded w-4/5"></div>
+                  ))}
+                </div>
+                <div className="h-14 bg-gray-200 rounded-2xl mt-8"></div>
+              </div>
+            ))
+          ) : plans.map((plan) => (
             <div
               key={plan.name}
               className={`relative rounded-3xl transition-all duration-500 ${
@@ -193,7 +306,7 @@ const PricingSection: React.FC = () => {
 
                   {/* CTA Button */}
                   <Link
-                    to={plan.name === 'Enterprise' ? '#contact' : '/register'}
+                    to={plan.planCode === 'enterprise' ? '#contact' : '/register'}
                     className={`block w-full text-center py-4 px-6 rounded-2xl font-bold text-lg transition-all ${
                       plan.popular
                         ? `bg-gradient-to-r ${plan.bgGradient} text-white shadow-xl hover:shadow-2xl hover:scale-105`

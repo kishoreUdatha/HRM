@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import Subscription from '../models/Subscription';
 import Invoice from '../models/Invoice';
 import PaymentMethod from '../models/PaymentMethod';
-import razorpayService, { PLAN_PRICING, PLAN_FEATURES } from '../services/razorpayService';
+import razorpayService from '../services/razorpayService';
 import mongoose from 'mongoose';
 import axios from 'axios';
 
@@ -71,28 +71,29 @@ async function sendPaymentEmail(type: 'success' | 'failed', data: {
   }
 }
 
-// Get pricing plans
+// Get pricing plans (fetches from database)
 export const getPricingPlans = async (req: Request, res: Response): Promise<void> => {
   try {
-    const plans = Object.keys(PLAN_PRICING).map((plan) => {
-      const pricing = PLAN_PRICING[plan as keyof typeof PLAN_PRICING];
-      const features = PLAN_FEATURES[plan as keyof typeof PLAN_FEATURES];
-      const yearlyDiscount = razorpayService.getYearlyDiscount(plan as keyof typeof PLAN_PRICING);
+    // Fetch plans from database
+    const dbPlans = await razorpayService.getPlansFromDb();
+
+    const plans = await Promise.all(dbPlans.map(async (plan) => {
+      const yearlyDiscount = await razorpayService.getYearlyDiscountAsync(plan.planCode);
 
       return {
-        name: plan,
-        displayName: plan.charAt(0).toUpperCase() + plan.slice(1),
+        name: plan.planCode,
+        displayName: plan.displayName,
         pricing: {
-          monthly: pricing.monthly / 100, // Convert paise to rupees
-          yearly: pricing.yearly / 100,
-          yearlyPerMonth: Math.round(pricing.yearly / 12) / 100,
+          monthly: plan.pricing.monthly / 100, // Convert paise to rupees
+          yearly: plan.pricing.yearly / 100,
+          yearlyPerMonth: Math.round(plan.pricing.yearly / 12) / 100,
         },
-        features: features.features,
-        employeeLimit: features.employeeLimit,
+        features: plan.features,
+        employeeLimit: plan.limits.maxEmployees,
         yearlyDiscount: yearlyDiscount.discountPercent,
         yearlySavings: yearlyDiscount.savings / 100,
       };
-    });
+    }));
 
     res.json({
       success: true,
@@ -184,8 +185,8 @@ export const createSubscription = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    // Get plan pricing
-    const amount = razorpayService.getPlanPricing(plan, billingCycle);
+    // Get plan pricing from database
+    const amount = await razorpayService.getPlanPricingAsync(plan, billingCycle);
 
     // For now, create an order instead of subscription (simpler for demo)
     // In production, you'd use Razorpay Subscriptions with pre-created plans
@@ -390,18 +391,21 @@ export const getCurrentSubscription = async (req: Request, res: Response): Promi
     const subscription = await Subscription.findOne({ tenantId: new mongoose.Types.ObjectId(tenantId) });
 
     if (!subscription) {
+      // Get free plan features from database
+      const freeFeatures = await razorpayService.getPlanFeaturesAsync('free');
       res.json({
         success: true,
         data: {
           plan: 'free',
           status: 'active',
-          features: PLAN_FEATURES.free,
+          features: freeFeatures,
         },
       });
       return;
     }
 
-    const features = PLAN_FEATURES[subscription.plan as keyof typeof PLAN_FEATURES];
+    // Get plan features from database
+    const features = await razorpayService.getPlanFeaturesAsync(subscription.plan);
 
     res.json({
       success: true,

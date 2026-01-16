@@ -32,6 +32,26 @@ interface Plan {
   popular?: boolean;
 }
 
+interface ApiPlan {
+  planCode: string;
+  displayName: string;
+  description: string;
+  pricing: {
+    monthly: number;
+    yearly: number;
+    yearlyPerMonth: number;
+    currency: string;
+  };
+  limits: {
+    maxEmployees: number;
+    maxAdmins: number;
+    maxStorage: number;
+    maxApiCalls: number;
+  };
+  features: string[];
+  trialDays?: number;
+}
+
 interface Subscription {
   _id: string;
   plan: string;
@@ -62,7 +82,8 @@ interface Invoice {
   }>;
 }
 
-const plans: Plan[] = [
+// Fallback plans in case API fails
+const fallbackPlans: Plan[] = [
   {
     id: 'free',
     name: 'Free',
@@ -131,6 +152,7 @@ const BillingSettings: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [plans, setPlans] = useState<Plan[]>(fallbackPlans);
   const [loading, setLoading] = useState(true);
   const [upgradeLoading, setUpgradeLoading] = useState<string | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -161,14 +183,35 @@ const BillingSettings: React.FC = () => {
     try {
       setLoading(true);
 
-      // Fetch current subscription
-      const subResponse = await api.get('/billing/subscriptions/current');
+      // Fetch plans, subscription, and invoices in parallel
+      const [plansResponse, subResponse, invResponse] = await Promise.all([
+        api.get('/billing/plans'),
+        api.get('/billing/subscriptions/current'),
+        api.get('/billing/invoices'),
+      ]);
+
+      // Process plans
+      if (plansResponse.data.success && plansResponse.data.data && plansResponse.data.data.length > 0) {
+        const transformedPlans: Plan[] = plansResponse.data.data.map((plan: ApiPlan) => ({
+          id: plan.planCode,
+          name: plan.displayName,
+          price: {
+            monthly: plan.pricing.monthly * 100, // Convert rupees to paise for display
+            yearly: plan.pricing.yearly * 100,
+          },
+          features: plan.features,
+          employeeLimit: plan.limits.maxEmployees,
+          popular: plan.planCode === 'professional',
+        }));
+        setPlans(transformedPlans);
+      }
+
+      // Process subscription
       if (subResponse.data.success && subResponse.data.data) {
         setSubscription(subResponse.data.data);
       }
 
-      // Fetch invoices
-      const invResponse = await api.get('/billing/invoices');
+      // Process invoices
       if (invResponse.data.success) {
         setInvoices(invResponse.data.data || []);
       }
