@@ -34,7 +34,7 @@ export interface NotificationResult {
   sentAt?: Date;
 }
 
-// HRZio Brand Email Base Styles
+// HRZio Brand Email Base Styles with Animations
 const emailBaseStyles = `
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -45,46 +45,97 @@ const emailBaseStyles = `
       background: #f8fafc;
     }
     .email-wrapper { background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); padding: 40px 20px; }
-    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(79, 70, 229, 0.15); }
+    .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 60px rgba(79, 70, 229, 0.2); }
+
+    /* Colorful Headers */
     .header {
-      background: linear-gradient(135deg, #00d4ff 0%, #0066ff 25%, #4f46e5 50%, #8b5cf6 75%, #d946ef 100%);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
       color: white;
-      padding: 40px 30px;
+      padding: 50px 30px;
       text-align: center;
+      position: relative;
     }
-    .header-success { background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%); }
-    .header-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%); }
-    .header-info { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%); }
-    .header-payroll { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #8b5cf6 100%); }
-    .header h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .header p { margin: 10px 0 0; opacity: 0.95; font-size: 16px; }
-    .logo { font-size: 32px; font-weight: 800; margin-bottom: 20px; letter-spacing: -1px; }
-    .logo span { color: #00d4ff; }
-    .icon { width: 80px; height: 80px; margin: 0 auto 20px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; backdrop-filter: blur(10px); border: 2px solid rgba(255,255,255,0.3); }
+    .header-success { background: linear-gradient(135deg, #11998e 0%, #38ef7d 50%, #22c55e 100%); }
+    .header-warning { background: linear-gradient(135deg, #f12711 0%, #f5af19 50%, #fbbf24 100%); }
+    .header-info { background: linear-gradient(135deg, #396afc 0%, #2948ff 50%, #6366f1 100%); }
+    .header-payroll { background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #a855f7 100%); }
+    .header-bonus { background: linear-gradient(135deg, #f093fb 0%, #f5576c 50%, #f093fb 100%); }
+    .header-promotion { background: linear-gradient(135deg, #00d4ff 0%, #0066ff 25%, #4f46e5 50%, #8b5cf6 75%, #d946ef 100%); }
+    .header-loan { background: linear-gradient(135deg, #0f766e 0%, #14b8a6 50%, #2dd4bf 100%); }
+    .header h1 { margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -1px; text-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    .header p { margin: 12px 0 0; opacity: 0.95; font-size: 16px; }
+    .logo { font-size: 36px; font-weight: 900; margin-bottom: 16px; letter-spacing: -2px; }
+    .logo span { color: #00d4ff; text-shadow: 0 0 20px rgba(0,212,255,0.5); }
+
+    /* Animated Icon Container */
+    .anim-icon {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 20px;
+      border-radius: 50%;
+      overflow: hidden;
+      background: rgba(255,255,255,0.2);
+      backdrop-filter: blur(10px);
+      border: 3px solid rgba(255,255,255,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .anim-icon img { width: 60px; height: 60px; object-fit: contain; }
+    .emoji-icon { font-size: 50px; line-height: 1; }
+
     .content { padding: 40px 30px; }
     .content p { margin-bottom: 16px; color: #475569; font-size: 15px; }
-    .footer { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); padding: 30px; text-align: center; border-top: 1px solid #e2e8f0; }
-    .footer p { font-size: 13px; color: #64748b; margin: 8px 0; }
-    .footer a { color: #4f46e5; text-decoration: none; font-weight: 500; }
-    .footer-logo { font-size: 20px; font-weight: 700; color: #4f46e5; margin-bottom: 12px; }
-    .footer-logo span { color: #8b5cf6; }
-    .card { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px; border-radius: 12px; margin: 24px 0; border: 1px solid #e2e8f0; }
-    .summary-box { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 50%, #fae8ff 100%); padding: 30px; border-radius: 12px; margin: 24px 0; border: 2px solid #c7d2fe; }
-    .success-box { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); padding: 24px; border-radius: 12px; margin: 24px 0; border: 2px solid #6ee7b7; }
-    .amount-large { font-size: 42px; font-weight: 800; background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 10px 0; }
-    .amount-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; margin: 10px 0; }
-    .status-success { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); color: #065f46; border: 1px solid #6ee7b7; }
-    .status-info { background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); color: #1e40af; border: 1px solid #93c5fd; }
-    .status-warning { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); color: #92400e; border: 1px solid #fcd34d; }
+
+    /* Colorful Footers */
+    .footer {
+      background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+      padding: 40px 30px;
+      text-align: center;
+      position: relative;
+    }
+    .footer::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #00d4ff, #4f46e5, #8b5cf6, #d946ef, #00d4ff);
+    }
+    .footer p { font-size: 13px; color: #94a3b8; margin: 8px 0; }
+    .footer a { color: #00d4ff; text-decoration: none; font-weight: 600; }
+    .footer-logo { font-size: 28px; font-weight: 900; color: white; margin-bottom: 12px; letter-spacing: -1px; }
+    .footer-logo span { color: #00d4ff; }
+    .footer-tagline { color: #a5b4fc; font-size: 14px; margin-bottom: 16px; font-style: italic; }
+    .footer-payroll { background: linear-gradient(135deg, #312e81 0%, #4338ca 50%, #6366f1 100%); }
+    .footer-payroll::before { background: linear-gradient(90deg, #667eea, #764ba2, #a855f7, #764ba2, #667eea); }
+    .footer-success { background: linear-gradient(135deg, #065f46 0%, #047857 50%, #059669 100%); }
+    .footer-success::before { background: linear-gradient(90deg, #10b981, #34d399, #6ee7b7, #34d399, #10b981); }
+    .footer-bonus { background: linear-gradient(135deg, #701a75 0%, #86198f 50%, #a21caf 100%); }
+    .footer-bonus::before { background: linear-gradient(90deg, #f093fb, #f5576c, #f093fb, #f5576c, #f093fb); }
+
+    .card { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 24px; border-radius: 16px; margin: 24px 0; border: 2px solid #e2e8f0; }
+    .summary-box { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 50%, #c7d2fe 100%); padding: 30px; border-radius: 16px; margin: 24px 0; border: 3px solid #a5b4fc; }
+    .success-box { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 50%, #6ee7b7 100%); padding: 30px; border-radius: 16px; margin: 24px 0; border: 3px solid #34d399; }
+    .bonus-box { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 50%, #f9a8d4 100%); padding: 30px; border-radius: 16px; margin: 24px 0; border: 3px solid #f472b6; }
+    .amount-large { font-size: 52px; font-weight: 900; background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 50%, #d946ef 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 10px 0; letter-spacing: -2px; }
+    .amount-success { background: linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .amount-bonus { background: linear-gradient(135deg, #db2777 0%, #ec4899 50%, #f472b6 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .status-badge { display: inline-block; padding: 10px 20px; border-radius: 25px; font-size: 14px; font-weight: 700; margin: 10px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+    .status-success { background: linear-gradient(135deg, #10b981 0%, #34d399 100%); color: white; }
+    .status-info { background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); color: white; }
+    .status-warning { background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); color: #78350f; }
+    .status-bonus { background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); color: white; }
     table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-    td, th { padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
+    td, th { padding: 14px 0; border-bottom: 1px solid #e2e8f0; }
     td:last-child, th:last-child { text-align: right; }
     .label { color: #64748b; font-size: 14px; font-weight: 500; }
-    .value { font-weight: 600; color: #1e293b; font-size: 15px; }
-    .divider { height: 2px; background: linear-gradient(90deg, #4f46e5, #8b5cf6, #d946ef); margin: 24px 0; border-radius: 1px; }
-    .highlight-box { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); border-left: 4px solid #4f46e5; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 20px 0; }
-    .btn { display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%); color: white !important; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 15px; margin: 20px 0; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4); }
+    .value { font-weight: 700; color: #1e293b; font-size: 15px; }
+    .divider { height: 3px; background: linear-gradient(90deg, #4f46e5, #8b5cf6, #d946ef, #8b5cf6, #4f46e5); margin: 24px 0; border-radius: 2px; }
+    .highlight-box { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 50%, #c7d2fe 100%); border-left: 5px solid #4f46e5; padding: 20px 24px; border-radius: 0 12px 12px 0; margin: 20px 0; }
+    .highlight-success { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-left-color: #10b981; }
+    .btn { display: inline-block; padding: 16px 36px; background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 100%); color: white !important; text-decoration: none; border-radius: 12px; font-weight: 700; font-size: 16px; margin: 20px 0; box-shadow: 0 8px 25px rgba(79, 70, 229, 0.4); text-transform: uppercase; letter-spacing: 0.5px; }
   </style>
 `;
 
@@ -133,8 +184,10 @@ export function generatePayslipEmailTemplate(
           <div class="container">
             <div class="header header-payroll">
               <div class="logo">HRZ<span>io</span></div>
-              <div class="icon">💰</div>
-              <h1>Payslip Ready</h1>
+              <div class="anim-icon">
+                <img src="https://media.giphy.com/media/xT0xezQGU5xCDJuCPe/giphy.gif" alt="Payslip" style="width: 60px; height: 60px;" onerror="this.outerHTML='<span class=emoji-icon>💰</span>'" />
+              </div>
+              <h1>Payslip Ready!</h1>
               <p>${monthName} ${paystub.payPeriod.year}</p>
             </div>
             <div class="content">
@@ -143,48 +196,50 @@ export function generatePayslipEmailTemplate(
 
               <div class="success-box">
                 <div style="text-align: center;">
-                  <span class="status-badge status-success">✓ Salary Processed</span>
+                  <span class="status-badge status-success">✓ SALARY PROCESSED</span>
                 </div>
                 <div class="amount-large amount-success" style="text-align: center;">
                   ₹${paystub.summary.netPay.toLocaleString('en-IN')}
                 </div>
-                <p style="text-align: center; color: #065f46; margin: 0; font-weight: 500;">Net Pay</p>
+                <p style="text-align: center; color: #065f46; margin: 0; font-weight: 600;">Net Pay Credited</p>
               </div>
 
               <div class="card">
-                <h3 style="margin: 0 0 16px 0; color: #1e293b; font-size: 16px;">📊 Pay Summary</h3>
+                <h3 style="margin: 0 0 20px 0; color: #1e293b; font-size: 18px; font-weight: 700;">📊 Pay Summary</h3>
                 <table>
                   <tr>
                     <td class="label">Gross Earnings</td>
-                    <td class="value" style="color: #10b981;">₹${paystub.summary.grossEarnings.toLocaleString('en-IN')}</td>
+                    <td class="value" style="color: #10b981; font-size: 16px;">+ ₹${paystub.summary.grossEarnings.toLocaleString('en-IN')}</td>
                   </tr>
                   <tr>
                     <td class="label">Total Deductions</td>
-                    <td class="value" style="color: #ef4444;">- ₹${paystub.summary.totalDeductions.toLocaleString('en-IN')}</td>
+                    <td class="value" style="color: #ef4444; font-size: 16px;">- ₹${paystub.summary.totalDeductions.toLocaleString('en-IN')}</td>
                   </tr>
                 </table>
                 <div class="divider"></div>
                 <table style="margin: 0;">
                   <tr>
-                    <td style="padding: 8px 0; font-size: 18px; font-weight: 600; color: #1e293b;">Net Pay</td>
-                    <td style="text-align: right; font-weight: 800; font-size: 20px; color: #10b981;">₹${paystub.summary.netPay.toLocaleString('en-IN')}</td>
+                    <td style="padding: 10px 0; font-size: 18px; font-weight: 700; color: #1e293b;">Net Pay</td>
+                    <td style="text-align: right; font-weight: 800; font-size: 22px; color: #10b981;">₹${paystub.summary.netPay.toLocaleString('en-IN')}</td>
                   </tr>
                 </table>
               </div>
 
-              <div class="highlight-box">
-                <p style="margin: 0; font-weight: 600; color: #1e293b;">📎 Attachment</p>
-                <p style="margin: 8px 0 0 0;">Your detailed payslip is attached to this email as a PDF. Please download and save it for your records.</p>
+              <div class="highlight-box highlight-success">
+                <p style="margin: 0; font-weight: 700; color: #065f46; font-size: 16px;">📎 Attachment</p>
+                <p style="margin: 10px 0 0 0; color: #047857;">Your detailed payslip is attached to this email as a PDF. Please download and save it for your records.</p>
               </div>
 
               <p>If you have any questions regarding your payslip, please contact the HR department.</p>
 
               <p style="color: #94a3b8; font-size: 13px; margin-top: 30px;">This is an automated email. Please do not reply directly to this message.</p>
             </div>
-            <div class="footer">
+            <div class="footer footer-payroll">
               <div class="footer-logo">HRZ<span>io</span></div>
-              <p><strong>${companyName}</strong></p>
-              <p style="margin-top: 20px; color: #94a3b8;">© ${new Date().getFullYear()} HRZio. All rights reserved.</p>
+              <p class="footer-tagline">"Your Earnings, Simplified"</p>
+              <div class="divider" style="background: linear-gradient(90deg, #667eea, #764ba2, #a855f7, #764ba2, #667eea); margin: 16px auto; width: 60%;"></div>
+              <p style="color: #c7d2fe;"><strong>${companyName}</strong></p>
+              <p style="margin-top: 20px; color: #a5b4fc; font-size: 12px;">© ${new Date().getFullYear()} HRZio. All rights reserved.</p>
             </div>
           </div>
         </div>
@@ -263,9 +318,11 @@ export function generateSalaryRevisionEmailTemplate(
       <body>
         <div class="email-wrapper">
           <div class="container">
-            <div class="header header-success">
+            <div class="header header-promotion">
               <div class="logo">HRZ<span>io</span></div>
-              <div class="icon">${revisionIcons[revision.revisionType] || '📈'}</div>
+              <div class="anim-icon">
+                <img src="https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif" alt="Celebration" style="width: 60px; height: 60px;" onerror="this.outerHTML='<span class=emoji-icon>${revisionIcons[revision.revisionType] || '📈'}</span>'" />
+              </div>
               <h1>${revisionTypeText[revision.revisionType]}</h1>
               <p>Congratulations on your achievement!</p>
             </div>
@@ -327,10 +384,12 @@ export function generateSalaryRevisionEmailTemplate(
 
               <p style="color: #94a3b8; font-size: 13px; margin-top: 30px;">This is an automated notification. For questions, please contact HR.</p>
             </div>
-            <div class="footer">
+            <div class="footer footer-success">
               <div class="footer-logo">HRZ<span>io</span></div>
-              <p><strong>${companyName}</strong></p>
-              <p style="margin-top: 20px; color: #94a3b8;">© ${new Date().getFullYear()} HRZio. All rights reserved.</p>
+              <p class="footer-tagline">"Celebrating Your Success"</p>
+              <div class="divider" style="background: linear-gradient(90deg, #10b981, #34d399, #6ee7b7, #34d399, #10b981); margin: 16px auto; width: 60%;"></div>
+              <p style="color: #a7f3d0;"><strong>${companyName}</strong></p>
+              <p style="margin-top: 20px; color: #6ee7b7; font-size: 12px;">© ${new Date().getFullYear()} HRZio. All rights reserved.</p>
             </div>
           </div>
         </div>
@@ -377,10 +436,12 @@ export function generateLoanApprovalEmailTemplate(
         <body>
           <div class="email-wrapper">
             <div class="container">
-              <div class="header header-success">
+              <div class="header header-loan">
                 <div class="logo">HRZ<span>io</span></div>
-                <div class="icon">✓</div>
-                <h1>Loan Approved</h1>
+                <div class="anim-icon">
+                  <img src="https://media.giphy.com/media/xT0xezQGU5xCDJuCPe/giphy.gif" alt="Approved" style="width: 60px; height: 60px;" onerror="this.outerHTML='<span class=emoji-icon>✓</span>'" />
+                </div>
+                <h1>Loan Approved!</h1>
                 <p>Your application has been approved</p>
               </div>
               <div class="content">
@@ -588,10 +649,12 @@ export function generateReimbursementStatusEmailTemplate(
 
               <p>If you have any questions about this claim, please contact the HR department.</p>
             </div>
-            <div class="footer">
+            <div class="footer footer-success">
               <div class="footer-logo">HRZ<span>io</span></div>
-              <p><strong>${companyName}</strong></p>
-              <p style="margin-top: 20px; color: #94a3b8;">© ${new Date().getFullYear()} HRZio. All rights reserved.</p>
+              <p class="footer-tagline">"Celebrating Your Success"</p>
+              <div class="divider" style="background: linear-gradient(90deg, #10b981, #34d399, #6ee7b7, #34d399, #10b981); margin: 16px auto; width: 60%;"></div>
+              <p style="color: #a7f3d0;"><strong>${companyName}</strong></p>
+              <p style="margin-top: 20px; color: #6ee7b7; font-size: 12px;">© ${new Date().getFullYear()} HRZio. All rights reserved.</p>
             </div>
           </div>
         </div>
@@ -618,9 +681,11 @@ export function generateBonusNotificationEmailTemplate(
       <body>
         <div class="email-wrapper">
           <div class="container">
-            <div class="header header-success">
+            <div class="header header-bonus">
               <div class="logo">HRZ<span>io</span></div>
-              <div class="icon">🎉</div>
+              <div class="anim-icon">
+                <img src="https://media.giphy.com/media/g9582DNuQppxC/giphy.gif" alt="Celebration" style="width: 60px; height: 60px;" onerror="this.outerHTML='<span class=emoji-icon>🎉</span>'" />
+              </div>
               <h1>${bonus.name}</h1>
               <p>Congratulations on your bonus!</p>
             </div>
@@ -628,11 +693,11 @@ export function generateBonusNotificationEmailTemplate(
               <p>Dear <strong>${employeeBonus.employeeName}</strong>,</p>
               <p>We are pleased to inform you that your <strong>${bonus.name}</strong> has been processed. Thank you for your hard work and dedication!</p>
 
-              <div class="success-box">
+              <div class="bonus-box">
                 <div style="text-align: center;">
-                  <span class="status-badge status-success">🎊 Bonus Credited</span>
-                  <p style="color: #065f46; font-size: 14px; margin: 16px 0 8px 0;">Bonus Amount</p>
-                  <div class="amount-large amount-success">₹${employeeBonus.finalAmount.toLocaleString('en-IN')}</div>
+                  <span class="status-badge status-bonus">🎊 BONUS CREDITED</span>
+                  <p style="color: #9d174d; font-size: 14px; margin: 16px 0 8px 0;">Bonus Amount</p>
+                  <div class="amount-large amount-bonus">₹${employeeBonus.finalAmount.toLocaleString('en-IN')}</div>
                 </div>
               </div>
 
@@ -648,10 +713,12 @@ export function generateBonusNotificationEmailTemplate(
 
               <p>If you have any questions, please contact the HR department.</p>
             </div>
-            <div class="footer">
+            <div class="footer footer-bonus">
               <div class="footer-logo">HRZ<span>io</span></div>
-              <p><strong>${companyName}</strong></p>
-              <p style="margin-top: 20px; color: #94a3b8;">© ${new Date().getFullYear()} HRZio. All rights reserved.</p>
+              <p class="footer-tagline">"Rewarding Excellence"</p>
+              <div class="divider" style="background: linear-gradient(90deg, #f093fb, #f5576c, #f093fb, #f5576c, #f093fb); margin: 16px auto; width: 60%;"></div>
+              <p style="color: #fbcfe8;"><strong>${companyName}</strong></p>
+              <p style="margin-top: 20px; color: #f9a8d4; font-size: 12px;">© ${new Date().getFullYear()} HRZio. All rights reserved.</p>
             </div>
           </div>
         </div>
@@ -682,7 +749,9 @@ export function generatePendingApprovalEmailTemplate(
           <div class="container">
             <div class="header header-warning">
               <div class="logo">HRZ<span>io</span></div>
-              <div class="icon">📋</div>
+              <div class="anim-icon">
+                <img src="https://media.giphy.com/media/3o7TKP9ln2Dr6ze6Na/giphy.gif" alt="Pending" style="width: 60px; height: 60px;" onerror="this.outerHTML='<span class=emoji-icon>📋</span>'" />
+              </div>
               <h1>Pending Approvals</h1>
               <p>Items awaiting your review</p>
             </div>
@@ -721,10 +790,12 @@ export function generatePendingApprovalEmailTemplate(
 
               <p>Please login to the HR portal to review and take action on these items.</p>
             </div>
-            <div class="footer">
+            <div class="footer" style="background: linear-gradient(135deg, #78350f 0%, #92400e 50%, #b45309 100%);">
               <div class="footer-logo">HRZ<span>io</span></div>
-              <p><strong>${companyName}</strong></p>
-              <p style="margin-top: 20px; color: #94a3b8;">© ${new Date().getFullYear()} HRZio. All rights reserved.</p>
+              <p class="footer-tagline">"Your action moves us forward"</p>
+              <div class="divider" style="background: linear-gradient(90deg, #f59e0b, #fbbf24, #fcd34d, #fbbf24, #f59e0b); margin: 16px auto; width: 60%;"></div>
+              <p style="color: #fde68a;"><strong>${companyName}</strong></p>
+              <p style="margin-top: 20px; color: #fcd34d; font-size: 12px;">© ${new Date().getFullYear()} HRZio. All rights reserved.</p>
             </div>
           </div>
         </div>
