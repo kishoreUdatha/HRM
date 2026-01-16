@@ -8,18 +8,20 @@ interface TenantBillingInfo {
 
 class TenantClient {
   private baseUrl: string;
+  private internalApiKey: string;
 
   constructor() {
-    this.baseUrl = process.env.TENANT_SERVICE_URL || 'http://localhost:3021/api/tenants';
+    this.baseUrl = process.env.TENANT_SERVICE_URL || 'http://tenant-service:3001';
+    this.internalApiKey = process.env.INTERNAL_API_KEY || 'dev-secret-token-12345';
   }
 
   async getTenantBillingInfo(tenantId: string): Promise<TenantBillingInfo | null> {
     try {
-      const response = await fetch(`${this.baseUrl}/${tenantId}`, {
+      const response = await fetch(`${this.baseUrl}/internal/${tenantId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'x-tenant-id': tenantId,
+          'x-internal-api-key': this.internalApiKey,
         },
       });
 

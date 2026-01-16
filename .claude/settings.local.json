@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(ACCESS_TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTYxMjdiZWZjYWQxNzIyZGVhZjNmMjQiLCJ0ZW5hbnRJZCI6IjY5NjEyNzE5NDI1MzI0NTI4NTcyYjY2YSIsImVtYWlsIjoiaHJAYWNtZS5jb20iLCJyb2xlIjoidGVuYW50X2FkbWluIiwicGVybWlzc2lvbnMiOlsidXNlcnM6cmVhZCIsInVzZXJzOndyaXRlIiwidXNlcnM6ZGVsZXRlIiwiZW1wbG95ZWVzOnJlYWQiLCJlbXBsb3llZXM6d3JpdGUiLCJlbXBsb3llZXM6ZGVsZXRlIiwiYXR0ZW5kYW5jZTpyZWFkIiwiYXR0ZW5kYW5jZTp3cml0ZSIsImxlYXZlczpyZWFkIiwibGVhdmVzOndyaXRlIiwibGVhdmVzOmFwcHJvdmUiLCJwYXlyb2xsOnJlYWQiLCJwYXlyb2xsOndyaXRlIiwicmVwb3J0czpyZWFkIiwic2V0dGluZ3M6d3JpdGUiXSwiaWF0IjoxNzY3OTc0ODc2LCJleHAiOjE3Njc5NzU3NzZ9.LpNjYnxVNIphVmtWCB5Wi7BhD6KI3kGc6ewyqbT-8WY\")",
+      "Bash(__NEW_LINE__ curl -s --max-time 30 \"https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api/employees\" -H \"Authorization: Bearer $ACCESS_TOKEN\" -H \"X-Tenant-ID: 69612719425324528572b66a\")",
+      "Bash(git add:*)"
+    ]
+  }
+}

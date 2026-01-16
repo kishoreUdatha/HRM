@@ -308,7 +308,7 @@ export const verifyPayment = async (req: Request, res: Response): Promise<void> 
 
     // Fetch tenant details for email
     try {
-      const tenantResponse = await axios.get(`${process.env.TENANT_SERVICE_URL || 'http://tenant-service:3001'}/api/tenants/internal/${tenantId}`, {
+      const tenantResponse = await axios.get(`${process.env.TENANT_SERVICE_URL || 'http://tenant-service:3001'}/internal/${tenantId}`, {
         headers: {
           'x-internal-api-key': process.env.INTERNAL_API_KEY || 'dev-secret-token-12345',
         },
