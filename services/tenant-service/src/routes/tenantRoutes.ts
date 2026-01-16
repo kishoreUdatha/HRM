@@ -26,6 +26,7 @@ import {
   uploadLogo,
   deleteLogo,
   updateBranding,
+  updateBilling,
   getGeofencing,
   updateGeofencing,
   addGeofenceLocation,
@@ -157,6 +158,9 @@ router.put('/current/subscription', updateSubscriptionValidation, validate, upda
 router.post('/current/logo', upload.single('logo'), uploadLogo);
 router.delete('/current/logo', deleteLogo);
 router.put('/current/branding', updateBranding);
+
+// Billing info route
+router.put('/current/billing', updateBilling);
 
 // Geo-fencing routes
 router.get('/current/geofencing', getGeofencing);

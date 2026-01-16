@@ -1079,6 +1079,56 @@ export const updateBranding = async (
   }
 };
 
+// Update billing information
+export const updateBilling = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { companyName, email, address, taxId, phone } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      tenantId,
+      {
+        $set: {
+          'billing.companyName': companyName || '',
+          'billing.email': email || '',
+          'billing.address': address || '',
+          'billing.taxId': taxId || '',
+          'billing.phone': phone || '',
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: tenant.billing,
+      message: 'Billing information updated successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Get geo-fencing configuration
 export const getGeofencing = async (
   req: Request,

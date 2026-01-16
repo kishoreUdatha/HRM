@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { HiCog, HiOfficeBuilding, HiUsers, HiShieldCheck, HiBell, HiColorSwatch, HiPhotograph, HiUpload, HiTrash, HiLocationMarker } from 'react-icons/hi';
+import { HiCog, HiOfficeBuilding, HiUsers, HiShieldCheck, HiBell, HiColorSwatch, HiPhotograph, HiUpload, HiTrash, HiLocationMarker, HiCreditCard } from 'react-icons/hi';
 import { useAppSelector, useAppDispatch } from '../hooks/useAppDispatch';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
@@ -25,7 +25,17 @@ const Settings: React.FC = () => {
     pincode: '',
   });
 
-  // Load current branding from tenant
+  // Billing info state
+  const [isSavingBilling, setIsSavingBilling] = useState(false);
+  const [billingInfo, setBillingInfo] = useState({
+    companyName: '',
+    email: '',
+    address: '',
+    taxId: '',
+    phone: '',
+  });
+
+  // Load current branding and billing from tenant
   useEffect(() => {
     if (tenant) {
       setBranding({
@@ -34,6 +44,13 @@ const Settings: React.FC = () => {
         state: (tenant as any).state || '',
         country: (tenant as any).country || '',
         pincode: (tenant as any).pincode || '',
+      });
+      setBillingInfo({
+        companyName: (tenant as any).billing?.companyName || '',
+        email: (tenant as any).billing?.email || '',
+        address: (tenant as any).billing?.address || '',
+        taxId: (tenant as any).billing?.taxId || '',
+        phone: (tenant as any).billing?.phone || '',
       });
       if ((tenant as any).logo) {
         // Build full URL for logo preview
@@ -124,8 +141,28 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleBillingSave = async () => {
+    setIsSavingBilling(true);
+    try {
+      const response = await api.put('/tenants/current/billing', billingInfo);
+      if (response.data.success) {
+        toast.success('Billing info updated successfully');
+        // Refresh tenant data
+        const tenantResponse = await api.get('/tenants/current');
+        if (tenantResponse.data.success) {
+          dispatch(setTenant(tenantResponse.data.data));
+        }
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update billing info');
+    } finally {
+      setIsSavingBilling(false);
+    }
+  };
+
   const tabs = [
     { id: 'general', name: 'General', icon: HiCog },
+    { id: 'billing-info', name: 'Billing Info', icon: HiCreditCard },
     { id: 'branding', name: 'Branding', icon: HiPhotograph },
     { id: 'geofencing', name: 'Geo-Fencing', icon: HiLocationMarker },
     { id: 'organization', name: 'Organization', icon: HiOfficeBuilding },
@@ -218,6 +255,89 @@ const Settings: React.FC = () => {
                 </div>
                 <button className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
                   Save Changes
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'billing-info' && (
+            <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+              <h2 className="text-lg font-semibold text-secondary-900 mb-4">Billing Information</h2>
+              <p className="text-secondary-500 text-sm mb-6">
+                Configure your billing details. The billing email will be used for payment receipts and invoices.
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    Billing Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={billingInfo.email}
+                    onChange={(e) => setBillingInfo({ ...billingInfo, email: e.target.value })}
+                    placeholder="billing@company.com"
+                    className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                  <p className="text-xs text-secondary-500 mt-1">
+                    Payment receipts and invoices will be sent to this email
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    value={billingInfo.companyName}
+                    onChange={(e) => setBillingInfo({ ...billingInfo, companyName: e.target.value })}
+                    placeholder="Company Legal Name"
+                    className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-secondary-700 mb-1">
+                    Billing Address
+                  </label>
+                  <textarea
+                    value={billingInfo.address}
+                    onChange={(e) => setBillingInfo({ ...billingInfo, address: e.target.value })}
+                    placeholder="Full billing address"
+                    rows={3}
+                    className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-secondary-700 mb-1">
+                      Tax ID / GST Number
+                    </label>
+                    <input
+                      type="text"
+                      value={billingInfo.taxId}
+                      onChange={(e) => setBillingInfo({ ...billingInfo, taxId: e.target.value })}
+                      placeholder="GST/VAT/Tax ID"
+                      className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-secondary-700 mb-1">
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={billingInfo.phone}
+                      onChange={(e) => setBillingInfo({ ...billingInfo, phone: e.target.value })}
+                      placeholder="+91 XXXXX XXXXX"
+                      className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleBillingSave}
+                  disabled={isSavingBilling}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
+                >
+                  {isSavingBilling ? 'Saving...' : 'Save Billing Info'}
                 </button>
               </div>
             </div>
