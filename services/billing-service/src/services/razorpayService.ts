@@ -383,38 +383,50 @@ class RazorpayService {
 
   // Get pricing for a plan (async - fetches from database)
   async getPlanPricingAsync(planCode: string, cycle: 'monthly' | 'yearly'): Promise<number> {
-    const plan = await this.getPlanFromDb(planCode);
-    if (plan) {
-      return plan.pricing[cycle];
+    try {
+      const plan = await this.getPlanFromDb(planCode);
+      if (plan) {
+        return plan.pricing[cycle];
+      }
+    } catch (error) {
+      console.error('Error fetching plan pricing from database:', error);
     }
-    // Fallback to hardcoded values if plan not found in database
+    // Fallback to hardcoded values if plan not found or error
     const fallback = FALLBACK_PLAN_PRICING[planCode];
     return fallback ? fallback[cycle] : 0;
   }
 
   // Get plan features (async - fetches from database)
   async getPlanFeaturesAsync(planCode: string): Promise<{ employeeLimit: number; adminLimit: number; features: string[] }> {
-    const plan = await this.getPlanFromDb(planCode);
-    if (plan) {
-      return {
-        employeeLimit: plan.limits.maxEmployees,
-        adminLimit: plan.limits.maxAdmins,
-        features: plan.features,
-      };
+    try {
+      const plan = await this.getPlanFromDb(planCode);
+      if (plan) {
+        return {
+          employeeLimit: plan.limits.maxEmployees,
+          adminLimit: plan.limits.maxAdmins,
+          features: plan.features,
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching plan features from database:', error);
     }
-    // Fallback to hardcoded values if plan not found in database
+    // Fallback to hardcoded values if plan not found or error
     return FALLBACK_PLAN_FEATURES[planCode] || FALLBACK_PLAN_FEATURES.free;
   }
 
   // Calculate discount for yearly billing (async - fetches from database)
   async getYearlyDiscountAsync(planCode: string): Promise<{ savings: number; discountPercent: number }> {
-    const plan = await this.getPlanFromDb(planCode);
-    if (plan) {
-      const monthlyTotal = plan.pricing.monthly * 12;
-      const yearlyPrice = plan.pricing.yearly;
-      const savings = monthlyTotal - yearlyPrice;
-      const discountPercent = monthlyTotal > 0 ? Math.round((savings / monthlyTotal) * 100) : 0;
-      return { savings, discountPercent };
+    try {
+      const plan = await this.getPlanFromDb(planCode);
+      if (plan) {
+        const monthlyTotal = plan.pricing.monthly * 12;
+        const yearlyPrice = plan.pricing.yearly;
+        const savings = monthlyTotal - yearlyPrice;
+        const discountPercent = monthlyTotal > 0 ? Math.round((savings / monthlyTotal) * 100) : 0;
+        return { savings, discountPercent };
+      }
+    } catch (error) {
+      console.error('Error fetching yearly discount from database:', error);
     }
     // Fallback
     const fallback = FALLBACK_PLAN_PRICING[planCode];
