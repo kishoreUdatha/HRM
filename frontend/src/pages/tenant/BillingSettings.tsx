@@ -82,22 +82,54 @@ interface Invoice {
   }>;
 }
 
-// Fallback plans in case API fails
+// Feature code to human-readable label mapping
+const featureLabels: Record<string, string> = {
+  employees: 'Employee Management',
+  attendance: 'Attendance Tracking',
+  basic_leaves: 'Basic Leave Management',
+  leaves: 'Advanced Leave Management',
+  basic_payroll: 'Basic Payroll',
+  payroll: 'Full Payroll Management',
+  recruitment: 'Recruitment Module',
+  reports: 'Reports & Analytics',
+  analytics: 'Advanced Analytics',
+  api_access: 'API Access',
+  email_support: 'Email Support',
+  priority_support: 'Priority Support',
+  dedicated_support: 'Dedicated Support',
+  custom_integrations: 'Custom Integrations',
+  sso: 'Single Sign-On (SSO)',
+  audit_logs: 'Audit Logs',
+  sla: 'SLA Guarantee',
+  white_label: 'White Label',
+};
+
+// Format currency as Indian Rupees
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
+// Fallback plans in case API fails (prices in rupees)
 const fallbackPlans: Plan[] = [
   {
     id: 'free',
     name: 'Free',
     price: { monthly: 0, yearly: 0 },
-    features: ['Up to 5 employees', 'Basic HR features', 'Email support', '1 admin user'],
-    employeeLimit: 5,
+    features: ['Up to 10 employees', 'Employee Management', 'Attendance Tracking', '1 Admin user'],
+    employeeLimit: 10,
   },
   {
     id: 'starter',
     name: 'Starter',
     price: { monthly: 1499, yearly: 14990 },
     features: [
-      'Up to 25 employees',
-      'All HR features',
+      'Up to 50 employees',
+      '3 Admin users',
       'Leave management',
       'Attendance tracking',
       'Priority email support',
@@ -183,37 +215,71 @@ const BillingSettings: React.FC = () => {
     try {
       setLoading(true);
 
-      // Fetch plans, subscription, and invoices in parallel
-      const [plansResponse, subResponse, invResponse] = await Promise.all([
+      // Fetch plans, subscription, and invoices in parallel using allSettled
+      // This ensures one failing request doesn't block the others
+      const [plansResult, subResult, invResult] = await Promise.allSettled([
         api.get('/billing/plans'),
         api.get('/billing/subscriptions/current'),
         api.get('/billing/invoices'),
       ]);
 
       // Process plans
-      if (plansResponse.data.success && plansResponse.data.data && plansResponse.data.data.length > 0) {
-        const transformedPlans: Plan[] = plansResponse.data.data.map((plan: ApiPlan) => ({
-          id: plan.planCode,
-          name: plan.displayName,
-          price: {
-            monthly: plan.pricing.monthly * 100, // Convert rupees to paise for display
-            yearly: plan.pricing.yearly * 100,
-          },
-          features: plan.features,
-          employeeLimit: plan.limits.maxEmployees,
-          popular: plan.planCode === 'professional',
-        }));
-        setPlans(transformedPlans);
+      if (plansResult.status === 'fulfilled') {
+        const plansResponse = plansResult.value;
+        if (plansResponse.data.success && plansResponse.data.data && plansResponse.data.data.length > 0) {
+          const transformedPlans: Plan[] = plansResponse.data.data.map((plan: ApiPlan) => {
+            // Transform feature codes to human-readable labels
+            const features = plan.features.map((f: string) =>
+              featureLabels[f] || f.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+            );
+
+            // Add employee limit as first feature
+            const employeeLimit = plan.limits.maxEmployees === -1
+              ? 'Unlimited employees'
+              : `Up to ${plan.limits.maxEmployees} employees`;
+            features.unshift(employeeLimit);
+
+            // Add admin count
+            features.splice(1, 0, `${plan.limits.maxAdmins} Admin users`);
+
+            return {
+              id: plan.planCode,
+              name: plan.displayName,
+              price: {
+                monthly: plan.pricing.monthly, // Already in rupees from API
+                yearly: plan.pricing.yearly,
+              },
+              features,
+              employeeLimit: plan.limits.maxEmployees,
+              popular: plan.planCode === 'professional',
+            };
+          });
+          setPlans(transformedPlans);
+        }
+      } else {
+        console.error('Error fetching plans:', plansResult.reason);
       }
 
       // Process subscription
-      if (subResponse.data.success && subResponse.data.data) {
-        setSubscription(subResponse.data.data);
+      if (subResult.status === 'fulfilled') {
+        const subResponse = subResult.value;
+        if (subResponse.data.success && subResponse.data.data) {
+          setSubscription(subResponse.data.data);
+        }
+      } else {
+        console.error('Error fetching subscription:', subResult.reason);
       }
 
       // Process invoices
-      if (invResponse.data.success) {
-        setInvoices(invResponse.data.data || []);
+      if (invResult.status === 'fulfilled') {
+        const invResponse = invResult.value;
+        if (invResponse.data.success) {
+          const invoiceData = invResponse.data.data || [];
+          console.log('[BillingSettings] Fetched invoices:', invoiceData.length);
+          setInvoices(invoiceData);
+        }
+      } else {
+        console.error('Error fetching invoices:', invResult.reason);
       }
     } catch (error) {
       console.error('Error fetching billing data:', error);
@@ -619,7 +685,7 @@ const BillingSettings: React.FC = () => {
                         {formatDate(invoice.createdAt)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                        {formatCurrency(invoice.amount / 100)}
+                        {formatCurrency(invoice.amount)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>

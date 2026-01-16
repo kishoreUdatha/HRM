@@ -62,6 +62,35 @@ const defaultStyle = {
   cta: 'Get Started',
 };
 
+// Feature code to human-readable label mapping
+const featureLabels: Record<string, string> = {
+  employees: 'Employee Management',
+  attendance: 'Attendance Tracking',
+  basic_leaves: 'Basic Leave Management',
+  leaves: 'Advanced Leave Management',
+  basic_payroll: 'Basic Payroll',
+  payroll: 'Full Payroll Management',
+  recruitment: 'Recruitment Module',
+  reports: 'Reports & Analytics',
+  analytics: 'Advanced Analytics',
+  api_access: 'API Access',
+  email_support: 'Email Support',
+  priority_support: 'Priority Support',
+  dedicated_support: 'Dedicated Support',
+  custom_integrations: 'Custom Integrations',
+  sso: 'Single Sign-On (SSO)',
+  audit_logs: 'Audit Logs',
+  sla: 'SLA Guarantee',
+  white_label: 'White Label',
+};
+
+// Format currency as Indian Rupees
+const formatPrice = (amount: number) => {
+  return new Intl.NumberFormat('en-IN', {
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
 // Fallback plans in case API fails
 const fallbackPlans: PricingPlan[] = [
   {
@@ -140,9 +169,9 @@ const PricingSection: React.FC = () => {
           .map((plan: ApiPlan) => {
             const style = planStyles[plan.planCode] || defaultStyle;
 
-            // Transform features array to feature objects
+            // Transform features array to feature objects with human-readable labels
             const features = plan.features.map((feature: string) => ({
-              name: feature,
+              name: featureLabels[feature] || feature.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
               included: true,
             }));
 
@@ -152,13 +181,16 @@ const PricingSection: React.FC = () => {
               : `Up to ${plan.limits.maxEmployees} employees`;
             features.unshift({ name: employeeLimit, included: true });
 
+            // Add admin limit
+            features.splice(1, 0, { name: `${plan.limits.maxAdmins} Admin users`, included: true });
+
             return {
               planCode: plan.planCode,
               name: plan.displayName,
               description: plan.description,
               monthlyPrice: plan.pricing.monthly,
               yearlyPrice: plan.pricing.yearlyPerMonth,
-              features,
+              features: features.slice(0, 8), // Limit to 8 features for display
               ...style,
             };
           });
@@ -275,9 +307,9 @@ const PricingSection: React.FC = () => {
                   <div className="mb-8">
                     <div className="flex items-baseline gap-1">
                       <span className={`text-5xl font-black bg-gradient-to-r ${plan.gradient} bg-clip-text text-transparent`}>
-                        ₹{isYearly ? plan.yearlyPrice : plan.monthlyPrice}
+                        ₹{formatPrice(isYearly ? plan.yearlyPrice : plan.monthlyPrice)}
                       </span>
-                      <span className="text-gray-500 font-semibold">/employee/month</span>
+                      <span className="text-gray-500 font-semibold">/month</span>
                     </div>
                     {isYearly && (
                       <p className="text-sm text-gray-400 font-medium mt-1">Billed annually</p>

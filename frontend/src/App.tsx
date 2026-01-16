@@ -70,6 +70,7 @@ import PlatformNotifications from './pages/super-admin/PlatformNotifications';
 import SystemSettings from './pages/super-admin/SystemSettings';
 import SystemHealth from './pages/super-admin/SystemHealth';
 import BillingDashboard from './pages/super-admin/BillingDashboard';
+import PlanManagement from './pages/super-admin/PlanManagement';
 
 // Tenant Billing
 import BillingSettings from './pages/tenant/BillingSettings';
@@ -367,6 +368,7 @@ const AppRoutes: React.FC = () => {
         <Route path="tenants" element={<TenantManagement />} />
         <Route path="tenants/:id" element={<TenantDetails />} />
         <Route path="analytics" element={<PlatformAnalytics />} />
+        <Route path="plans" element={<PlanManagement />} />
         <Route path="billing" element={<BillingDashboard />} />
         <Route path="notifications" element={<PlatformNotifications />} />
         <Route path="settings" element={<SystemSettings />} />
