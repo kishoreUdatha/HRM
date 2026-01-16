@@ -83,6 +83,9 @@ router.post('/subscriptions/cancel', billingController.cancelSubscription);
 // Get invoices
 router.get('/invoices', billingController.getInvoices);
 
+// Get current subscription features (for ARIA feature checks)
+router.get('/features', billingController.getSubscriptionFeatures);
+
 // Get invoice by ID
 router.get('/invoices/:id', billingController.getInvoiceById);
 

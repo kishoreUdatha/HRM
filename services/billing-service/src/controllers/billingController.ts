@@ -584,6 +584,85 @@ export const getInvoices = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
+// Get subscription features (for ARIA and feature entitlement checks)
+export const getSubscriptionFeatures = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const tenantObjectId = validateTenantId(tenantId);
+
+    let planCode = 'free';
+    let subscriptionStatus = 'active';
+
+    if (tenantObjectId) {
+      const subscription = await Subscription.findOne({ tenantId: tenantObjectId });
+      if (subscription && subscription.status === 'active') {
+        planCode = subscription.plan;
+        subscriptionStatus = subscription.status;
+      }
+    }
+
+    // Get plan features from database
+    const features = await razorpayService.getPlanFeaturesAsync(planCode);
+
+    // Categorize ARIA features
+    const ariaBasicFeatures = [
+      'aria_voice_basic',
+      'aria_attendance_queries',
+      'aria_leave_queries',
+      'aria_basic_reports',
+    ];
+
+    const ariaFullFeatures = [
+      'aria_voice_full',
+      'aria_payroll_queries',
+      'aria_advanced_analytics',
+      'aria_bulk_operations',
+      'aria_custom_reports',
+      'aria_email_reports',
+      'aria_onboarding_assist',
+      'aria_asset_tracking',
+      'aria_survey_analysis',
+      'aria_workforce_insights',
+      'aria_phone_support',
+    ];
+
+    const hasAriaBasic = ariaBasicFeatures.some((f) => features.includes(f));
+    const hasAriaFull = ariaFullFeatures.some((f) => features.includes(f));
+
+    // Determine ARIA tier
+    let ariaTier: 'none' | 'basic' | 'full' = 'none';
+    if (hasAriaFull) ariaTier = 'full';
+    else if (hasAriaBasic) ariaTier = 'basic';
+
+    // Get available and locked ARIA features
+    const allAriaFeatures = [...ariaBasicFeatures, ...ariaFullFeatures];
+    const availableAriaFeatures = allAriaFeatures.filter((f) => features.includes(f));
+    const lockedAriaFeatures = allAriaFeatures.filter((f) => !features.includes(f));
+
+    res.json({
+      success: true,
+      data: {
+        plan: planCode,
+        status: subscriptionStatus,
+        features,
+        aria: {
+          tier: ariaTier,
+          hasBasic: hasAriaBasic,
+          hasFull: hasAriaFull,
+          availableFeatures: availableAriaFeatures,
+          lockedFeatures: lockedAriaFeatures,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching subscription features:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch subscription features',
+    });
+  }
+};
+
 // Get invoice by ID
 export const getInvoiceById = async (req: Request, res: Response): Promise<void> => {
   try {

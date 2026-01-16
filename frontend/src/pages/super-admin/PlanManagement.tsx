@@ -37,25 +37,69 @@ interface Plan {
   trialDays?: number;
 }
 
-const FEATURE_OPTIONS = [
-  { code: 'employees', label: 'Employee Management' },
-  { code: 'attendance', label: 'Attendance Tracking' },
-  { code: 'basic_leaves', label: 'Basic Leave Management' },
-  { code: 'leaves', label: 'Advanced Leave Management' },
-  { code: 'basic_payroll', label: 'Basic Payroll' },
-  { code: 'payroll', label: 'Full Payroll Management' },
-  { code: 'recruitment', label: 'Recruitment Module' },
-  { code: 'reports', label: 'Reports & Analytics' },
-  { code: 'analytics', label: 'Advanced Analytics' },
-  { code: 'api_access', label: 'API Access' },
-  { code: 'email_support', label: 'Email Support' },
-  { code: 'priority_support', label: 'Priority Support' },
-  { code: 'dedicated_support', label: 'Dedicated Support' },
-  { code: 'custom_integrations', label: 'Custom Integrations' },
-  { code: 'sso', label: 'Single Sign-On (SSO)' },
-  { code: 'audit_logs', label: 'Audit Logs' },
-  { code: 'sla', label: 'SLA Guarantee' },
-  { code: 'white_label', label: 'White Label' },
+interface FeatureOption {
+  code: string;
+  label: string;
+  category: 'core' | 'payroll' | 'recruitment' | 'support' | 'enterprise' | 'aria_basic' | 'aria_full';
+}
+
+const FEATURE_OPTIONS: FeatureOption[] = [
+  // Core HR Features
+  { code: 'employees', label: 'Employee Management', category: 'core' },
+  { code: 'attendance', label: 'Attendance Tracking', category: 'core' },
+  { code: 'basic_leaves', label: 'Basic Leave Management', category: 'core' },
+  { code: 'leaves', label: 'Advanced Leave Management', category: 'core' },
+  { code: 'reports', label: 'Reports & Analytics', category: 'core' },
+  { code: 'analytics', label: 'Advanced Analytics', category: 'core' },
+
+  // Payroll Features
+  { code: 'basic_payroll', label: 'Basic Payroll', category: 'payroll' },
+  { code: 'payroll', label: 'Full Payroll Management', category: 'payroll' },
+
+  // Recruitment Features
+  { code: 'recruitment', label: 'Recruitment Module', category: 'recruitment' },
+
+  // Support Features
+  { code: 'email_support', label: 'Email Support', category: 'support' },
+  { code: 'priority_support', label: 'Priority Support', category: 'support' },
+  { code: 'dedicated_support', label: 'Dedicated Support', category: 'support' },
+
+  // Enterprise Features
+  { code: 'api_access', label: 'API Access', category: 'enterprise' },
+  { code: 'custom_integrations', label: 'Custom Integrations', category: 'enterprise' },
+  { code: 'sso', label: 'Single Sign-On (SSO)', category: 'enterprise' },
+  { code: 'audit_logs', label: 'Audit Logs', category: 'enterprise' },
+  { code: 'sla', label: 'SLA Guarantee', category: 'enterprise' },
+  { code: 'white_label', label: 'White Label', category: 'enterprise' },
+
+  // ARIA Voice AI - Basic Tier (Professional Plan)
+  { code: 'aria_voice_basic', label: 'ARIA Voice Assistant (Basic)', category: 'aria_basic' },
+  { code: 'aria_attendance_queries', label: 'ARIA: Attendance Queries', category: 'aria_basic' },
+  { code: 'aria_leave_queries', label: 'ARIA: Leave Balance Queries', category: 'aria_basic' },
+  { code: 'aria_basic_reports', label: 'ARIA: Basic Report Generation', category: 'aria_basic' },
+
+  // ARIA Voice AI - Full Tier (Enterprise Plan)
+  { code: 'aria_voice_full', label: 'ARIA Voice Assistant (Full)', category: 'aria_full' },
+  { code: 'aria_payroll_queries', label: 'ARIA: Payroll & Salary Queries', category: 'aria_full' },
+  { code: 'aria_advanced_analytics', label: 'ARIA: Advanced Analytics', category: 'aria_full' },
+  { code: 'aria_bulk_operations', label: 'ARIA: Bulk Operations', category: 'aria_full' },
+  { code: 'aria_custom_reports', label: 'ARIA: Custom Report Builder', category: 'aria_full' },
+  { code: 'aria_email_reports', label: 'ARIA: Email Report Delivery', category: 'aria_full' },
+  { code: 'aria_onboarding_assist', label: 'ARIA: Onboarding Assistant', category: 'aria_full' },
+  { code: 'aria_asset_tracking', label: 'ARIA: Asset Tracking Voice', category: 'aria_full' },
+  { code: 'aria_survey_analysis', label: 'ARIA: Survey & Sentiment Analysis', category: 'aria_full' },
+  { code: 'aria_workforce_insights', label: 'ARIA: Workforce Intelligence', category: 'aria_full' },
+  { code: 'aria_phone_support', label: 'ARIA: Phone Call Support', category: 'aria_full' },
+];
+
+const FEATURE_CATEGORIES = [
+  { key: 'core', label: 'Core HR' },
+  { key: 'payroll', label: 'Payroll' },
+  { key: 'recruitment', label: 'Recruitment' },
+  { key: 'support', label: 'Support' },
+  { key: 'enterprise', label: 'Enterprise' },
+  { key: 'aria_basic', label: 'ARIA Voice AI (Basic)' },
+  { key: 'aria_full', label: 'ARIA Voice AI (Full)' },
 ];
 
 const emptyPlan: Plan = {
@@ -502,35 +546,54 @@ const PlanManagement: React.FC = () => {
               {/* Features */}
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Features</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {FEATURE_OPTIONS.map((feature) => (
-                    <label
-                      key={feature.code}
-                      className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
-                        formData.features.includes(feature.code)
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={formData.features.includes(feature.code)}
-                        onChange={() => toggleFeature(feature.code)}
-                        className="sr-only"
-                      />
-                      <div
-                        className={`w-5 h-5 rounded flex items-center justify-center ${
-                          formData.features.includes(feature.code)
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-200'
-                        }`}
-                      >
-                        {formData.features.includes(feature.code) && <HiCheck className="w-3 h-3" />}
+                {FEATURE_CATEGORIES.map((category) => {
+                  const categoryFeatures = FEATURE_OPTIONS.filter((f) => f.category === category.key);
+                  if (categoryFeatures.length === 0) return null;
+
+                  const isAriaCategory = category.key.startsWith('aria_');
+                  return (
+                    <div key={category.key} className="mb-4">
+                      <p className={`text-xs font-semibold uppercase mb-2 ${
+                        isAriaCategory ? 'text-indigo-600' : 'text-gray-500'
+                      }`}>
+                        {category.label}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {categoryFeatures.map((feature) => (
+                          <label
+                            key={feature.code}
+                            className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                              formData.features.includes(feature.code)
+                                ? isAriaCategory
+                                  ? 'border-indigo-500 bg-indigo-50'
+                                  : 'border-purple-500 bg-purple-50'
+                                : 'border-gray-200 hover:bg-gray-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={formData.features.includes(feature.code)}
+                              onChange={() => toggleFeature(feature.code)}
+                              className="sr-only"
+                            />
+                            <div
+                              className={`w-5 h-5 rounded flex items-center justify-center ${
+                                formData.features.includes(feature.code)
+                                  ? isAriaCategory
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-purple-600 text-white'
+                                  : 'bg-gray-200'
+                              }`}
+                            >
+                              {formData.features.includes(feature.code) && <HiCheck className="w-3 h-3" />}
+                            </div>
+                            <span className="text-sm text-gray-700">{feature.label}</span>
+                          </label>
+                        ))}
                       </div>
-                      <span className="text-sm text-gray-700">{feature.label}</span>
-                    </label>
-                  ))}
-                </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Status */}

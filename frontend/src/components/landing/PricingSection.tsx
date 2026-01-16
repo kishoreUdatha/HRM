@@ -64,6 +64,7 @@ const defaultStyle = {
 
 // Feature code to human-readable label mapping
 const featureLabels: Record<string, string> = {
+  // Core HR Features
   employees: 'Employee Management',
   attendance: 'Attendance Tracking',
   basic_leaves: 'Basic Leave Management',
@@ -82,6 +83,23 @@ const featureLabels: Record<string, string> = {
   audit_logs: 'Audit Logs',
   sla: 'SLA Guarantee',
   white_label: 'White Label',
+  // ARIA Voice AI - Basic Tier
+  aria_voice_basic: 'ARIA Voice Assistant',
+  aria_attendance_queries: 'Voice Attendance Queries',
+  aria_leave_queries: 'Voice Leave Queries',
+  aria_basic_reports: 'Voice Report Generation',
+  // ARIA Voice AI - Full Tier
+  aria_voice_full: 'ARIA Voice AI (Full)',
+  aria_payroll_queries: 'Voice Payroll Queries',
+  aria_advanced_analytics: 'Voice Analytics',
+  aria_bulk_operations: 'Voice Bulk Operations',
+  aria_custom_reports: 'Voice Custom Reports',
+  aria_email_reports: 'Voice Email Reports',
+  aria_onboarding_assist: 'Voice Onboarding',
+  aria_asset_tracking: 'Voice Asset Tracking',
+  aria_survey_analysis: 'Voice Survey Analysis',
+  aria_workforce_insights: 'Voice Workforce Insights',
+  aria_phone_support: 'ARIA Phone Support',
 };
 
 // Format currency as Indian Rupees
