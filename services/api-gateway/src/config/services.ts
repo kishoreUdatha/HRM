@@ -455,9 +455,9 @@ export const services: ServiceConfig[] = [
     timeout: 30000,
     requiresAuth: true,  // Requires authentication for admin routes
   },
-  // Billing tenant routes (authenticated users)
+  // Billing tenant routes (authenticated users) - specific routes before general /api/billing
   {
-    name: 'billing-tenant-service',
+    name: 'billing-subscriptions-service',
     url: process.env.BILLING_SERVICE_URL || 'http://localhost:3027',
     pathPrefix: '/api/billing/subscriptions',
     targetPath: '/api/billing/subscriptions',
@@ -475,7 +475,26 @@ export const services: ServiceConfig[] = [
     requiresAuth: true,  // Requires authentication for invoice access
   },
   {
-    name: 'billing-service',
+    name: 'billing-customers-service',
+    url: process.env.BILLING_SERVICE_URL || 'http://localhost:3027',
+    pathPrefix: '/api/billing/customers',
+    targetPath: '/api/billing/customers',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication for customer creation
+  },
+  {
+    name: 'billing-verify-payment-service',
+    url: process.env.BILLING_SERVICE_URL || 'http://localhost:3027',
+    pathPrefix: '/api/billing/verify-payment',
+    targetPath: '/api/billing/verify-payment',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication for payment verification
+  },
+  // Public billing routes (plans, webhooks) - must be LAST as it's the catch-all
+  {
+    name: 'billing-public-service',
     url: process.env.BILLING_SERVICE_URL || 'http://localhost:3027',
     pathPrefix: '/api/billing',
     targetPath: '/api/billing',
