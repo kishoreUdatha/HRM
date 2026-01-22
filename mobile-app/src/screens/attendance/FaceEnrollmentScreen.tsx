@@ -1,4 +1,4 @@
-import React, {useState, useRef, useCallback} from 'react';
+import React, {useState, useRef, useCallback, useEffect} from 'react';
 import {
   View,
   Text,
@@ -26,6 +26,14 @@ import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList} from '../../types';
 import {showToast, showDialog} from '../../utils/alert';
+import {
+  livenessDetectionService,
+  LivenessSession,
+  LivenessChallenge as Challenge,
+  LivenessProof,
+} from '../../services/livenessDetectionService';
+import {faceQualityService} from '../../services/faceQualityService';
+import LivenessChallenge from '../../components/LivenessChallenge';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -36,6 +44,8 @@ const PHOTO_INSTRUCTIONS = [
   {angle: 'left', instruction: 'Turn your head slightly left', icon: 'face-man-profile'},
   {angle: 'right', instruction: 'Turn your head slightly right', icon: 'face-man-profile'},
 ];
+
+type EnrollmentPhase = 'liveness' | 'capture' | 'review' | 'enrolling' | 'complete';
 
 export default function FaceEnrollmentScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -51,10 +61,30 @@ export default function FaceEnrollmentScreen() {
   const device = useCameraDevice('front');
   const {hasPermission, requestPermission} = useCameraPermission();
 
+  // State
+  const [phase, setPhase] = useState<EnrollmentPhase>('liveness');
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
-  const [enrollmentComplete, setEnrollmentComplete] = useState(false);
+
+  // Liveness state
+  const [livenessSession, setLivenessSession] = useState<LivenessSession | null>(null);
+  const [currentChallenge, setCurrentChallenge] = useState<Challenge | null>(null);
+  const [challengeProgress, setChallengeProgress] = useState({
+    currentChallenge: 0,
+    totalChallenges: 0,
+    passedChallenges: 0,
+    isComplete: false,
+  });
+  const [livenessProof, setLivenessProof] = useState<LivenessProof | null>(null);
+  const [challengeTimeRemaining, setChallengeTimeRemaining] = useState<number | undefined>();
+
+  // Simulated liveness detection state (in real app, this comes from frame processor)
+  const [detectionState, setDetectionState] = useState({
+    isBlinking: false,
+    headPose: {yaw: 0, pitch: 0, roll: 0},
+    mouthOpen: false,
+  });
 
   const currentPhotoIndex = capturedPhotos.length;
   const currentInstruction = PHOTO_INSTRUCTIONS[currentPhotoIndex] || PHOTO_INSTRUCTIONS[0];
@@ -67,6 +97,140 @@ export default function FaceEnrollmentScreen() {
       StatusBar.setTranslucent(true);
     }, [])
   );
+
+  // Start liveness session on mount
+  useEffect(() => {
+    startLivenessSession();
+  }, []);
+
+  // Challenge timer
+  useEffect(() => {
+    if (currentChallenge && phase === 'liveness') {
+      const startTime = Date.now();
+      const interval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, currentChallenge.timeout - elapsed);
+        setChallengeTimeRemaining(remaining);
+
+        if (remaining === 0) {
+          // Challenge timed out
+          handleChallengeTimeout();
+          clearInterval(interval);
+        }
+      }, 100);
+
+      return () => clearInterval(interval);
+    }
+  }, [currentChallenge, phase]);
+
+  // Simulate liveness detection (in real app, use frame processor)
+  useEffect(() => {
+    if (phase === 'liveness' && currentChallenge) {
+      const simulationInterval = setInterval(() => {
+        // Simulate random detection events for demo
+        // In production, this would come from actual frame processing
+        const randomEvent = Math.random();
+
+        if (currentChallenge.type === 'blink' && randomEvent > 0.9) {
+          setDetectionState(prev => ({...prev, isBlinking: true}));
+          setTimeout(() => {
+            setDetectionState(prev => ({...prev, isBlinking: false}));
+            handleChallengeComplete(true, 0.9);
+          }, 200);
+        } else if (currentChallenge.type === 'head_turn_left') {
+          setDetectionState(prev => ({
+            ...prev,
+            headPose: {...prev.headPose, yaw: prev.headPose.yaw - 2},
+          }));
+          if (detectionState.headPose.yaw <= -15) {
+            handleChallengeComplete(true, 0.85);
+          }
+        } else if (currentChallenge.type === 'head_turn_right') {
+          setDetectionState(prev => ({
+            ...prev,
+            headPose: {...prev.headPose, yaw: prev.headPose.yaw + 2},
+          }));
+          if (detectionState.headPose.yaw >= 15) {
+            handleChallengeComplete(true, 0.85);
+          }
+        }
+      }, 500);
+
+      return () => clearInterval(simulationInterval);
+    }
+  }, [phase, currentChallenge, detectionState.headPose.yaw]);
+
+  const startLivenessSession = () => {
+    const session = livenessDetectionService.startSession(2);
+    setLivenessSession(session);
+    setCurrentChallenge(livenessDetectionService.getCurrentChallenge());
+    updateChallengeProgress();
+    setPhase('liveness');
+    // Reset detection state
+    setDetectionState({
+      isBlinking: false,
+      headPose: {yaw: 0, pitch: 0, roll: 0},
+      mouthOpen: false,
+    });
+  };
+
+  const updateChallengeProgress = () => {
+    setChallengeProgress(livenessDetectionService.getSessionProgress());
+  };
+
+  const handleChallengeComplete = (passed: boolean, confidence: number) => {
+    livenessDetectionService.recordChallengeResult(passed, confidence);
+    updateChallengeProgress();
+
+    const nextChallenge = livenessDetectionService.getCurrentChallenge();
+    if (nextChallenge) {
+      setCurrentChallenge(nextChallenge);
+      setChallengeTimeRemaining(nextChallenge.timeout);
+      // Reset detection state for next challenge
+      setDetectionState({
+        isBlinking: false,
+        headPose: {yaw: 0, pitch: 0, roll: 0},
+        mouthOpen: false,
+      });
+    } else {
+      // All challenges complete
+      const proof = livenessDetectionService.completeSession();
+      setLivenessProof(proof);
+
+      if (proof && livenessDetectionService.getSessionProgress().passedChallenges >= 2) {
+        showToast.success('Liveness verified! Now take your enrollment photos.');
+        setTimeout(() => setPhase('capture'), 1000);
+      } else {
+        showDialog.error('Liveness Check Failed', 'Please try again.', () => {
+          startLivenessSession();
+        });
+      }
+    }
+  };
+
+  const handleChallengeTimeout = () => {
+    livenessDetectionService.recordChallengeResult(false, 0);
+    updateChallengeProgress();
+
+    const nextChallenge = livenessDetectionService.getCurrentChallenge();
+    if (nextChallenge) {
+      setCurrentChallenge(nextChallenge);
+      setChallengeTimeRemaining(nextChallenge.timeout);
+      showToast.warning('Challenge timed out. Try the next one.');
+    } else {
+      // All challenges done
+      const proof = livenessDetectionService.completeSession();
+      setLivenessProof(proof);
+
+      if (proof && livenessDetectionService.getSessionProgress().passedChallenges >= 2) {
+        setPhase('capture');
+      } else {
+        showDialog.error('Liveness Check Failed', 'Not enough challenges passed. Please try again.', () => {
+          startLivenessSession();
+        });
+      }
+    }
+  };
 
   const handleCapture = useCallback(async () => {
     if (!camera.current || currentPhotoIndex >= REQUIRED_PHOTOS) return;
@@ -83,6 +247,11 @@ export default function FaceEnrollmentScreen() {
       base64Image = `data:image/jpeg;base64,${base64Image}`;
 
       setCapturedPhotos(prev => [...prev, base64Image]);
+
+      // Check if all photos captured
+      if (currentPhotoIndex + 1 >= REQUIRED_PHOTOS) {
+        setTimeout(() => setPhase('review'), 500);
+      }
     } catch (error) {
       console.error('[FaceEnrollment] Error capturing photo:', error);
       showToast.error('Error', 'Failed to capture photo. Please try again.');
@@ -93,12 +262,11 @@ export default function FaceEnrollmentScreen() {
 
   const handleRetakePhoto = (index: number) => {
     setCapturedPhotos(prev => prev.filter((_, i) => i !== index));
+    setPhase('capture');
   };
 
   const handleEnroll = async () => {
     console.log('[FaceEnrollment] handleEnroll called');
-    console.log('[FaceEnrollment] capturedPhotos.length:', capturedPhotos.length);
-    console.log('[FaceEnrollment] employeeId:', employeeId);
 
     if (capturedPhotos.length < REQUIRED_PHOTOS) {
       console.log('[FaceEnrollment] Not enough photos');
@@ -111,29 +279,29 @@ export default function FaceEnrollmentScreen() {
     }
 
     setIsEnrolling(true);
-    console.log('[FaceEnrollment] Starting enrollment...');
+    setPhase('enrolling');
 
     try {
-      console.log('[FaceEnrollment] Calling enrollFace API with employeeId:', employeeId);
-      console.log('[FaceEnrollment] Number of images:', capturedPhotos.length);
-
       const response = await attendanceApi.enrollFace({
         employeeId: employeeId,
         images: capturedPhotos,
+        livenessProof: livenessProof || undefined,
       });
 
       console.log('[FaceEnrollment] API Response:', JSON.stringify(response));
 
       if (response.success) {
-        setEnrollmentComplete(true);
+        setPhase('complete');
         setTimeout(() => {
           navigation.goBack();
         }, 2000);
       } else {
+        setPhase('review');
         showDialog.error('Enrollment Failed', response.message || 'Failed to enroll face. Please try again.');
       }
     } catch (error) {
       const errorMessage = handleApiError(error);
+      setPhase('review');
       showDialog.error('Error', errorMessage);
     } finally {
       setIsEnrolling(false);
@@ -147,6 +315,12 @@ export default function FaceEnrollmentScreen() {
         Linking.openSettings();
       });
     }
+  };
+
+  const handleSkipLiveness = () => {
+    // Allow skipping liveness for testing (remove in production)
+    setLivenessProof(null);
+    setPhase('capture');
   };
 
   // Render permission request screen
@@ -196,7 +370,7 @@ export default function FaceEnrollmentScreen() {
   }
 
   // Render enrollment complete screen
-  if (enrollmentComplete) {
+  if (phase === 'complete') {
     return (
       <SafeAreaView style={[styles.container, {backgroundColor: colors.success}]}>
         <View style={styles.successContainer}>
@@ -210,8 +384,8 @@ export default function FaceEnrollmentScreen() {
     );
   }
 
-  // Render all photos captured - ready to enroll
-  if (capturedPhotos.length >= REQUIRED_PHOTOS) {
+  // Render review photos screen
+  if (phase === 'review' && capturedPhotos.length >= REQUIRED_PHOTOS) {
     return (
       <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]}>
         <View style={styles.header}>
@@ -223,6 +397,13 @@ export default function FaceEnrollmentScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.reviewContent}>
+          {livenessProof && (
+            <View style={styles.livenessVerifiedBadge}>
+              <Icon name="shield-check" size={16} color="#22C55E" />
+              <Text style={styles.livenessVerifiedText}>Liveness Verified</Text>
+            </View>
+          )}
+
           <Text style={[styles.reviewTitle, {color: colors.text}]}>
             Review Your Photos
           </Text>
@@ -266,7 +447,7 @@ export default function FaceEnrollmentScreen() {
     );
   }
 
-  // Render camera screen for capturing photos
+  // Render camera screen for liveness check or photo capture
   return (
     <View style={styles.container}>
       <Camera
@@ -287,28 +468,35 @@ export default function FaceEnrollmentScreen() {
               onPress={() => navigation.goBack()}>
               <Icon name="close" size={28} color="#FFFFFF" />
             </TouchableOpacity>
-            <Text style={styles.cameraHeaderTitle}>Face Enrollment</Text>
+            <Text style={styles.cameraHeaderTitle}>
+              {phase === 'liveness' ? 'Liveness Check' : 'Face Enrollment'}
+            </Text>
             <View style={{width: 44}} />
           </View>
 
           {/* Progress */}
-          <View style={styles.progressContainer}>
-            {PHOTO_INSTRUCTIONS.map((_, index) => (
-              <View
-                key={index}
-                style={[
-                  styles.progressDot,
-                  index < currentPhotoIndex && styles.progressDotComplete,
-                  index === currentPhotoIndex && styles.progressDotCurrent,
-                ]}
-              />
-            ))}
-          </View>
+          {phase === 'capture' && (
+            <View style={styles.progressContainer}>
+              {PHOTO_INSTRUCTIONS.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.progressDot,
+                    index < currentPhotoIndex && styles.progressDotComplete,
+                    index === currentPhotoIndex && styles.progressDotCurrent,
+                  ]}
+                />
+              ))}
+            </View>
+          )}
         </SafeAreaView>
 
         {/* Face Guide */}
         <View style={styles.faceGuide}>
-          <View style={styles.faceFrame}>
+          <View style={[
+            styles.faceFrame,
+            phase === 'liveness' && challengeProgress.isComplete && styles.faceFrameSuccess,
+          ]}>
             {isCapturing && (
               <View style={styles.processingOverlay}>
                 <ActivityIndicator size="large" color="#FFFFFF" />
@@ -316,19 +504,33 @@ export default function FaceEnrollmentScreen() {
             )}
           </View>
 
-          <View style={styles.instructionContainer}>
-            <Icon name={currentInstruction.icon} size={32} color="#FFFFFF" />
-            <Text style={styles.instructionText}>
-              Photo {currentPhotoIndex + 1} of {REQUIRED_PHOTOS}
-            </Text>
-            <Text style={styles.instructionDetail}>
-              {currentInstruction.instruction}
-            </Text>
-          </View>
+          {/* Liveness Challenge UI */}
+          {phase === 'liveness' && currentChallenge && (
+            <LivenessChallenge
+              challenge={currentChallenge}
+              progress={challengeProgress}
+              detectionState={detectionState}
+              timeRemaining={challengeTimeRemaining}
+              isDarkMode={isDarkMode}
+            />
+          )}
+
+          {/* Capture Instructions */}
+          {phase === 'capture' && (
+            <View style={styles.instructionContainer}>
+              <Icon name={currentInstruction.icon} size={32} color="#FFFFFF" />
+              <Text style={styles.instructionText}>
+                Photo {currentPhotoIndex + 1} of {REQUIRED_PHOTOS}
+              </Text>
+              <Text style={styles.instructionDetail}>
+                {currentInstruction.instruction}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Captured Photos Thumbnails */}
-        {capturedPhotos.length > 0 && (
+        {phase === 'capture' && capturedPhotos.length > 0 && (
           <View style={styles.thumbnailContainer}>
             {capturedPhotos.map((photo, index) => (
               <View key={index} style={styles.thumbnail}>
@@ -341,24 +543,42 @@ export default function FaceEnrollmentScreen() {
           </View>
         )}
 
-        {/* Capture Button */}
+        {/* Action Buttons */}
         <SafeAreaView edges={['bottom']} style={styles.bottomContainer}>
-          <TouchableOpacity
-            style={[styles.captureButton, isCapturing && styles.captureButtonDisabled]}
-            onPress={handleCapture}
-            disabled={isCapturing}>
-            <View style={styles.captureButtonInner}>
-              {isCapturing ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Icon name="camera" size={32} color="#FFFFFF" />
-              )}
-            </View>
-          </TouchableOpacity>
+          {phase === 'liveness' && (
+            <>
+              <Text style={styles.captureHint}>
+                Complete the liveness challenges above
+              </Text>
+              {/* Skip button for testing - remove in production */}
+              <TouchableOpacity
+                style={styles.skipButton}
+                onPress={handleSkipLiveness}>
+                <Text style={styles.skipButtonText}>Skip (Dev Only)</Text>
+              </TouchableOpacity>
+            </>
+          )}
 
-          <Text style={styles.captureHint}>
-            {isCapturing ? 'Capturing...' : 'Tap to capture'}
-          </Text>
+          {phase === 'capture' && (
+            <>
+              <TouchableOpacity
+                style={[styles.captureButton, isCapturing && styles.captureButtonDisabled]}
+                onPress={handleCapture}
+                disabled={isCapturing}>
+                <View style={styles.captureButtonInner}>
+                  {isCapturing ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Icon name="camera" size={32} color="#FFFFFF" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <Text style={styles.captureHint}>
+                {isCapturing ? 'Capturing...' : 'Tap to capture'}
+              </Text>
+            </>
+          )}
         </SafeAreaView>
       </View>
     </View>
@@ -433,6 +653,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  faceFrameSuccess: {
+    borderColor: '#22C55E',
   },
   processingOverlay: {
     alignItems: 'center',
@@ -509,6 +732,17 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
     fontSize: FontSizes.sm,
   },
+  skipButton: {
+    marginTop: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: BorderRadius.md,
+  },
+  skipButtonText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: FontSizes.sm,
+  },
   permissionContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -565,6 +799,21 @@ const styles = StyleSheet.create({
   reviewContent: {
     padding: Spacing.lg,
     alignItems: 'center',
+  },
+  livenessVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    marginBottom: Spacing.md,
+  },
+  livenessVerifiedText: {
+    color: '#22C55E',
+    fontSize: FontSizes.sm,
+    fontWeight: '600',
+    marginLeft: Spacing.xs,
   },
   reviewTitle: {
     fontSize: FontSizes.xl,

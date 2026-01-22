@@ -91,6 +91,9 @@ router.post('/bulk-mark', attendanceController.bulkMarkAttendance);
 
 // ==================== FACE RECOGNITION ROUTES ====================
 
+// Get face recognition service status
+router.get('/face-recognition/status', attendanceController.getFaceRecognitionStatus);
+
 // Verify face - Identify employee from face image
 router.post(
   '/verify-face',

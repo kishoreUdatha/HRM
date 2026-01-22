@@ -1585,3 +1585,29 @@ export const confirmFaceCheckOut = async (req: Request, res: Response): Promise<
     });
   }
 };
+
+// Get Face Recognition Service Status
+export const getFaceRecognitionStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Initialize the service if not already
+    await faceRecognitionService.initialize();
+
+    const status = faceRecognitionService.getStatus();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...status,
+        message: status.mockMode
+          ? 'Face recognition is running in MOCK mode (canvas not available). Install Visual Studio Build Tools and canvas package for production mode.'
+          : 'Face recognition is running in PRODUCTION mode with real ML inference.',
+      },
+    });
+  } catch (error) {
+    console.error('[Attendance Service] Get face recognition status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get face recognition status',
+    });
+  }
+};

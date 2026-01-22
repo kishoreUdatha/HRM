@@ -1,4 +1,4 @@
-import React, {useState, useRef, useCallback} from 'react';
+import React, {useState, useRef, useCallback, useEffect} from 'react';
 import {
   View,
   Text,
@@ -28,10 +28,21 @@ import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList} from '../../types';
 import {showToast, showDialog, ALERT_TYPE} from '../../utils/alert';
 import {isWithinGeofence, formatDistance, GeofenceResult} from '../../utils/geofencing';
+import {
+  livenessDetectionService,
+  LivenessSession,
+  LivenessChallenge as Challenge,
+  LivenessProof,
+} from '../../services/livenessDetectionService';
+import {faceQualityService, FaceQualityResult} from '../../services/faceQualityService';
+import LivenessChallenge from '../../components/LivenessChallenge';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-type VerificationState = 'camera' | 'verifying' | 'matched' | 'confirming' | 'success' | 'error';
+type VerificationState = 'liveness' | 'camera' | 'verifying' | 'matched' | 'confirming' | 'success' | 'error';
+
+// Configuration - set to true to require liveness check before verification
+const REQUIRE_LIVENESS_CHECK = false; // Can be made configurable via settings
 
 export default function FaceCheckInScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -47,7 +58,9 @@ export default function FaceCheckInScreen() {
   const device = useCameraDevice('front');
   const {hasPermission, requestPermission} = useCameraPermission();
 
-  const [verificationState, setVerificationState] = useState<VerificationState>('camera');
+  const [verificationState, setVerificationState] = useState<VerificationState>(
+    REQUIRE_LIVENESS_CHECK ? 'liveness' : 'camera'
+  );
   const [isCapturing, setIsCapturing] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [matchedEmployee, setMatchedEmployee] = useState<{
@@ -58,8 +71,159 @@ export default function FaceCheckInScreen() {
   const [location, setLocation] = useState<{latitude: number; longitude: number} | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
 
+  // Liveness state
+  const [livenessSession, setLivenessSession] = useState<LivenessSession | null>(null);
+  const [currentChallenge, setCurrentChallenge] = useState<Challenge | null>(null);
+  const [challengeProgress, setChallengeProgress] = useState({
+    currentChallenge: 0,
+    totalChallenges: 0,
+    passedChallenges: 0,
+    isComplete: false,
+  });
+  const [livenessProof, setLivenessProof] = useState<LivenessProof | null>(null);
+  const [challengeTimeRemaining, setChallengeTimeRemaining] = useState<number | undefined>();
+  const [detectionState, setDetectionState] = useState({
+    isBlinking: false,
+    headPose: {yaw: 0, pitch: 0, roll: 0},
+    mouthOpen: false,
+  });
+
   // Animation for success state
   const successScale = useRef(new Animated.Value(0)).current;
+
+  // Start liveness session if required
+  useEffect(() => {
+    if (REQUIRE_LIVENESS_CHECK) {
+      startLivenessSession();
+    }
+  }, []);
+
+  // Challenge timer
+  useEffect(() => {
+    if (currentChallenge && verificationState === 'liveness') {
+      const startTime = Date.now();
+      const interval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, currentChallenge.timeout - elapsed);
+        setChallengeTimeRemaining(remaining);
+
+        if (remaining === 0) {
+          handleChallengeTimeout();
+          clearInterval(interval);
+        }
+      }, 100);
+
+      return () => clearInterval(interval);
+    }
+  }, [currentChallenge, verificationState]);
+
+  // Simulate liveness detection (in real app, use frame processor)
+  useEffect(() => {
+    if (verificationState === 'liveness' && currentChallenge) {
+      const simulationInterval = setInterval(() => {
+        const randomEvent = Math.random();
+
+        if (currentChallenge.type === 'blink' && randomEvent > 0.9) {
+          setDetectionState(prev => ({...prev, isBlinking: true}));
+          setTimeout(() => {
+            setDetectionState(prev => ({...prev, isBlinking: false}));
+            handleChallengeComplete(true, 0.9);
+          }, 200);
+        } else if (currentChallenge.type === 'head_turn_left') {
+          setDetectionState(prev => ({
+            ...prev,
+            headPose: {...prev.headPose, yaw: prev.headPose.yaw - 2},
+          }));
+          if (detectionState.headPose.yaw <= -15) {
+            handleChallengeComplete(true, 0.85);
+          }
+        } else if (currentChallenge.type === 'head_turn_right') {
+          setDetectionState(prev => ({
+            ...prev,
+            headPose: {...prev.headPose, yaw: prev.headPose.yaw + 2},
+          }));
+          if (detectionState.headPose.yaw >= 15) {
+            handleChallengeComplete(true, 0.85);
+          }
+        }
+      }, 500);
+
+      return () => clearInterval(simulationInterval);
+    }
+  }, [verificationState, currentChallenge, detectionState.headPose.yaw]);
+
+  const startLivenessSession = () => {
+    const session = livenessDetectionService.startSession(2);
+    setLivenessSession(session);
+    setCurrentChallenge(livenessDetectionService.getCurrentChallenge());
+    updateChallengeProgress();
+    setVerificationState('liveness');
+    setDetectionState({
+      isBlinking: false,
+      headPose: {yaw: 0, pitch: 0, roll: 0},
+      mouthOpen: false,
+    });
+  };
+
+  const updateChallengeProgress = () => {
+    setChallengeProgress(livenessDetectionService.getSessionProgress());
+  };
+
+  const handleChallengeComplete = (passed: boolean, confidence: number) => {
+    livenessDetectionService.recordChallengeResult(passed, confidence);
+    updateChallengeProgress();
+
+    const nextChallenge = livenessDetectionService.getCurrentChallenge();
+    if (nextChallenge) {
+      setCurrentChallenge(nextChallenge);
+      setChallengeTimeRemaining(nextChallenge.timeout);
+      setDetectionState({
+        isBlinking: false,
+        headPose: {yaw: 0, pitch: 0, roll: 0},
+        mouthOpen: false,
+      });
+    } else {
+      const proof = livenessDetectionService.completeSession();
+      setLivenessProof(proof);
+
+      if (proof && livenessDetectionService.getSessionProgress().passedChallenges >= 2) {
+        showToast.success('Liveness verified!');
+        setTimeout(() => setVerificationState('camera'), 500);
+      } else {
+        showDialog.error('Liveness Check Failed', 'Please try again.', () => {
+          startLivenessSession();
+        });
+      }
+    }
+  };
+
+  const handleChallengeTimeout = () => {
+    livenessDetectionService.recordChallengeResult(false, 0);
+    updateChallengeProgress();
+
+    const nextChallenge = livenessDetectionService.getCurrentChallenge();
+    if (nextChallenge) {
+      setCurrentChallenge(nextChallenge);
+      setChallengeTimeRemaining(nextChallenge.timeout);
+      showToast.warning('Challenge timed out. Try the next one.');
+    } else {
+      const proof = livenessDetectionService.completeSession();
+      setLivenessProof(proof);
+
+      if (proof && livenessDetectionService.getSessionProgress().passedChallenges >= 2) {
+        setVerificationState('camera');
+      } else {
+        showDialog.error('Liveness Check Failed', 'Please try again.', () => {
+          startLivenessSession();
+        });
+      }
+    }
+  };
+
+  const handleSkipLiveness = () => {
+    setLivenessProof(null);
+    setVerificationState('camera');
+  };
 
   // Set StatusBar for camera screen
   useFocusEffect(
@@ -521,7 +685,10 @@ export default function FaceCheckInScreen() {
 
         {/* Face Guide */}
         <View style={styles.faceGuide}>
-          <View style={styles.faceFrame}>
+          <View style={[
+            styles.faceFrame,
+            verificationState === 'liveness' && challengeProgress.isComplete && styles.faceFrameSuccess,
+          ]}>
             {verificationState === 'verifying' && (
               <View style={styles.processingOverlay}>
                 <ActivityIndicator size="large" color="#FFFFFF" />
@@ -529,9 +696,24 @@ export default function FaceCheckInScreen() {
               </View>
             )}
           </View>
-          <Text style={styles.guideText}>
-            Position your face within the frame
-          </Text>
+
+          {/* Liveness Challenge UI */}
+          {verificationState === 'liveness' && currentChallenge && (
+            <LivenessChallenge
+              challenge={currentChallenge}
+              progress={challengeProgress}
+              detectionState={detectionState}
+              timeRemaining={challengeTimeRemaining}
+              isDarkMode={isDarkMode}
+            />
+          )}
+
+          {/* Normal guide text */}
+          {verificationState !== 'liveness' && (
+            <Text style={styles.guideText}>
+              Position your face within the frame
+            </Text>
+          )}
         </View>
 
         {/* Location Error */}
@@ -544,43 +726,66 @@ export default function FaceCheckInScreen() {
 
         {/* Capture Button */}
         <SafeAreaView edges={['bottom']} style={styles.bottomContainer}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Icon name="account" size={20} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.infoText}>
-                {user?.firstName} {user?.lastName}
+          {verificationState === 'liveness' ? (
+            <>
+              <Text style={styles.captureHint}>
+                Complete the liveness challenges above
               </Text>
-            </View>
-            <View style={styles.infoItem}>
-              <Icon name="clock-outline" size={20} color="rgba(255,255,255,0.8)" />
-              <Text style={styles.infoText}>
-                {new Date().toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </Text>
-            </View>
-          </View>
+              {/* Skip button for testing - remove in production */}
+              <TouchableOpacity
+                style={styles.skipButton}
+                onPress={handleSkipLiveness}>
+                <Text style={styles.skipButtonText}>Skip (Dev Only)</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={styles.infoRow}>
+                <View style={styles.infoItem}>
+                  <Icon name="account" size={20} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.infoText}>
+                    {user?.firstName} {user?.lastName}
+                  </Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <Icon name="clock-outline" size={20} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.infoText}>
+                    {new Date().toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+              </View>
 
-          <TouchableOpacity
-            style={[
-              styles.captureButton,
-              verificationState === 'verifying' && styles.captureButtonDisabled,
-            ]}
-            onPress={handleCapture}
-            disabled={verificationState === 'verifying'}>
-            <View style={styles.captureButtonInner}>
-              {verificationState === 'verifying' ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Icon name="camera" size={32} color="#FFFFFF" />
+              {livenessProof && (
+                <View style={styles.livenessVerifiedBadge}>
+                  <Icon name="shield-check" size={14} color="#22C55E" />
+                  <Text style={styles.livenessVerifiedText}>Liveness Verified</Text>
+                </View>
               )}
-            </View>
-          </TouchableOpacity>
 
-          <Text style={styles.captureHint}>
-            {verificationState === 'verifying' ? 'Verifying your face...' : 'Tap to capture'}
-          </Text>
+              <TouchableOpacity
+                style={[
+                  styles.captureButton,
+                  verificationState === 'verifying' && styles.captureButtonDisabled,
+                ]}
+                onPress={handleCapture}
+                disabled={verificationState === 'verifying'}>
+                <View style={styles.captureButtonInner}>
+                  {verificationState === 'verifying' ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Icon name="camera" size={32} color="#FFFFFF" />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <Text style={styles.captureHint}>
+                {verificationState === 'verifying' ? 'Verifying your face...' : 'Tap to capture'}
+              </Text>
+            </>
+          )}
         </SafeAreaView>
       </View>
     </View>
@@ -868,5 +1073,34 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.7,
+  },
+  faceFrameSuccess: {
+    borderColor: '#22C55E',
+  },
+  skipButton: {
+    marginTop: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: BorderRadius.md,
+  },
+  skipButtonText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: FontSizes.sm,
+  },
+  livenessVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    marginBottom: Spacing.md,
+  },
+  livenessVerifiedText: {
+    color: '#22C55E',
+    fontSize: FontSizes.xs,
+    fontWeight: '600',
+    marginLeft: Spacing.xs,
   },
 });
