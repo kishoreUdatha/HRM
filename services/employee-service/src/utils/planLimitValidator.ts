@@ -87,6 +87,12 @@ export async function canAddEmployee(tenantId: string): Promise<{ allowed: boole
     const planLimits = await getPlanLimits(planCode);
     console.log(`[PlanLimitValidator] Plan limits for ${planCode}:`, planLimits);
 
+    // If we still couldn't get limits, use safe defaults
+    if (!planLimits) {
+      console.warn('[PlanLimitValidator] Using default limits (10 employees)');
+      return { allowed: true, currentCount: 0, limit: 10 };
+    }
+
     // Count current employees for this tenant
     const currentEmployeeCount = await Employee.countDocuments({ tenantId: new mongoose.Types.ObjectId(tenantId) });
 
