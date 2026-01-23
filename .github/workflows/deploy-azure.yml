@@ -188,24 +188,43 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-api-gateway:${{ needs.build-push.outputs.image_tag }}
 
+      - name: Get Container App Environment Domain
+        id: get-domain
+        run: |
+          # Get the default domain for internal service communication
+          ENV_DOMAIN=$(az containerapp env show --name ${{ env.CONTAINER_APP_ENV }} --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --query "properties.defaultDomain" -o tsv)
+          echo "env_domain=$ENV_DOMAIN" >> $GITHUB_OUTPUT
+          echo "Container Apps Environment Domain: $ENV_DOMAIN"
+
       - name: Update Core Services
         run: |
           IMAGE_TAG="${{ needs.build-push.outputs.image_tag }}"
+          ENV_DOMAIN="${{ steps.get-domain.outputs.env_domain }}"
 
           # Update individual microservices
           echo "Updating all microservices to image tag: $IMAGE_TAG"
 
+          # Auth service needs URLs for employee and tenant services
           az containerapp update --name hrm-auth-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-auth-service:$IMAGE_TAG &
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-auth-service:$IMAGE_TAG \
+            --set-env-vars "EMPLOYEE_SERVICE_URL=https://hrm-employee-service.internal.$ENV_DOMAIN" \
+            --set-env-vars "TENANT_SERVICE_URL=https://hrm-tenant-service.internal.$ENV_DOMAIN" &
 
           az containerapp update --name hrm-tenant-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-tenant-service:$IMAGE_TAG &
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-tenant-service:$IMAGE_TAG \
+            --set-env-vars "INTERNAL_API_KEY=${{ secrets.INTERNAL_API_KEY }}" &
 
+          # Employee service needs URLs for tenant and billing services
           az containerapp update --name hrm-employee-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-employee-service:$IMAGE_TAG &
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-employee-service:$IMAGE_TAG \
+            --set-env-vars "TENANT_SERVICE_URL=https://hrm-tenant-service.internal.$ENV_DOMAIN" \
+            --set-env-vars "BILLING_SERVICE_URL=https://hrm-billing-service.internal.$ENV_DOMAIN" \
+            --set-env-vars "INTERNAL_API_KEY=${{ secrets.INTERNAL_API_KEY }}" &
 
+          # Attendance service needs employee service URL
           az containerapp update --name hrm-attendance-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-attendance-service:$IMAGE_TAG &
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-attendance-service:$IMAGE_TAG \
+            --set-env-vars "EMPLOYEE_SERVICE_URL=https://hrm-employee-service.internal.$ENV_DOMAIN" &
 
           az containerapp update --name hrm-leave-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-leave-service:$IMAGE_TAG &
