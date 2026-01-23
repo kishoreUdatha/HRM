@@ -384,6 +384,8 @@ export const verifyMobileCredentials = async (
     // Support flexible phone matching - user may enter just digits (e.g. 9876543210)
     // while DB may store with country code (e.g. +91-9876543210 or +919876543210)
     const phoneDigits = phone.replace(/\D/g, ''); // Extract only digits
+    console.log(`[Employee Service] Looking for employee with tenantId: ${tenantId}, phone: ${phone}, phoneDigits: ${phoneDigits}`);
+
     const employee = await Employee.findOne({
       tenantId: new mongoose.Types.ObjectId(tenantId),
       $or: [
@@ -394,7 +396,22 @@ export const verifyMobileCredentials = async (
       status: 'active',
     }).populate('departmentId', 'name code');
 
+    console.log(`[Employee Service] Employee found: ${employee ? employee.firstName + ' ' + employee.lastName : 'NOT FOUND'}`);
+    if (employee) {
+      console.log(`[Employee Service] Employee phone: ${employee.phone}, selfyPunch: ${employee.selfyPunch}, status: ${employee.status}`);
+    }
+
     if (!employee) {
+      // Try to find without status filter to debug
+      const anyEmployee = await Employee.findOne({
+        tenantId: new mongoose.Types.ObjectId(tenantId),
+        $or: [
+          { phone: phone },
+          { phone: { $regex: phoneDigits + '$' } },
+        ],
+      });
+      console.log(`[Employee Service] Employee without status filter: ${anyEmployee ? `Found with status=${anyEmployee.status}` : 'NOT FOUND'}`);
+
       res.status(401).json({
         success: false,
         message: 'Invalid mobile number or PIN',
