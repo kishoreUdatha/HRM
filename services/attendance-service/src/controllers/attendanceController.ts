@@ -63,7 +63,7 @@ const getFaceEmbeddings = async (tenantId: string): Promise<FaceEmbeddingData[]>
 
   try {
     const mongoUri = process.env.MONGODB_URI || '';
-    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employee');
+    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
     const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
 
     const faceEmbeddingSchema = new mongoose.Schema({
@@ -110,7 +110,7 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
   try {
     // Connect to employees database
     const mongoUri = process.env.MONGODB_URI || '';
-    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employee');
+    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
 
     const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
 
@@ -169,7 +169,7 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
 const getEmployeeByUserIdOrEmail = async (userId: string, tenantId: string) => {
   try {
     const mongoUri = process.env.MONGODB_URI || '';
-    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employee');
+    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
 
     const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
 
@@ -503,7 +503,7 @@ export const getAttendance = async (req: Request, res: Response): Promise<void> 
     if (search || departmentId) {
       try {
         const mongoUri = process.env.MONGODB_URI || '';
-        const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employee');
+        const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
         const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
 
         const employeeSchema = new mongoose.Schema({
@@ -1411,7 +1411,7 @@ export const enrollFace = async (req: Request, res: Response): Promise<void> => 
     // Save to employees database
     try {
       const mongoUri = process.env.MONGODB_URI || '';
-      const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employee');
+      const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
       const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
 
       const faceEmbeddingSchema = new mongoose.Schema({

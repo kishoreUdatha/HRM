@@ -97,17 +97,17 @@ export interface LivenessProof {
 // Configuration
 const CONFIG = {
   // Face detection settings
-  MIN_FACE_SIZE: 0.1,
-  MAX_FACE_SIZE: 0.9,
-  MIN_DETECTION_CONFIDENCE: 0.5,
+  MIN_FACE_SIZE: 0.03, // Lowered to 3% to handle smaller faces in photos
+  MAX_FACE_SIZE: 0.95,
+  MIN_DETECTION_CONFIDENCE: 0.2, // Lowered for better mobile camera detection
 
-  // Matching thresholds
-  MATCH_THRESHOLD: 0.45, // Euclidean distance threshold
-  HIGH_CONFIDENCE_THRESHOLD: 0.35,
-  COSINE_SIMILARITY_THRESHOLD: 0.7, // For vector DB search
+  // Matching thresholds - relaxed for production use
+  MATCH_THRESHOLD: 0.6, // Euclidean distance threshold (relaxed for varying conditions)
+  HIGH_CONFIDENCE_THRESHOLD: 0.4,
+  COSINE_SIMILARITY_THRESHOLD: 0.5, // For vector DB search (relaxed for production)
 
   // Quality settings
-  MIN_QUALITY_SCORE: 0.3,
+  MIN_QUALITY_SCORE: 0.15, // Lowered to accommodate mobile cameras with varying conditions
   MIN_IMAGES_FOR_ENROLLMENT: 1,
   RECOMMENDED_IMAGES_FOR_ENROLLMENT: 3,
 
@@ -269,6 +269,7 @@ class FaceRecognitionService {
 
   /**
    * Detect face in an image and return detection result
+   * Uses multiple preprocessing strategies for high accuracy
    */
   async detectFace(base64Image: string): Promise<FaceDetectionResult> {
     await this.initialize();
@@ -278,70 +279,133 @@ class FaceRecognitionService {
     }
 
     try {
-      // Decode and load image
+      const { Jimp } = require('jimp');
       const imageBuffer = decodeBase64Image(base64Image);
-      const img = await loadImage(imageBuffer);
+      console.log(`[FaceRecognition] Image buffer size: ${imageBuffer.length} bytes`);
 
-      // Create canvas from image
-      const canvas = createCanvas(img.width, img.height);
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
+      // Load original image
+      const originalImage = await Jimp.read(imageBuffer);
+      console.log(`[FaceRecognition] Original dimensions: ${originalImage.width}x${originalImage.height}`);
 
-      // Detect all faces
-      const detections = await faceapi
-        .detectAllFaces(canvas as any, new faceapi.SsdMobilenetv1Options({
-          minConfidence: CONFIG.MIN_DETECTION_CONFIDENCE,
-        }))
-        .withFaceLandmarks()
-        .withFaceDescriptors();
+      // Strategy 1: Try with preprocessed image (contrast + brightness enhancement)
+      const preprocessed = originalImage.clone();
+      preprocessed.contrast(0.2);  // Increase contrast
+      preprocessed.brightness(0.1); // Slight brightness increase
+      preprocessed.normalize(); // Normalize colors
 
-      if (detections.length === 0) {
-        return {
-          detected: false,
-          faceCount: 0,
-          quality: 0,
-        };
+      // Strategy 2: Low-light enhancement (aggressive brightness boost)
+      const lowLight = originalImage.clone();
+      lowLight.brightness(0.3); // Strong brightness increase for dark images
+      lowLight.contrast(0.35); // Higher contrast to bring out features
+      lowLight.normalize();
+
+      // Strategy 3: Try with grayscale enhanced
+      const grayscaleEnhanced = originalImage.clone();
+      grayscaleEnhanced.greyscale();
+      grayscaleEnhanced.contrast(0.3);
+
+      // Strategy 4: Try with scaled image (some models work better at specific sizes)
+      const scaled = originalImage.clone();
+      const targetSize = 800;
+      if (scaled.width > targetSize || scaled.height > targetSize) {
+        scaled.scaleToFit({ w: targetSize, h: targetSize });
+      }
+      scaled.contrast(0.15);
+      scaled.normalize();
+
+      // Strategy 5: Very low light (extreme enhancement)
+      const veryLowLight = originalImage.clone();
+      veryLowLight.brightness(0.5); // Very strong brightness
+      veryLowLight.contrast(0.4); // Strong contrast
+      veryLowLight.normalize();
+
+      // Array of preprocessing strategies to try (ordered by likelihood of success)
+      const strategies = [
+        { name: 'preprocessed', image: preprocessed },
+        { name: 'lowLight', image: lowLight },
+        { name: 'scaled', image: scaled },
+        { name: 'original', image: originalImage },
+        { name: 'grayscale', image: grayscaleEnhanced },
+        { name: 'veryLowLight', image: veryLowLight },
+      ];
+
+      // Try each strategy until we get a detection
+      for (const strategy of strategies) {
+        console.log(`[FaceRecognition] Trying strategy: ${strategy.name} (${strategy.image.width}x${strategy.image.height})`);
+
+        const buffer = await strategy.image.getBuffer('image/jpeg');
+        const img = await loadImage(buffer);
+
+        // Create canvas from image
+        const canvas = createCanvas(img.width, img.height);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+
+        // Try detection with progressively lower confidence thresholds
+        const confidenceThresholds = [0.5, 0.3, 0.15, 0.05];
+
+        for (const threshold of confidenceThresholds) {
+          const detections = await faceapi
+            .detectAllFaces(canvas as any, new faceapi.SsdMobilenetv1Options({
+              minConfidence: threshold,
+            }))
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+
+          if (detections.length > 0) {
+            console.log(`[FaceRecognition] SUCCESS: ${detections.length} face(s) detected with strategy '${strategy.name}' at threshold ${threshold}`);
+
+            // Debug: Log detection structure
+            const firstDet = detections[0];
+            console.log(`[FaceRecognition] Detection keys: ${Object.keys(firstDet).join(', ')}`);
+            console.log(`[FaceRecognition] Has descriptor: ${!!firstDet.descriptor}, type: ${typeof firstDet.descriptor}`);
+            if (firstDet.descriptor) {
+              console.log(`[FaceRecognition] Descriptor length: ${firstDet.descriptor.length}`);
+            }
+
+            // Get the largest/most prominent face
+            const detection = detections.reduce((best: any, current: any) => {
+              const bestArea = best.detection.box.width * best.detection.box.height;
+              const currentArea = current.detection.box.width * current.detection.box.height;
+              return currentArea > bestArea ? current : best;
+            });
+
+            const box = detection.detection.box;
+            const imgArea = img.width * img.height;
+            const faceArea = box.width * box.height;
+            const faceRatio = faceArea / imgArea;
+
+            console.log(`[FaceRecognition] Face ratio: ${faceRatio.toFixed(4)} (min: ${CONFIG.MIN_FACE_SIZE}, max: ${CONFIG.MAX_FACE_SIZE})`);
+            console.log(`[FaceRecognition] Detection score: ${detection.detection.score}`);
+
+            // Determine quality score - reduce if face size is out of preferred range
+            let qualityScore = detection.detection.score;
+            if (faceRatio < CONFIG.MIN_FACE_SIZE || faceRatio > CONFIG.MAX_FACE_SIZE) {
+              qualityScore = detection.detection.score * 0.6;
+              console.log(`[FaceRecognition] Face size out of preferred range, adjusted quality: ${qualityScore.toFixed(3)}`);
+            }
+
+            // Always return descriptor when detected for matching
+            console.log(`[FaceRecognition] Returning with descriptor: ${!!detection.descriptor}, quality: ${qualityScore.toFixed(3)}`);
+            return {
+              detected: true,
+              faceCount: detections.length,
+              boundingBox: { x: box.x, y: box.y, width: box.width, height: box.height },
+              quality: qualityScore,
+              descriptor: detection.descriptor,
+              landmarks: detection.landmarks.positions.map((p: any) => ({ x: p.x, y: p.y })),
+            };
+          }
+        }
       }
 
-      // Get the largest/most prominent face
-      const detection = detections.reduce((best: any, current: any) => {
-        const bestArea = best.detection.box.width * best.detection.box.height;
-        const currentArea = current.detection.box.width * current.detection.box.height;
-        return currentArea > bestArea ? current : best;
-      });
+      console.log(`[FaceRecognition] No face detected with any strategy`);
 
-      const box = detection.detection.box;
-      const imgArea = img.width * img.height;
-      const faceArea = box.width * box.height;
-      const faceRatio = faceArea / imgArea;
-
-      // Check face size constraints
-      if (faceRatio < CONFIG.MIN_FACE_SIZE || faceRatio > CONFIG.MAX_FACE_SIZE) {
-        return {
-          detected: true,
-          faceCount: detections.length,
-          boundingBox: {
-            x: box.x,
-            y: box.y,
-            width: box.width,
-            height: box.height,
-          },
-          quality: detection.detection.score * 0.5, // Reduce quality for bad face size
-        };
-      }
-
+      // All strategies failed - return no face detected
       return {
-        detected: true,
-        faceCount: detections.length,
-        boundingBox: {
-          x: box.x,
-          y: box.y,
-          width: box.width,
-          height: box.height,
-        },
-        quality: detection.detection.score,
-        descriptor: detection.descriptor,
-        landmarks: detection.landmarks.positions.map((p: any) => ({ x: p.x, y: p.y })),
+        detected: false,
+        faceCount: 0,
+        quality: 0,
       };
     } catch (error: any) {
       console.error('[FaceRecognition] Error detecting face:', error.message);
@@ -571,44 +635,68 @@ class FaceRecognitionService {
       };
     }
 
-    const inputEmbedding = Array.from(detection.descriptor!);
+    // Check if descriptor is available
+    if (!detection.descriptor) {
+      return {
+        status: 'NO_FACE',
+        message: 'Could not extract face features. Please try again with better lighting.',
+      };
+    }
+
+    const inputEmbedding = Array.from(detection.descriptor);
     const startTime = Date.now();
+
+    console.log(`[FaceRecognition] Starting face matching with ${inputEmbedding.length}-dim embedding`);
+    console.log(`[FaceRecognition] Vector DB available: ${this.vectorDbInitialized}, tenantId: ${tenantId}`);
 
     // Try vector database search first (faster for large datasets)
     if (this.vectorDbInitialized && tenantId) {
+      console.log(`[FaceRecognition] Searching vector DB with threshold: ${CONFIG.COSINE_SIMILARITY_THRESHOLD}`);
       const vectorResults = await vectorDatabaseService.searchSimilar({
         tenantId,
         embedding: inputEmbedding,
-        limit: 1,
-        scoreThreshold: CONFIG.COSINE_SIMILARITY_THRESHOLD,
+        limit: 5, // Get top 5 for debugging
+        scoreThreshold: 0, // Get all results for debugging
       });
 
+      console.log(`[FaceRecognition] Vector DB returned ${vectorResults.length} results`);
       if (vectorResults.length > 0) {
-        const bestMatch = vectorResults[0];
-        const searchTime = Date.now() - startTime;
+        vectorResults.forEach((r: any, i: number) => {
+          console.log(`[FaceRecognition] Result ${i}: ${r.employeeName} - score: ${r.score?.toFixed(4)}, distance: ${r.distance?.toFixed(4)}`);
+        });
 
-        return {
-          status: 'MATCHED',
-          employeeId: bestMatch.employeeId,
-          employeeName: bestMatch.employeeName,
-          confidence: bestMatch.score,
-          message: `Face matched: ${bestMatch.employeeName}`,
-          matchDetails: {
-            distance: bestMatch.distance,
-            threshold: CONFIG.COSINE_SIMILARITY_THRESHOLD,
-            searchTimeMs: searchTime,
-            method: 'vector_db',
-          },
-        };
+        const bestMatch = vectorResults[0];
+        if (bestMatch.score >= CONFIG.COSINE_SIMILARITY_THRESHOLD) {
+          const searchTime = Date.now() - startTime;
+          console.log(`[FaceRecognition] MATCHED via vector DB: ${bestMatch.employeeName}`);
+
+          return {
+            status: 'MATCHED',
+            employeeId: bestMatch.employeeId,
+            employeeName: bestMatch.employeeName,
+            confidence: bestMatch.score,
+            message: `Face matched: ${bestMatch.employeeName}`,
+            matchDetails: {
+              distance: bestMatch.distance,
+              threshold: CONFIG.COSINE_SIMILARITY_THRESHOLD,
+              searchTimeMs: searchTime,
+              method: 'vector_db',
+            },
+          };
+        } else {
+          console.log(`[FaceRecognition] Best score ${bestMatch.score?.toFixed(4)} below threshold ${CONFIG.COSINE_SIMILARITY_THRESHOLD}`);
+        }
       }
     }
 
     // Fallback to memory-based search with stored embeddings
+    console.log(`[FaceRecognition] Trying memory-based search with ${storedEmbeddings?.length || 0} stored embeddings`);
     if (storedEmbeddings && storedEmbeddings.length > 0) {
       let bestMatch: { employeeId: string; employeeName: string; distance: number } | null = null;
 
       for (const stored of storedEmbeddings) {
         const distance = euclideanDistance(inputEmbedding, stored.embedding);
+        console.log(`[FaceRecognition] Distance to ${stored.employeeName}: ${distance.toFixed(4)}`);
 
         if (!bestMatch || distance < bestMatch.distance) {
           bestMatch = {
@@ -621,8 +709,11 @@ class FaceRecognitionService {
 
       const searchTime = Date.now() - startTime;
 
+      console.log(`[FaceRecognition] Best match: ${bestMatch?.employeeName}, distance: ${bestMatch?.distance.toFixed(4)}, threshold: ${CONFIG.MATCH_THRESHOLD}`);
+
       if (bestMatch && bestMatch.distance <= CONFIG.MATCH_THRESHOLD) {
         const confidence = Math.max(0, Math.min(1, 1 - (bestMatch.distance / CONFIG.MATCH_THRESHOLD)));
+        console.log(`[FaceRecognition] MATCHED via memory: ${bestMatch.employeeName} with confidence ${confidence.toFixed(4)}`);
 
         return {
           status: 'MATCHED',
@@ -637,6 +728,8 @@ class FaceRecognitionService {
             method: 'memory',
           },
         };
+      } else {
+        console.log(`[FaceRecognition] NO_MATCH: distance ${bestMatch?.distance.toFixed(4)} > threshold ${CONFIG.MATCH_THRESHOLD}`);
       }
     }
 

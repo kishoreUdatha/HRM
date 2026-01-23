@@ -156,6 +156,7 @@ services:
       - JWT_REFRESH_EXPIRES_IN=7d
       - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
       - EMPLOYEE_SERVICE_URL=http://employee-service:3003
+      - TENANT_SERVICE_URL=http://tenant-service:3002
     depends_on:
       mongodb:
         condition: service_healthy
@@ -176,6 +177,7 @@ services:
       - PORT=3002
       - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_tenants?authSource=admin
       - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-hrm_internal_service_key_2024}
     volumes:
       - tenant-uploads:/app/uploads
     depends_on:
@@ -198,6 +200,9 @@ services:
       - PORT=3003
       - MONGODB_URI=mongodb://admin:hrm_password_2024@mongodb:27017/hrm_employees?authSource=admin
       - RABBITMQ_URL=amqp://hrm_user:hrm_password@rabbitmq:5672
+      - TENANT_SERVICE_URL=http://tenant-service:3002
+      - BILLING_SERVICE_URL=http://billing-service:3027
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY:-hrm_internal_service_key_2024}
     depends_on:
       mongodb:
         condition: service_healthy
