@@ -9,6 +9,10 @@ import { generateTokens, verifyRefreshToken, generateAccessToken } from '../serv
 const EMPLOYEE_SERVICE_URL = process.env.EMPLOYEE_SERVICE_URL || 'http://localhost:3003';
 const TENANT_SERVICE_URL = process.env.TENANT_SERVICE_URL || 'http://localhost:3002';
 
+// Log service URLs at startup (helps debug configuration issues)
+console.log(`[Auth Controller] EMPLOYEE_SERVICE_URL: ${EMPLOYEE_SERVICE_URL}`);
+console.log(`[Auth Controller] TENANT_SERVICE_URL: ${TENANT_SERVICE_URL}`);
+
 // Create axios instance for internal service communication (skip SSL verification for internal Azure Container Apps)
 const internalAxios = axios.create({
   httpsAgent: new https.Agent({ rejectUnauthorized: false }),
@@ -330,6 +334,17 @@ export const loginWithMobile = async (
         res.status(employeeError.response.status).json({
           success: false,
           message: employeeError.response.data.message,
+        });
+        return;
+      }
+
+      // For network errors (can't reach employee service), show specific error
+      if (employeeError.code === 'ECONNREFUSED' || employeeError.code === 'ENOTFOUND' || employeeError.code === 'ETIMEDOUT') {
+        console.error(`[Auth] Network error reaching employee service at ${EMPLOYEE_SERVICE_URL}`);
+        res.status(503).json({
+          success: false,
+          message: 'Unable to verify credentials. Please try again later.',
+          debug: process.env.NODE_ENV === 'development' ? `Employee service unreachable: ${employeeError.code}` : undefined,
         });
         return;
       }
