@@ -22,14 +22,14 @@ interface PlanLimits {
 /**
  * Fetch tenant's current plan from tenant service
  */
-async function getTenantPlan(tenantId: string): Promise<string | null> {
+async function getTenantPlan(tenantId: string): Promise<string> {
   try {
     const tenantServiceUrl = process.env.TENANT_SERVICE_URL || 'http://localhost:3002';
     const internalApiKey = process.env.INTERNAL_API_KEY;
 
     if (!internalApiKey) {
-      console.error('[PlanLimitValidator] INTERNAL_API_KEY not configured');
-      return null;
+      console.warn('[PlanLimitValidator] INTERNAL_API_KEY not configured - defaulting to free plan');
+      return 'free';
     }
 
     const response = await axios.get(`${tenantServiceUrl}/internal/${tenantId}`, {
@@ -37,13 +37,15 @@ async function getTenantPlan(tenantId: string): Promise<string | null> {
         'x-internal-api-key': internalApiKey,
         'x-tenant-id': tenantId,
       },
+      timeout: 5000, // 5 second timeout
     });
 
     const tenant: TenantData = response.data.data || response.data;
     return tenant.subscription?.plan || 'free';
-  } catch (error) {
-    console.error('[PlanLimitValidator] Failed to fetch tenant plan:', error);
-    return null;
+  } catch (error: any) {
+    // Log warning but don't block - default to free plan with standard limits
+    console.warn('[PlanLimitValidator] Failed to fetch tenant plan, defaulting to free:', error.message);
+    return 'free';
   }
 }
 
@@ -77,25 +79,13 @@ async function getPlanLimits(planCode: string): Promise<PlanLimits | null> {
  */
 export async function canAddEmployee(tenantId: string): Promise<{ allowed: boolean; message?: string; currentCount?: number; limit?: number }> {
   try {
-    // Fetch tenant's current plan
+    // Fetch tenant's current plan (defaults to 'free' if service unavailable)
     const planCode = await getTenantPlan(tenantId);
-    if (!planCode) {
-      console.error('[PlanLimitValidator] Could not fetch tenant plan - BLOCKING employee creation');
-      return {
-        allowed: false,
-        message: 'Unable to verify tenant plan. Please try again or contact support.'
-      };
-    }
+    console.log(`[PlanLimitValidator] Tenant ${tenantId} plan: ${planCode}`);
 
-    // Fetch plan limits from billing service database
+    // Fetch plan limits from billing service database (has fallback defaults)
     const planLimits = await getPlanLimits(planCode);
-    if (!planLimits) {
-      console.error('[PlanLimitValidator] Could not fetch plan limits - BLOCKING employee creation');
-      return {
-        allowed: false,
-        message: 'Unable to fetch plan limits from billing service. Please try again or contact support.'
-      };
-    }
+    console.log(`[PlanLimitValidator] Plan limits for ${planCode}:`, planLimits);
 
     // Count current employees for this tenant
     const currentEmployeeCount = await Employee.countDocuments({ tenantId: new mongoose.Types.ObjectId(tenantId) });
