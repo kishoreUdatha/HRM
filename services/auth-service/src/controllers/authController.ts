@@ -1,12 +1,19 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import axios from 'axios';
+import https from 'https';
 import User from '../models/User';
 import { generateTokens, verifyRefreshToken, generateAccessToken } from '../services/jwtService';
 
 // Employee service URL for internal communication
 const EMPLOYEE_SERVICE_URL = process.env.EMPLOYEE_SERVICE_URL || 'http://localhost:3003';
 const TENANT_SERVICE_URL = process.env.TENANT_SERVICE_URL || 'http://localhost:3002';
+
+// Create axios instance for internal service communication (skip SSL verification for internal Azure Container Apps)
+const internalAxios = axios.create({
+  httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+  timeout: 10000,
+});
 
 // Helper to resolve company code/slug to tenant ObjectId
 const resolveTenantId = async (tenantIdOrSlug: string): Promise<string | null> => {
@@ -17,9 +24,9 @@ const resolveTenantId = async (tenantIdOrSlug: string): Promise<string | null> =
 
   // Otherwise, treat it as a slug/company code and resolve it
   try {
-    const response = await axios.get(
-      `${TENANT_SERVICE_URL}/by-slug/${tenantIdOrSlug}`,
-      { timeout: 5000 }
+    console.log(`[Auth] Resolving tenant slug: ${tenantIdOrSlug} via ${TENANT_SERVICE_URL}`);
+    const response = await internalAxios.get(
+      `${TENANT_SERVICE_URL}/by-slug/${tenantIdOrSlug}`
     );
     if (response.data.success && response.data.data?._id) {
       return response.data.data._id;
@@ -260,15 +267,19 @@ export const loginWithMobile = async (
     }
 
     try {
-      const employeeResponse = await axios.post(
+      console.log(`[Auth] Calling employee service at: ${EMPLOYEE_SERVICE_URL}/employees/verify-mobile-credentials`);
+      console.log(`[Auth] Payload: tenantId=${resolvedTenantId}, phone=${mobileNumber}`);
+
+      const employeeResponse = await internalAxios.post(
         `${EMPLOYEE_SERVICE_URL}/employees/verify-mobile-credentials`,
         {
           tenantId: resolvedTenantId,
           phone: mobileNumber,
           pin,
-        },
-        { timeout: 5000 }
+        }
       );
+
+      console.log(`[Auth] Employee service response:`, employeeResponse.data);
 
       if (employeeResponse.data.success && employeeResponse.data.data) {
         const employeeData = employeeResponse.data.data;
@@ -304,7 +315,16 @@ export const loginWithMobile = async (
         });
         return;
       }
-    } catch (employeeError) {
+    } catch (employeeError: any) {
+      console.error(`[Auth] Employee service error:`, employeeError.message);
+      if (employeeError.response) {
+        console.error(`[Auth] Response status:`, employeeError.response.status);
+        console.error(`[Auth] Response data:`, employeeError.response.data);
+      }
+      if (employeeError.code) {
+        console.error(`[Auth] Error code:`, employeeError.code);
+      }
+
       // If employee service returns an error response, use its message
       if (axios.isAxiosError(employeeError) && employeeError.response?.data?.message) {
         res.status(employeeError.response.status).json({
