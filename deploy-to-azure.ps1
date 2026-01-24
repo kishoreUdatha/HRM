@@ -100,21 +100,22 @@ $JWT_SECRET = "hrm_saas_access_secret_2024_azure"
 $JWT_REFRESH = "hrm_saas_refresh_secret_2024_azure"
 
 # Deploy API Gateway with all internal service URLs
+# Note: Use HTTP for internal service communication (Azure Container Apps handles TLS at ingress)
 Write-Host "  Deploying api-gateway..." -ForegroundColor Cyan
 $gatewayEnvVars = @(
     "NODE_ENV=production",
     "PORT=3000",
     "JWT_ACCESS_SECRET=$JWT_SECRET",
     "JWT_REFRESH_SECRET=$JWT_REFRESH",
-    "AUTH_SERVICE_URL=https://hrm-auth-service.internal.$ENV_DEFAULT_DOMAIN",
-    "TENANT_SERVICE_URL=https://hrm-tenant-service.internal.$ENV_DEFAULT_DOMAIN",
-    "EMPLOYEE_SERVICE_URL=https://hrm-employee-service.internal.$ENV_DEFAULT_DOMAIN",
-    "ATTENDANCE_SERVICE_URL=https://hrm-attendance-service.internal.$ENV_DEFAULT_DOMAIN",
-    "LEAVE_SERVICE_URL=https://hrm-leave-service.internal.$ENV_DEFAULT_DOMAIN",
-    "PAYROLL_SERVICE_URL=https://hrm-payroll-service.internal.$ENV_DEFAULT_DOMAIN",
-    "NOTIFICATION_SERVICE_URL=https://hrm-notification-service.internal.$ENV_DEFAULT_DOMAIN",
-    "TIMESHEET_SERVICE_URL=https://hrm-timesheet-service.internal.$ENV_DEFAULT_DOMAIN",
-    "ONBOARDING_SERVICE_URL=https://hrm-onboarding-service.internal.$ENV_DEFAULT_DOMAIN"
+    "AUTH_SERVICE_URL=http://hrm-auth-service.internal.$ENV_DEFAULT_DOMAIN",
+    "TENANT_SERVICE_URL=http://hrm-tenant-service.internal.$ENV_DEFAULT_DOMAIN",
+    "EMPLOYEE_SERVICE_URL=http://hrm-employee-service.internal.$ENV_DEFAULT_DOMAIN",
+    "ATTENDANCE_SERVICE_URL=http://hrm-attendance-service.internal.$ENV_DEFAULT_DOMAIN",
+    "LEAVE_SERVICE_URL=http://hrm-leave-service.internal.$ENV_DEFAULT_DOMAIN",
+    "PAYROLL_SERVICE_URL=http://hrm-payroll-service.internal.$ENV_DEFAULT_DOMAIN",
+    "NOTIFICATION_SERVICE_URL=http://hrm-notification-service.internal.$ENV_DEFAULT_DOMAIN",
+    "TIMESHEET_SERVICE_URL=http://hrm-timesheet-service.internal.$ENV_DEFAULT_DOMAIN",
+    "ONBOARDING_SERVICE_URL=http://hrm-onboarding-service.internal.$ENV_DEFAULT_DOMAIN"
 ) -join " "
 
 & $AZ containerapp create `
@@ -156,8 +157,9 @@ foreach ($svc in $backendServices.GetEnumerator()) {
     $envVars = "NODE_ENV=production PORT=$($svc.Value) MONGODB_URI=$MONGODB_URI/$dbName`?authSource=admin JWT_ACCESS_SECRET=$JWT_SECRET JWT_REFRESH_SECRET=$JWT_REFRESH"
 
     # Add EMPLOYEE_SERVICE_URL for auth-service (needed for mobile login)
+    # Use HTTP for internal service communication
     if ($svc.Key -eq "auth-service") {
-        $envVars += " EMPLOYEE_SERVICE_URL=https://hrm-employee-service.internal.$ENV_DEFAULT_DOMAIN"
+        $envVars += " EMPLOYEE_SERVICE_URL=http://hrm-employee-service.internal.$ENV_DEFAULT_DOMAIN"
     }
 
     & $AZ containerapp create `

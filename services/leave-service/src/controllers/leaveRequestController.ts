@@ -508,15 +508,25 @@ export const getLeaveBalance = async (req: Request, res: Response): Promise<void
     const { employeeId } = req.params;
     const { year = new Date().getFullYear() } = req.query;
 
+    console.log(`[Leave Service] Getting balance for employee ${employeeId}, tenant ${tenantId}, year ${year}`);
+
     const balances = await LeaveBalance.find({
       tenantId,
       employeeId,
       year: Number(year),
     }).populate('leaveTypeId', 'name code isPaid').lean();
 
+    // Calculate available balance for each entry
+    const balancesWithAvailable = balances.map((b: any) => ({
+      ...b,
+      balance: (b.entitled || 0) + (b.carriedForward || 0) + (b.adjusted || 0) - (b.used || 0) - (b.pending || 0),
+    }));
+
+    console.log(`[Leave Service] Found ${balances.length} balance records`);
+
     res.status(200).json({
       success: true,
-      data: balances,
+      data: { balances: balancesWithAvailable },
     });
   } catch (error) {
     console.error('[Leave Service] Get balance error:', error);

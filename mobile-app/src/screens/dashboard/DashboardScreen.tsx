@@ -532,7 +532,7 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.leaveBalances}>
-            {(leaveBalance?.data?.data?.balances || leaveBalance?.data?.balances || [])?.slice(0, 4).map((balance: any, index: number) => {
+            {(leaveBalance?.data?.data?.balances || leaveBalance?.data?.balances || (Array.isArray(leaveBalance?.data?.data) ? leaveBalance?.data?.data : []))?.slice(0, 4).map((balance: any, index: number) => {
               const colorSet = leaveTypeColors[index % leaveTypeColors.length];
               return (
                 <View key={balance._id || index} style={[styles.leaveItem, {backgroundColor: colorSet.bg}]}>

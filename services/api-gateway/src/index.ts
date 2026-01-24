@@ -113,6 +113,8 @@ services.forEach((service) => {
   const proxyOptions: Options = {
     target: service.url,
     changeOrigin: true,
+    secure: false,          // Accept self-signed certificates from internal Azure services
+    autoRewrite: true,      // Rewrite Location headers to match the gateway URL
     pathRewrite: (path, _req) => {
       // Strip the pathPrefix from the incoming path and prepend targetPath
       // e.g., /api/auth/super-admin/login -> strip /api/auth -> /super-admin/login -> prepend '' -> /super-admin/login
@@ -143,6 +145,27 @@ services.forEach((service) => {
         proxyReq.setHeader('x-request-id', requestId as string);
       },
       proxyRes: (proxyRes, req) => {
+        // Rewrite Location header for redirects from internal services
+        // This ensures redirects point to the gateway, not internal Azure URLs
+        if (proxyRes.headers['location']) {
+          const location = proxyRes.headers['location'] as string;
+          // Check if it's an internal Azure URL and rewrite to gateway URL
+          if (location.includes('.internal.') || location.includes('localhost')) {
+            // Extract the path from the internal URL
+            try {
+              const url = new URL(location);
+              // Reconstruct using the gateway's host and the service's path prefix
+              const gatewayHost = req.headers.host || 'localhost:3000';
+              const protocol = req.headers['x-forwarded-proto'] || 'https';
+              const newPath = service.pathPrefix + url.pathname.replace(service.targetPath, '');
+              proxyRes.headers['location'] = `${protocol}://${gatewayHost}${newPath}`;
+              console.log(`[Proxy] Rewrote redirect: ${location} -> ${proxyRes.headers['location']}`);
+            } catch (e) {
+              console.error('[Proxy] Failed to rewrite Location header:', e);
+            }
+          }
+        }
+
         // Add CORS headers to ALL proxied responses (including errors from backend services)
         // This is critical because http-proxy-middleware pipes responses directly,
         // bypassing Express middleware headers

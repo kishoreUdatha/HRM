@@ -214,7 +214,7 @@ export default function LeaveHomeScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}>
           <View style={styles.balanceGrid}>
-            {(leaveBalance?.data?.data?.balances || leaveBalance?.data?.balances || []).map((balance: any, index: number) => {
+            {(leaveBalance?.data?.data?.balances || leaveBalance?.data?.balances || (Array.isArray(leaveBalance?.data?.data) ? leaveBalance?.data?.data : []) || []).map((balance: any, index: number) => {
               const colorSet = leaveColors[index % leaveColors.length];
               return (
                 <View
