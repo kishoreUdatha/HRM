@@ -14,11 +14,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+RUN npm install -g typescript
 COPY package*.json ./
 # Install all dependencies including canvas and tensorflow
 RUN npm install && npm install canvas @tensorflow/tfjs-node
 COPY . .
-RUN npm run build
+RUN tsc
 
 # Production stage
 FROM node:20-slim

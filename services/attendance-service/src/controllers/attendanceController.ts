@@ -52,6 +52,20 @@ const getISTEndOfDay = (dateStr: string): Date => {
 let faceEmbeddingsCache: { tenantId: string; embeddings: FaceEmbeddingData[]; timestamp: number } | null = null;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Helper function to construct database URI for cross-database queries (Cosmos DB compatible)
+const constructDbUriFaceEmbed = (baseUri: string, dbName: string): string => {
+  // If URI already has the database name, replace it
+  if (baseUri.includes('/hrm_attendance')) {
+    return baseUri.replace('/hrm_attendance', `/${dbName}`);
+  }
+  // For Cosmos DB style URIs without database in path, append database name before query params
+  if (baseUri.includes('?')) {
+    const [base, query] = baseUri.split('?');
+    return `${base.replace(/\/$/, '')}/${dbName}?${query}`;
+  }
+  return `${baseUri.replace(/\/$/, '')}/${dbName}`;
+};
+
 // Helper to get face embeddings from employees database
 const getFaceEmbeddings = async (tenantId: string): Promise<FaceEmbeddingData[]> => {
   // Check cache first
@@ -63,7 +77,9 @@ const getFaceEmbeddings = async (tenantId: string): Promise<FaceEmbeddingData[]>
 
   try {
     const mongoUri = process.env.MONGODB_URI || '';
-    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
+    console.log('[Attendance Service] getFaceEmbeddings - Original URI has db in path:', mongoUri.includes('/hrm_attendance'));
+    const employeesDbUri = constructDbUriFaceEmbed(mongoUri, 'hrm_employees');
+    console.log('[Attendance Service] getFaceEmbeddings - Constructed employees DB URI');
     const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
 
     const faceEmbeddingSchema = new mongoose.Schema({
@@ -106,11 +122,24 @@ const getFaceEmbeddings = async (tenantId: string): Promise<FaceEmbeddingData[]>
 };
 
 // Helper to get employee details from employees database
+// Helper function to construct database URI for cross-database queries
+const constructDbUri = (baseUri: string, dbName: string): string => {
+  // If URI already has the database name, replace it
+  if (baseUri.includes('/hrm_attendance')) {
+    return baseUri.replace('/hrm_attendance', `/${dbName}`);
+  }
+  // For Cosmos DB style URIs without database in path, append it before query params
+  const url = new URL(baseUri);
+  url.pathname = `/${dbName}`;
+  return url.toString();
+};
+
 const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
   try {
     // Connect to employees database
     const mongoUri = process.env.MONGODB_URI || '';
-    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
+    const employeesDbUri = constructDbUri(mongoUri, 'hrm_employees');
+    console.log('[Attendance Service] Connecting to employees DB for lookup...');
 
     const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
 
@@ -169,7 +198,8 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
 const getEmployeeByUserIdOrEmail = async (userId: string, tenantId: string) => {
   try {
     const mongoUri = process.env.MONGODB_URI || '';
-    const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
+    const employeesDbUri = constructDbUri(mongoUri, 'hrm_employees');
+    console.log('[Attendance Service] getEmployeeByUserIdOrEmail - Looking up userId:', userId);
 
     const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
 
@@ -178,14 +208,33 @@ const getEmployeeByUserIdOrEmail = async (userId: string, tenantId: string) => {
       lastName: String,
       employeeCode: String,
       email: String,
+      phone: String,
       userId: mongoose.Schema.Types.ObjectId,
       tenantId: mongoose.Schema.Types.ObjectId,
     });
 
     const Employee = employeesConn.model('Employee', employeeSchema);
 
-    // First try to find by userId field
-    let employee = await Employee.findOne({
+    // First try to find directly by _id (for mobile login where employeeId IS the user._id)
+    let employee = null;
+    try {
+      if (mongoose.Types.ObjectId.isValid(userId)) {
+        employee = await Employee.findOne({
+          _id: new mongoose.Types.ObjectId(userId),
+          tenantId: new mongoose.Types.ObjectId(tenantId),
+        }).lean();
+        if (employee) {
+          console.log('[Attendance Service] Found employee directly by _id:', employee._id);
+          await employeesConn.close();
+          return employee;
+        }
+      }
+    } catch (e) {
+      // Continue to other lookup methods
+    }
+
+    // Then try to find by userId field
+    employee = await Employee.findOne({
       userId: new mongoose.Types.ObjectId(userId),
       tenantId: new mongoose.Types.ObjectId(tenantId),
     }).lean();
@@ -195,7 +244,7 @@ const getEmployeeByUserIdOrEmail = async (userId: string, tenantId: string) => {
       console.log('[Attendance Service] Employee not found by userId, trying by email...');
 
       // Connect to auth database to get user email
-      const authDbUri = mongoUri.replace('/hrm_attendance', '/hrm_auth');
+      const authDbUri = constructDbUri(mongoUri, 'hrm_auth');
       const authConn = await mongoose.createConnection(authDbUri).asPromise();
 
       const userSchema = new mongoose.Schema({
@@ -1411,8 +1460,11 @@ export const enrollFace = async (req: Request, res: Response): Promise<void> => 
     // Save to employees database
     try {
       const mongoUri = process.env.MONGODB_URI || '';
-      const employeesDbUri = mongoUri.replace('/hrm_attendance', '/hrm_employees');
+      console.log('[Attendance Service] Saving face embedding - constructing employees DB URI');
+      const employeesDbUri = constructDbUri(mongoUri, 'hrm_employees');
+      console.log('[Attendance Service] Connecting to employees DB for save...');
       const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+      console.log('[Attendance Service] Connected to employees DB successfully');
 
       const faceEmbeddingSchema = new mongoose.Schema({
         tenantId: mongoose.Schema.Types.ObjectId,
@@ -1482,6 +1534,7 @@ export const enrollFace = async (req: Request, res: Response): Promise<void> => 
       // Clear cache to pick up new enrollment
       faceEmbeddingsCache = null;
 
+      console.log(`[Attendance Service] Face enrolled successfully for ${employeeName} (${actualEmployeeId})`);
       res.status(200).json({
         success: true,
         message: `Face enrolled successfully for ${employeeName}`,

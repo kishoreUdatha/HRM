@@ -17,11 +17,12 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import {useAuthStore} from '../../store/authStore';
 import {authApi} from '../../api/authApi';
+import {employeeApi} from '../../api/employeeApi';
 import {handleApiError} from '../../api/apiClient';
 import {authStorage} from '../../services/authStorage';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
-import type {RootStackParamList, User} from '../../types';
+import type {RootStackParamList, User, Employee} from '../../types';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -100,9 +101,27 @@ export default function LoginScreen() {
         const stored = await authStorage.setTokens(tokens);
         console.log('[Login] Tokens stored in Keychain:', stored);
 
-        // Update auth state
-        login(loginResponse.user, tokens, tenant!);
-        console.log('[Login] Auth state updated in Zustand store');
+        // Fetch employee data if employeeId exists
+        let employeeData: Employee | undefined;
+        const employeeId = loginResponse.user.employeeId;
+        if (employeeId) {
+          console.log('[Login] Fetching employee data for ID:', employeeId);
+          try {
+            const employeeResponse = await employeeApi.getEmployeeDetails(employeeId);
+            if (employeeResponse.success && employeeResponse.data) {
+              employeeData = employeeResponse.data as Employee;
+              console.log('[Login] Employee data fetched:', employeeData._id);
+            }
+          } catch (empErr) {
+            console.warn('[Login] Failed to fetch employee data:', empErr);
+          }
+        } else {
+          console.log('[Login] No employeeId in user object, skipping employee fetch');
+        }
+
+        // Update auth state with employee data
+        login(loginResponse.user, tokens, tenant!, employeeData);
+        console.log('[Login] Auth state updated in Zustand store with employee:', !!employeeData);
 
         // Verify tokens are in store
         const verifyStore = useAuthStore.getState();
