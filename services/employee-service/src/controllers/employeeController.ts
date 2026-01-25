@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Employee from '../models/Employee';
+import '../models/Department'; // Required for populate
+import '../models/Shift'; // Required for populate
 import { peekNextSequence } from '../models/Counter';
 import { publishEvent } from '../config/rabbitmq';
 import { validateEmployeeLimit } from '../utils/planLimitValidator';
