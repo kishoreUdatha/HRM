@@ -82,6 +82,15 @@ export interface EmergencyContact {
   phone: string;
 }
 
+export interface BankDetails {
+  accountHolderName: string;
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  branchName?: string;
+  accountType?: 'savings' | 'current';
+}
+
 export interface Employee {
   _id: string;
   tenantId: string;
@@ -104,6 +113,7 @@ export interface Employee {
   status: 'active' | 'inactive' | 'terminated' | 'on-leave';
   avatar?: string;
   emergencyContact?: EmergencyContact;
+  bankDetails?: BankDetails;
   selfyPunch?: boolean;
   pin?: string;
 }

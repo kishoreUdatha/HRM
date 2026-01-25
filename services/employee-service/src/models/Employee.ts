@@ -39,6 +39,8 @@ export interface IEmployee extends Document {
     accountNumber: string;
     ifscCode: string;
     accountHolderName: string;
+    branchName?: string;
+    accountType?: 'savings' | 'current';
   };
   documents: Array<{
     name: string;
@@ -157,6 +159,8 @@ const employeeSchema = new Schema<IEmployee>(
       accountNumber: { type: String, default: '' },
       ifscCode: { type: String, default: '' },
       accountHolderName: { type: String, default: '' },
+      branchName: { type: String, default: '' },
+      accountType: { type: String, enum: ['savings', 'current'], default: 'savings' },
     },
     documents: [
       {

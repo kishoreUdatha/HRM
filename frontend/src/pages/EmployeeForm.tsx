@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { HiArrowLeft, HiSave, HiClock, HiDeviceMobile, HiRefresh } from 'react-icons/hi';
+import { HiArrowLeft, HiSave, HiClock, HiDeviceMobile, HiRefresh, HiPlus } from 'react-icons/hi';
+import QuickAddDepartmentModal from '../components/QuickAddDepartmentModal';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import type { Employee, Shift } from '../types';
@@ -54,9 +55,18 @@ const EmployeeForm: React.FC = () => {
       relationship: '',
       phone: '',
     },
+    bankDetails: {
+      accountHolderName: '',
+      bankName: '',
+      accountNumber: '',
+      ifscCode: '',
+      branchName: '',
+      accountType: 'savings',
+    },
     selfyPunch: false,
   });
   const [isResettingPin, setIsResettingPin] = useState(false);
+  const [showDepartmentModal, setShowDepartmentModal] = useState(false);
 
   useEffect(() => {
     fetchDepartments();
@@ -89,7 +99,21 @@ const EmployeeForm: React.FC = () => {
   const fetchShifts = async () => {
     try {
       const response = await api.get('/shifts?active=true');
-      setShifts(response.data.data || []);
+      let shiftsData = response.data.data || [];
+
+      // Auto-seed default shifts if none exist
+      if (shiftsData.length === 0) {
+        try {
+          await api.post('/shifts/seed');
+          const refreshResponse = await api.get('/shifts?active=true');
+          shiftsData = refreshResponse.data.data || [];
+          toast.success('Default shifts have been created');
+        } catch (seedError) {
+          console.error('Failed to seed default shifts:', seedError);
+        }
+      }
+
+      setShifts(shiftsData);
     } catch (error) {
       console.error('Failed to fetch shifts:', error);
     }
@@ -118,17 +142,20 @@ const EmployeeForm: React.FC = () => {
     const { name, value } = e.target;
     setErrors((prev) => ({ ...prev, [name]: '' }));
 
+    // Auto-uppercase IFSC code
+    const processedValue = name === 'bankDetails.ifscCode' ? value.toUpperCase() : value;
+
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setFormData((prev) => ({
         ...prev,
         [parent]: {
           ...(prev[parent as keyof Partial<Employee>] as unknown as Record<string, unknown>),
-          [child]: value,
+          [child]: processedValue,
         },
       }));
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: processedValue }));
     }
   };
 
@@ -149,6 +176,12 @@ const EmployeeForm: React.FC = () => {
     } finally {
       setIsResettingPin(false);
     }
+  };
+
+  const handleDepartmentCreated = (newDept: { _id: string; name: string }) => {
+    setDepartments(prev => [...prev, newDept]);
+    setFormData(prev => ({ ...prev, departmentId: newDept._id }));
+    setShowDepartmentModal(false);
   };
 
   const validate = (): boolean => {
@@ -414,23 +447,36 @@ const EmployeeForm: React.FC = () => {
               <label className="block text-sm font-medium text-secondary-700 mb-1">
                 Department *
               </label>
-              <select
-                name="departmentId"
-                value={(formData.departmentId as string) || ''}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                  errors.departmentId ? 'border-red-500' : 'border-secondary-200'
-                }`}
-              >
-                <option value="">Select Department</option>
-                {departments.map((dept) => (
-                  <option key={dept._id} value={dept._id}>
-                    {dept.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select
+                  name="departmentId"
+                  value={(formData.departmentId as string) || ''}
+                  onChange={handleChange}
+                  className={`flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                    errors.departmentId ? 'border-red-500' : 'border-secondary-200'
+                  }`}
+                >
+                  <option value="">Select Department</option>
+                  {departments.map((dept) => (
+                    <option key={dept._id} value={dept._id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowDepartmentModal(true)}
+                  className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                  title="Add new department"
+                >
+                  <HiPlus className="w-5 h-5" />
+                </button>
+              </div>
               {errors.departmentId && (
                 <p className="text-red-500 text-xs mt-1">{errors.departmentId}</p>
+              )}
+              {departments.length === 0 && (
+                <p className="text-secondary-500 text-xs mt-1">No departments found. Click + to create one.</p>
               )}
             </div>
             <div>
@@ -685,6 +731,91 @@ const EmployeeForm: React.FC = () => {
           </div>
         </div>
 
+        {/* Bank Account Details */}
+        <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+          <h2 className="text-lg font-semibold text-secondary-900 mb-4">Bank Account Details</h2>
+          <p className="text-sm text-secondary-500 mb-4">Optional - Required for salary payouts</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">
+                Account Holder Name
+              </label>
+              <input
+                type="text"
+                name="bankDetails.accountHolderName"
+                value={formData.bankDetails?.accountHolderName || ''}
+                onChange={handleChange}
+                placeholder="As per bank records"
+                className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">Bank Name</label>
+              <input
+                type="text"
+                name="bankDetails.bankName"
+                value={formData.bankDetails?.bankName || ''}
+                onChange={handleChange}
+                placeholder="e.g., State Bank of India"
+                className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">
+                Account Number
+              </label>
+              <input
+                type="text"
+                name="bankDetails.accountNumber"
+                value={formData.bankDetails?.accountNumber || ''}
+                onChange={handleChange}
+                placeholder="Enter account number"
+                className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">
+                IFSC Code
+              </label>
+              <input
+                type="text"
+                name="bankDetails.ifscCode"
+                value={formData.bankDetails?.ifscCode || ''}
+                onChange={handleChange}
+                placeholder="e.g., SBIN0001234"
+                className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">
+                Branch Name
+              </label>
+              <input
+                type="text"
+                name="bankDetails.branchName"
+                value={formData.bankDetails?.branchName || ''}
+                onChange={handleChange}
+                placeholder="e.g., Main Branch"
+                className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-1">
+                Account Type
+              </label>
+              <select
+                name="bankDetails.accountType"
+                value={formData.bankDetails?.accountType || 'savings'}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="savings">Savings</option>
+                <option value="current">Current</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         {/* Actions */}
         <div className="flex items-center justify-end gap-4">
           <button
@@ -704,6 +835,12 @@ const EmployeeForm: React.FC = () => {
           </button>
         </div>
       </form>
+
+      <QuickAddDepartmentModal
+        isOpen={showDepartmentModal}
+        onClose={() => setShowDepartmentModal(false)}
+        onSuccess={handleDepartmentCreated}
+      />
     </div>
   );
 };
