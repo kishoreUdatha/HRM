@@ -49,9 +49,10 @@ export const getAllEmployees = async (
     if (status) filter.status = status;
     if (employmentType) filter.employmentType = employmentType;
 
-    // Note: Removed dynamic .sort() and .populate() for Cosmos DB compatibility
     const [employees, total] = await Promise.all([
       Employee.find(filter)
+        .populate('departmentId', 'name code')
+        .populate('shiftId', 'name startTime endTime')
         .skip(skip)
         .limit(limitNum)
         .lean(),
