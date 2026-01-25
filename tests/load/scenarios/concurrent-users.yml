@@ -1,0 +1,239 @@
+# Concurrent Users Load Test
+# Simulates multiple concurrent users accessing the HRM system
+
+config:
+  target: "http://localhost:3000"
+
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+  # Concurrent user simulation phases
+  phases:
+    # Start with 10 concurrent users
+    - duration: 60
+      arrivalRate: 10
+      name: "10 Concurrent Users"
+
+    # Scale to 50 concurrent users
+    - duration: 120
+      arrivalRate: 50
+      name: "50 Concurrent Users"
+
+    # Scale to 100 concurrent users
+    - duration: 180
+      arrivalRate: 100
+      name: "100 Concurrent Users"
+
+    # Peak: 200 concurrent users
+    - duration: 120
+      arrivalRate: 200
+      name: "200 Concurrent Users (Peak)"
+
+    # Scale back down
+    - duration: 60
+      arrivalRate: 50
+      name: "Scale Down"
+
+  payload:
+    path: "../data/users.csv"
+    fields:
+      - "email"
+      - "password"
+    skipHeader: true
+    loadAll: true
+
+  http:
+    timeout: 60
+    maxSockets: 500
+
+  ensure:
+    p95: 1000
+    p99: 2000
+    maxErrorRate: 5
+
+scenarios:
+  # Simulate typical user session
+  - name: "Complete User Session"
+    weight: 40
+    flow:
+      # Login
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+            - json: "$.data.user._id"
+              as: "userId"
+          expect:
+            - statusCode: 200
+
+      # Small think time between actions
+      - think: 2
+
+      # View dashboard
+      - get:
+          url: "/api/dashboard/stats"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode:
+                - 200
+                - 404
+
+      - think: 3
+
+      # View employee list
+      - get:
+          url: "/api/employees?page=1&limit=20"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200
+
+      - think: 2
+
+      # View attendance
+      - get:
+          url: "/api/attendance/records?page=1&limit=10"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200
+
+      - think: 2
+
+      # View leave balance
+      - get:
+          url: "/api/leaves/balance"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200
+
+      - think: 1
+
+      # Get notifications
+      - get:
+          url: "/api/notifications"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200
+
+      - think: 2
+
+      # Logout
+      - post:
+          url: "/api/auth/logout"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode:
+                - 200
+                - 401
+
+  # High-frequency dashboard refresh
+  - name: "Dashboard Polling"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - loop:
+          - get:
+              url: "/api/dashboard/stats"
+              headers:
+                Authorization: "Bearer {{ token }}"
+                X-Tenant-ID: "{{ tenantId }}"
+          - think: 5
+        count: 10
+
+  # Multiple report generations
+  - name: "Report Generation"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - get:
+          url: "/api/attendance/reports?type=daily"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode:
+                - 200
+                - 404
+      - get:
+          url: "/api/leaves/statistics"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/payroll?page=1&limit=10"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200
+
+  # Attendance rush hour simulation
+  - name: "Attendance Rush"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+            - json: "$.data.user._id"
+              as: "userId"
+      - post:
+          url: "/api/attendance/check-in"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          json:
+            employeeId: "{{ userId }}"
+            timestamp: "{{ $timestamp }}"
+            location:
+              latitude: 40.7128
+              longitude: -74.0060
+          expect:
+            - statusCode:
+                - 200
+                - 201
+                - 400

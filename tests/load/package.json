@@ -1,0 +1,27 @@
+{
+  "name": "hrm-load-tests",
+  "version": "1.0.0",
+  "description": "Load testing suite for HRM platform using Artillery.io",
+  "scripts": {
+    "test:load": "artillery run artillery.yml",
+    "test:load:auth": "artillery run scenarios/auth-load.yml",
+    "test:load:employee": "artillery run scenarios/employee-load.yml",
+    "test:load:attendance": "artillery run scenarios/attendance-load.yml",
+    "test:load:concurrent": "artillery run scenarios/concurrent-users.yml",
+    "test:load:stress": "artillery run scenarios/stress-test.yml",
+    "test:load:spike": "artillery run scenarios/spike-test.yml",
+    "test:load:soak": "artillery run scenarios/soak-test.yml",
+    "test:load:all": "npm run test:load:auth && npm run test:load:employee && npm run test:load:attendance && npm run test:load:concurrent",
+    "report": "artillery report --output reports/load-test-report.html",
+    "test:quick": "artillery quick --count 10 --num 5 http://localhost:3000/api/health"
+  },
+  "dependencies": {
+    "artillery": "^2.0.0",
+    "artillery-plugin-expect": "^2.0.0",
+    "artillery-plugin-metrics-by-endpoint": "^1.1.0",
+    "faker": "^5.5.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  }
+}

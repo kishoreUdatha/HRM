@@ -1,0 +1,187 @@
+# Attendance Service Load Test
+# Tests attendance endpoints under load (simulates shift change)
+
+config:
+  target: "http://localhost:3000"
+
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+  phases:
+    # Normal operation
+    - duration: 30
+      arrivalRate: 10
+      name: "Normal Operation"
+
+    # Shift start spike (8:55 AM - 9:15 AM simulation)
+    - duration: 20
+      arrivalRate: 10
+      rampTo: 200
+      name: "Shift Start Ramp"
+    - duration: 60
+      arrivalRate: 200
+      name: "Shift Start Peak"
+    - duration: 20
+      arrivalRate: 200
+      rampTo: 20
+      name: "Shift Start Wind Down"
+
+    # Mid-day normal
+    - duration: 120
+      arrivalRate: 20
+      name: "Mid-day Normal"
+
+    # Lunch break surge
+    - duration: 30
+      arrivalRate: 100
+      name: "Lunch Break"
+
+    # Afternoon normal
+    - duration: 60
+      arrivalRate: 20
+      name: "Afternoon Normal"
+
+    # Shift end spike (5:45 PM - 6:15 PM simulation)
+    - duration: 20
+      arrivalRate: 20
+      rampTo: 200
+      name: "Shift End Ramp"
+    - duration: 60
+      arrivalRate: 200
+      name: "Shift End Peak"
+    - duration: 20
+      arrivalRate: 200
+      rampTo: 10
+      name: "Cool Down"
+
+  payload:
+    path: "../data/users.csv"
+    fields:
+      - "email"
+      - "password"
+    skipHeader: true
+    loadAll: true
+
+  http:
+    timeout: 30
+    maxSockets: 500
+
+  ensure:
+    p95: 1000
+    p99: 2000
+    maxErrorRate: 5
+
+scenarios:
+  # Check-in operation
+  - name: "Check-In"
+    weight: 40
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+            - json: "$.data.user._id"
+              as: "userId"
+      - post:
+          url: "/api/attendance/check-in"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          json:
+            employeeId: "{{ userId }}"
+            timestamp: "{{ $timestamp }}"
+            location:
+              latitude: 40.7128
+              longitude: -74.0060
+              address: "Office Building"
+          expect:
+            - statusCode:
+                - 200
+                - 201
+                - 400
+
+  # Check-out operation
+  - name: "Check-Out"
+    weight: 35
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+            - json: "$.data.user._id"
+              as: "userId"
+      - post:
+          url: "/api/attendance/check-out"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          json:
+            employeeId: "{{ userId }}"
+            timestamp: "{{ $timestamp }}"
+            location:
+              latitude: 40.7128
+              longitude: -74.0060
+          expect:
+            - statusCode:
+                - 200
+                - 201
+                - 400
+
+  # View attendance records
+  - name: "View Attendance Records"
+    weight: 15
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - get:
+          url: "/api/attendance/records?page=1&limit=20"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200
+
+  # Attendance reports
+  - name: "Attendance Reports"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - get:
+          url: "/api/attendance/reports/summary"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode:
+                - 200
+                - 404

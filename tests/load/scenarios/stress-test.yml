@@ -1,0 +1,171 @@
+# Stress Test Configuration
+# Tests system behavior under extreme load conditions
+
+config:
+  target: "http://localhost:3000"
+
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+  # Aggressive stress test phases
+  phases:
+    # Baseline
+    - duration: 30
+      arrivalRate: 10
+      name: "Baseline"
+
+    # Moderate stress
+    - duration: 60
+      arrivalRate: 50
+      name: "Moderate Stress"
+
+    # High stress
+    - duration: 60
+      arrivalRate: 100
+      name: "High Stress"
+
+    # Extreme stress - find breaking point
+    - duration: 60
+      arrivalRate: 200
+      name: "Extreme Stress"
+
+    # Maximum stress
+    - duration: 60
+      arrivalRate: 300
+      name: "Maximum Stress"
+
+    # Beyond limits
+    - duration: 30
+      arrivalRate: 500
+      name: "Beyond Limits"
+
+    # Recovery
+    - duration: 60
+      arrivalRate: 20
+      name: "Recovery"
+
+  payload:
+    path: "../data/users.csv"
+    fields:
+      - "email"
+      - "password"
+    skipHeader: true
+    loadAll: true
+
+  http:
+    timeout: 120
+    maxSockets: 1000
+
+  # Less strict thresholds for stress testing
+  ensure:
+    p95: 5000
+    p99: 10000
+    maxErrorRate: 20
+
+scenarios:
+  # Authentication stress
+  - name: "Authentication Stress"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+
+  # API Gateway stress
+  - name: "Gateway Stress"
+    weight: 20
+    flow:
+      - get:
+          url: "/api/health"
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - get:
+          url: "/api/employees?page=1&limit=50"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+
+  # Database stress
+  - name: "Database Stress"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - loop:
+          - get:
+              url: "/api/employees?page={{ $loopCount }}&limit=100"
+              headers:
+                Authorization: "Bearer {{ token }}"
+                X-Tenant-ID: "{{ tenantId }}"
+        count: 5
+      - get:
+          url: "/api/attendance/records?limit=500"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+
+  # Mixed operations stress
+  - name: "Mixed Operations Stress"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+            - json: "$.data.user._id"
+              as: "userId"
+      # Simultaneous reads and writes
+      - parallel:
+          - get:
+              url: "/api/employees"
+              headers:
+                Authorization: "Bearer {{ token }}"
+                X-Tenant-ID: "{{ tenantId }}"
+          - get:
+              url: "/api/departments"
+              headers:
+                Authorization: "Bearer {{ token }}"
+                X-Tenant-ID: "{{ tenantId }}"
+          - get:
+              url: "/api/leaves/requests"
+              headers:
+                Authorization: "Bearer {{ token }}"
+                X-Tenant-ID: "{{ tenantId }}"
+          - post:
+              url: "/api/attendance/check-in"
+              headers:
+                Authorization: "Bearer {{ token }}"
+                X-Tenant-ID: "{{ tenantId }}"
+              json:
+                employeeId: "{{ userId }}"
+                timestamp: "{{ $timestamp }}"

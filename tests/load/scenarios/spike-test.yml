@@ -1,0 +1,145 @@
+# Spike Test Configuration
+# Simulates sudden traffic spikes (like shift change time)
+
+config:
+  target: "http://localhost:3000"
+
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+  # Spike test phases
+  phases:
+    # Normal operation
+    - duration: 60
+      arrivalRate: 20
+      name: "Normal Operation"
+
+    # Sudden spike (shift start time)
+    - duration: 10
+      arrivalRate: 500
+      name: "Traffic Spike"
+
+    # Return to normal
+    - duration: 60
+      arrivalRate: 20
+      name: "Post-Spike Normal"
+
+    # Second spike (lunch time)
+    - duration: 10
+      arrivalRate: 400
+      name: "Second Spike"
+
+    # Normal operation again
+    - duration: 60
+      arrivalRate: 20
+      name: "Normal Operation 2"
+
+    # End of day spike
+    - duration: 10
+      arrivalRate: 600
+      name: "End of Day Spike"
+
+    # Cool down
+    - duration: 30
+      arrivalRate: 10
+      name: "Cool Down"
+
+  payload:
+    path: "../data/users.csv"
+    fields:
+      - "email"
+      - "password"
+    skipHeader: true
+    loadAll: true
+
+  http:
+    timeout: 60
+    maxSockets: 1000
+
+  ensure:
+    p95: 3000
+    p99: 5000
+    maxErrorRate: 10
+
+scenarios:
+  # Morning check-in rush
+  - name: "Morning Check-in Rush"
+    weight: 50
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+            - json: "$.data.user._id"
+              as: "userId"
+      - post:
+          url: "/api/attendance/check-in"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          json:
+            employeeId: "{{ userId }}"
+            timestamp: "{{ $timestamp }}"
+            location:
+              latitude: 40.7128
+              longitude: -74.0060
+
+  # Dashboard access during spike
+  - name: "Dashboard During Spike"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - get:
+          url: "/api/dashboard/stats"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+      - get:
+          url: "/api/employees?page=1&limit=20"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+
+  # End of day check-out rush
+  - name: "End of Day Check-out"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+            - json: "$.data.user._id"
+              as: "userId"
+      - post:
+          url: "/api/attendance/check-out"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          json:
+            employeeId: "{{ userId }}"
+            timestamp: "{{ $timestamp }}"
+            location:
+              latitude: 40.7128
+              longitude: -74.0060

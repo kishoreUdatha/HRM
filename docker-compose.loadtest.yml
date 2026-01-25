@@ -1,0 +1,197 @@
+version: '3.8'
+
+# Docker Compose Override for Load Testing
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d --scale api-gateway=3 --scale auth-service=2
+
+services:
+  # ===========================================
+  # INFRASTRUCTURE - Optimized for Load Testing
+  # ===========================================
+
+  mongodb:
+    command: mongod --wiredTigerCacheSizeGB 2 --maxConns 1000
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+
+  redis:
+    command: redis-server --maxclients 10000 --maxmemory 1gb --maxmemory-policy allkeys-lru --tcp-keepalive 300 --tcp-backlog 511
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+  # ===========================================
+  # LOAD BALANCER (Nginx)
+  # ===========================================
+
+  nginx-lb:
+    image: nginx:alpine
+    container_name: hrm-nginx-lb
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/loadtest.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api-gateway
+    networks:
+      - hrm-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+
+  # ===========================================
+  # API GATEWAY - Horizontally Scaled
+  # ===========================================
+
+  api-gateway:
+    container_name: null  # Allow multiple instances
+    environment:
+      - NODE_ENV=production
+      - LOAD_TESTING=true
+      - RATE_LIMIT_MAX=100000
+      - SERVER_KEEP_ALIVE_TIMEOUT=120000
+      - SERVER_MAX_CONNECTIONS=0
+    deploy:
+      mode: replicated
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  # ===========================================
+  # AUTH SERVICE - Scaled for Auth Load
+  # ===========================================
+
+  auth-service:
+    container_name: null  # Allow multiple instances
+    environment:
+      - NODE_ENV=production
+      - LOAD_TESTING=true
+      - MONGODB_MAX_POOL_SIZE=100
+      - MONGODB_MIN_POOL_SIZE=20
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ===========================================
+  # EMPLOYEE SERVICE - Scaled
+  # ===========================================
+
+  employee-service:
+    container_name: null
+    environment:
+      - NODE_ENV=production
+      - LOAD_TESTING=true
+      - MONGODB_MAX_POOL_SIZE=100
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ===========================================
+  # ATTENDANCE SERVICE - High Spike Handling
+  # ===========================================
+
+  attendance-service:
+    container_name: null
+    environment:
+      - NODE_ENV=production
+      - LOAD_TESTING=true
+      - MONGODB_MAX_POOL_SIZE=100
+    deploy:
+      mode: replicated
+      replicas: 3
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ===========================================
+  # OTHER SERVICES - Standard Config
+  # ===========================================
+
+  leave-service:
+    environment:
+      - LOAD_TESTING=true
+      - MONGODB_MAX_POOL_SIZE=50
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  payroll-service:
+    environment:
+      - LOAD_TESTING=true
+      - MONGODB_MAX_POOL_SIZE=50
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  notification-service:
+    environment:
+      - LOAD_TESTING=true
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  tenant-service:
+    environment:
+      - LOAD_TESTING=true
+      - MONGODB_MAX_POOL_SIZE=50
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  hrm-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: 1500

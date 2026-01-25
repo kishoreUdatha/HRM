@@ -1,0 +1,160 @@
+# Employee Service Load Test
+# Tests employee management endpoints under load
+
+config:
+  target: "http://localhost:3000"
+
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm-up"
+    - duration: 60
+      arrivalRate: 5
+      rampTo: 50
+      name: "Ramp-up"
+    - duration: 180
+      arrivalRate: 50
+      name: "Sustained Load"
+    - duration: 30
+      arrivalRate: 10
+      name: "Cool-down"
+
+  payload:
+    path: "../data/users.csv"
+    fields:
+      - "email"
+      - "password"
+    skipHeader: true
+    loadAll: true
+
+  http:
+    timeout: 30
+    maxSockets: 200
+
+  ensure:
+    p95: 500
+    p99: 1000
+    maxErrorRate: 2
+
+scenarios:
+  # List employees with pagination
+  - name: "List Employees"
+    weight: 35
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - get:
+          url: "/api/employees?page=1&limit=20"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200
+
+  # Paginated browsing
+  - name: "Paginated Employee Browsing"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - loop:
+          - get:
+              url: "/api/employees?page={{ $loopCount }}&limit=20"
+              headers:
+                Authorization: "Bearer {{ token }}"
+                X-Tenant-ID: "{{ tenantId }}"
+          - think: 2
+        count: 5
+
+  # Search employees
+  - name: "Search Employees"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - get:
+          url: "/api/employees?search=john"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/employees?search=engineer"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200
+
+  # Department operations
+  - name: "Department Operations"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - get:
+          url: "/api/departments"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200
+
+  # Shift operations
+  - name: "Shift Operations"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - get:
+          url: "/api/shifts"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+          expect:
+            - statusCode: 200

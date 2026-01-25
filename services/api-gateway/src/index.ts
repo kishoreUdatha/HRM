@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import http from 'http';
 import express, { Application, Request, Response, NextFunction } from 'express';
 // cors import removed - using manual CORS middleware for better control with proxies
 import helmet from 'helmet';
@@ -13,6 +14,18 @@ import { apiLimiter, authLimiter } from './middleware/rateLimiter';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
+
+// Performance configuration
+const isLoadTesting = process.env.LOAD_TESTING === 'true';
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Configure global HTTP agents for outgoing requests (to microservices)
+const maxSockets = isLoadTesting ? 500 : (isProduction ? 100 : 50);
+http.globalAgent.maxSockets = maxSockets;
+http.globalAgent.keepAlive = true;
+http.globalAgent.keepAliveMsecs = 30000;
+
+console.log(`[API Gateway] HTTP Agent configured: maxSockets=${maxSockets}, keepAlive=true`);
 
 // Trust proxy (for rate limiting behind load balancer)
 app.set('trust proxy', 1);
@@ -227,20 +240,46 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   });
 });
 
+// Create HTTP server with optimized settings
+const server = http.createServer(app);
+
+// Optimize server for high concurrency
+const keepAliveTimeout = isLoadTesting ? 120000 : 65000;  // 2 min for load testing, 65s otherwise
+const headersTimeout = keepAliveTimeout + 1000;
+
+server.keepAliveTimeout = keepAliveTimeout;
+server.headersTimeout = headersTimeout;
+server.timeout = isLoadTesting ? 300000 : 120000;  // 5 min for load testing, 2 min otherwise
+server.maxConnections = 0;  // Unlimited connections
+
+// Enable TCP keep-alive at socket level
+server.on('connection', (socket) => {
+  socket.setKeepAlive(true, 30000);  // 30 second keep-alive probe
+  socket.setNoDelay(true);  // Disable Nagle's algorithm for lower latency
+});
+
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`
   ╔═══════════════════════════════════════════════════════╗
   ║                                                       ║
   ║        HRM SaaS API Gateway                          ║
   ║        Running on port ${PORT}                          ║
   ║        Environment: ${process.env.NODE_ENV || 'development'}                    ║
+  ║        Load Testing: ${isLoadTesting ? 'ENABLED' : 'disabled'}                       ║
   ║                                                       ║
   ╚═══════════════════════════════════════════════════════╝
+
+  Server Optimization:
+    - Keep-Alive Timeout: ${keepAliveTimeout}ms
+    - Headers Timeout: ${headersTimeout}ms
+    - Max Sockets: ${maxSockets}
+    - TCP Keep-Alive: enabled
 
   Configured Services:
   ${services.map((s) => `  - ${s.pathPrefix} -> ${s.url}`).join('\n')}
   `);
 });
 
+export { server };
 export default app;

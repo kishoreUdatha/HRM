@@ -1,0 +1,195 @@
+# Soak Test Configuration
+# Tests system stability over extended periods
+
+config:
+  target: "http://localhost:3000"
+
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+  # Long-duration phases for soak testing
+  phases:
+    # Initial ramp-up
+    - duration: 120
+      arrivalRate: 5
+      rampTo: 50
+      name: "Ramp Up"
+
+    # Sustained load for extended period (30 minutes)
+    - duration: 1800
+      arrivalRate: 50
+      name: "Sustained Load - 30 min"
+
+    # Continue with moderate variations (15 minutes)
+    - duration: 900
+      arrivalRate: 40
+      name: "Sustained Load with Variation"
+
+    # Another 30 minutes of sustained load
+    - duration: 1800
+      arrivalRate: 50
+      name: "Sustained Load - 30 min (2)"
+
+    # Ramp down
+    - duration: 120
+      arrivalRate: 50
+      rampTo: 5
+      name: "Ramp Down"
+
+  payload:
+    path: "../data/users.csv"
+    fields:
+      - "email"
+      - "password"
+    skipHeader: true
+    loadAll: true
+
+  http:
+    timeout: 30
+    maxSockets: 200
+
+  # Strict thresholds for soak test - system should remain stable
+  ensure:
+    p95: 500
+    p99: 1000
+    maxErrorRate: 1
+
+scenarios:
+  # Standard user workflow
+  - name: "Standard Workflow"
+    weight: 40
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - think: 5
+      - get:
+          url: "/api/dashboard/stats"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+      - think: 10
+      - get:
+          url: "/api/employees?page=1&limit=20"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+      - think: 15
+      - get:
+          url: "/api/leaves/balance"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+      - think: 10
+      - get:
+          url: "/api/notifications"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+
+  # Periodic health checks
+  - name: "Health Monitoring"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+
+  # Data-heavy operations
+  - name: "Data Operations"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - think: 5
+      - get:
+          url: "/api/attendance/records?page=1&limit=100"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+      - think: 10
+      - get:
+          url: "/api/leaves/requests?page=1&limit=50"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+      - think: 15
+      - get:
+          url: "/api/payroll?page=1&limit=20"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+
+  # Report generation
+  - name: "Report Generation"
+    weight: 15
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - think: 30
+      - get:
+          url: "/api/attendance/reports/summary"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+      - think: 60
+      - get:
+          url: "/api/leaves/statistics"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            X-Tenant-ID: "{{ tenantId }}"
+
+  # Token refresh
+  - name: "Token Refresh"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.data.accessToken"
+              as: "token"
+            - json: "$.data.refreshToken"
+              as: "refreshToken"
+            - json: "$.data.user.tenantId"
+              as: "tenantId"
+      - think: 300
+      - post:
+          url: "/api/auth/refresh"
+          json:
+            refreshToken: "{{ refreshToken }}"
+          capture:
+            - json: "$.accessToken"
+              as: "newToken"
+      - get:
+          url: "/api/auth/me"
+          headers:
+            Authorization: "Bearer {{ newToken }}"
+            X-Tenant-ID: "{{ tenantId }}"
