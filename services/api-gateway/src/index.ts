@@ -21,9 +21,12 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // Configure global HTTP agents for outgoing requests (to microservices)
 const maxSockets = isLoadTesting ? 500 : (isProduction ? 100 : 50);
-http.globalAgent.maxSockets = maxSockets;
-http.globalAgent.keepAlive = true;
-http.globalAgent.keepAliveMsecs = 30000;
+http.globalAgent = new http.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: maxSockets,
+  maxFreeSockets: Math.floor(maxSockets / 2),
+});
 
 console.log(`[API Gateway] HTTP Agent configured: maxSockets=${maxSockets}, keepAlive=true`);
 
