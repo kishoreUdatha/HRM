@@ -129,6 +129,15 @@ const EmployeeForm: React.FC = () => {
         shiftId: employee.shiftId && typeof employee.shiftId === 'object' ? employee.shiftId._id : (employee.shiftId || ''),
         joiningDate: employee.joiningDate ? new Date(employee.joiningDate).toISOString().split('T')[0] : '',
         dateOfBirth: employee.dateOfBirth ? new Date(employee.dateOfBirth).toISOString().split('T')[0] : '',
+        // Ensure bankDetails has all fields with defaults for backward compatibility
+        bankDetails: {
+          accountHolderName: employee.bankDetails?.accountHolderName || '',
+          bankName: employee.bankDetails?.bankName || '',
+          accountNumber: employee.bankDetails?.accountNumber || '',
+          ifscCode: employee.bankDetails?.ifscCode || '',
+          branchName: employee.bankDetails?.branchName || '',
+          accountType: employee.bankDetails?.accountType || 'savings',
+        },
       });
     } catch (error) {
       console.error('Failed to fetch employee:', error);
