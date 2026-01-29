@@ -333,6 +333,13 @@ jobs:
           VITE_API_URL: ${{ env.API_URL }}
         run: npm run build
 
+      - name: Copy app download page to frontend dist
+        run: |
+          mkdir -p frontend/dist/app
+          cp app-download-page/index.html frontend/dist/app/
+          cp app-download-page/HRMobile-release.apk frontend/dist/app/
+          echo "App download page copied to frontend/dist/app/"
+
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1
         with:
