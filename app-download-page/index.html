@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HRM Mobile App - Download</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .logo {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            color: white;
+            font-weight: bold;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+
+        .version-info {
+            background: #f7f7f7;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .version-info h3 {
+            color: #667eea;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .version-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .build-date {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 40px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 20px;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .download-btn:active {
+            transform: translateY(0);
+        }
+
+        .file-info {
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .features {
+            text-align: left;
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #eee;
+        }
+
+        .features h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .features ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .features li {
+            color: #666;
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .features li:before {
+            content: "✓";
+            color: #667eea;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            color: #856404;
+            font-size: 14px;
+        }
+
+        .warning strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .download-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">HR</div>
+        <h1>HRM Mobile App</h1>
+        <p class="subtitle">Human Resource Management System</p>
+
+        <div class="version-info">
+            <h3>Latest Version</h3>
+            <div class="version-number" id="version">1.0.0</div>
+            <div class="build-date" id="build-date">Built on: January 29, 2026</div>
+        </div>
+
+        <a href="HRMobile-release.apk" class="download-btn" download>
+            Download for Android
+        </a>
+
+        <div class="file-info">
+            APK Size: <span id="file-size">~85 MB</span>
+        </div>
+
+        <div class="warning">
+            <strong>Installation Note:</strong>
+            You may need to enable "Install from Unknown Sources" in your Android settings to install this app.
+        </div>
+
+        <div class="features">
+            <h3>Features</h3>
+            <ul>
+                <li>Complete employee management</li>
+                <li>Attendance tracking with face recognition</li>
+                <li>Leave management and approvals</li>
+                <li>Payroll information access</li>
+                <li>Real-time notifications</li>
+                <li>Admin dashboard and team management</li>
+                <li>Secure authentication</li>
+                <li>Offline support</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Auto-update file size
+        fetch('HRMobile-release.apk', { method: 'HEAD' })
+            .then(response => {
+                const size = response.headers.get('content-length');
+                if (size) {
+                    const sizeInMB = (parseInt(size) / (1024 * 1024)).toFixed(2);
+                    document.getElementById('file-size').textContent = `${sizeInMB} MB`;
+                }
+            })
+            .catch(err => console.log('Could not fetch file size'));
+    </script>
+</body>
+</html>
