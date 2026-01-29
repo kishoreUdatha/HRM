@@ -121,3 +121,17 @@ export const useEmployee = () => useAuthStore(state => state.employee);
 export const useTenant = () => useAuthStore(state => state.tenant);
 export const useIsAuthenticated = () => useAuthStore(state => state.isAuthenticated);
 export const useIsDarkMode = () => useAuthStore(state => state.isDarkMode);
+
+// Admin role check helper
+export const useIsAdmin = () => useAuthStore(state => {
+  const role = state.user?.role;
+  return role === 'tenant_admin' || role === 'hr' || role === 'manager' || role === 'super_admin';
+});
+
+// Check specific permissions
+export const useHasPermission = (permission: string) => useAuthStore(state => {
+  const role = state.user?.role;
+  if (role === 'super_admin' || role === 'tenant_admin') return true;
+  // Add more granular permission checks here if needed
+  return false;
+});

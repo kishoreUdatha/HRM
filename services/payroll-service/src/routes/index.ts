@@ -15,6 +15,10 @@ router.use('/advanced', advancedRoutes);
 // Mount extended features routes (Overtime, F&F, Arrears, Policies, Compliance, ESS)
 router.use('/extended', extendedRoutes);
 
+// ==================== DEBUG ROUTE ====================
+// Debug endpoint to check employee salary configurations
+router.get('/debug/salary-status', payrollController.debugSalaryStatus);
+
 // ==================== PAYROLL ROUTES ====================
 
 // Generate payroll
@@ -81,6 +85,9 @@ router.put('/structures/:id', salaryController.updateSalaryStructure);
 router.delete('/structures/:id', salaryController.deleteSalaryStructure);
 
 // ==================== EMPLOYEE SALARY ROUTES ====================
+
+// Get all employee salaries (must come before /employee-salary/:employeeId)
+router.get('/employee-salaries', salaryController.getAllEmployeeSalaries);
 
 // Assign salary to employee
 router.post(

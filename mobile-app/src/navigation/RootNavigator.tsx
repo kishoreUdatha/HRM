@@ -12,7 +12,7 @@ import WelcomeScreen from '../screens/onboarding/WelcomeScreen';
 import TenantDetectionScreen from '../screens/onboarding/TenantDetectionScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 
-// Main Screens
+// Main Screens (Employee)
 import DashboardScreen from '../screens/dashboard/DashboardScreen';
 import AttendanceHomeScreen from '../screens/attendance/AttendanceHomeScreen';
 import FaceCheckInScreen from '../screens/attendance/FaceCheckInScreen';
@@ -28,10 +28,21 @@ import TimesheetHomeScreen from '../screens/timesheet/TimesheetHomeScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 
-import type {RootStackParamList, MainTabParamList} from '../types';
+// Admin Screens
+import {
+  AdminDashboardScreen,
+  TeamAttendanceScreen,
+  TeamLeavesScreen,
+  PayrollSummaryScreen,
+  EmployeeSalaryDetailScreen,
+  EmployeeListScreen,
+} from '../screens/admin';
+
+import type {RootStackParamList, MainTabParamList, AdminTabParamList} from '../types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
+const AdminTab = createBottomTabNavigator<AdminTabParamList>();
 
 interface RootNavigatorProps {
   isAuthenticated: boolean;
@@ -60,6 +71,7 @@ function TabIcon({focused, icon, iconOutline, activeColor, bgColor}: TabIconProp
   );
 }
 
+// Employee Main Tabs
 function MainTabs() {
   const isDarkMode = useAuthStore(state => state.isDarkMode);
   const colors = isDarkMode ? Colors.dark : Colors.light;
@@ -178,6 +190,125 @@ function MainTabs() {
   );
 }
 
+// Admin/Tenant Admin Main Tabs
+function AdminTabs() {
+  const isDarkMode = useAuthStore(state => state.isDarkMode);
+  const colors = isDarkMode ? Colors.dark : Colors.light;
+
+  return (
+    <AdminTab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarStyle: {
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+          paddingBottom: 8,
+          paddingTop: 8,
+          height: 70,
+          shadowColor: '#000',
+          shadowOffset: {width: 0, height: -4},
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
+          elevation: 10,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+          marginTop: 4,
+        },
+      }}>
+      <AdminTab.Screen
+        name="AdminDashboard"
+        component={AdminDashboardScreen}
+        options={{
+          tabBarLabel: 'Dashboard',
+          tabBarActiveTintColor: '#6366F1',
+          tabBarIcon: ({focused}) => (
+            <TabIcon
+              focused={focused}
+              icon="view-dashboard"
+              iconOutline="view-dashboard-outline"
+              activeColor="#6366F1"
+              bgColor="#EEF2FF"
+            />
+          ),
+        }}
+      />
+      <AdminTab.Screen
+        name="TeamAttendance"
+        component={TeamAttendanceScreen}
+        options={{
+          tabBarLabel: 'Attendance',
+          tabBarActiveTintColor: '#F59E0B',
+          tabBarIcon: ({focused}) => (
+            <TabIcon
+              focused={focused}
+              icon="account-group"
+              iconOutline="account-group-outline"
+              activeColor="#F59E0B"
+              bgColor="#FEF3C7"
+            />
+          ),
+        }}
+      />
+      <AdminTab.Screen
+        name="TeamLeaves"
+        component={TeamLeavesScreen}
+        options={{
+          tabBarLabel: 'Leaves',
+          tabBarActiveTintColor: '#EC4899',
+          tabBarIcon: ({focused}) => (
+            <TabIcon
+              focused={focused}
+              icon="calendar-clock"
+              iconOutline="calendar-clock-outline"
+              activeColor="#EC4899"
+              bgColor="#FCE7F3"
+            />
+          ),
+        }}
+      />
+      <AdminTab.Screen
+        name="PayrollSummary"
+        component={PayrollSummaryScreen}
+        options={{
+          tabBarLabel: 'Payroll',
+          tabBarActiveTintColor: '#10B981',
+          tabBarIcon: ({focused}) => (
+            <TabIcon
+              focused={focused}
+              icon="cash-multiple"
+              iconOutline="cash"
+              activeColor="#10B981"
+              bgColor="#D1FAE5"
+            />
+          ),
+        }}
+      />
+      <AdminTab.Screen
+        name="More"
+        component={MoreStack}
+        options={{
+          tabBarLabel: 'More',
+          tabBarActiveTintColor: colors.tabMore,
+          tabBarIcon: ({focused}) => (
+            <TabIcon
+              focused={focused}
+              icon="dots-horizontal-circle"
+              iconOutline="dots-horizontal-circle-outline"
+              activeColor={colors.tabMore}
+              bgColor={colors.menuDarkModeBg}
+            />
+          ),
+        }}
+      />
+    </AdminTab.Navigator>
+  );
+}
+
 // Attendance Stack
 function AttendanceStack() {
   return (
@@ -214,10 +345,19 @@ function MoreStack() {
   );
 }
 
+// Check if user is admin (tenant_admin, hr, or manager)
+function isAdminRole(role?: string): boolean {
+  return role === 'tenant_admin' || role === 'hr' || role === 'manager' || role === 'super_admin';
+}
+
 export default function RootNavigator({isAuthenticated}: RootNavigatorProps) {
   const isOnboarded = useAuthStore(state => state.isOnboarded);
   const isDarkMode = useAuthStore(state => state.isDarkMode);
+  const user = useAuthStore(state => state.user);
   const colors = isDarkMode ? Colors.dark : Colors.light;
+
+  // Determine if user should see admin dashboard
+  const showAdminDashboard = isAuthenticated && isAdminRole(user?.role);
 
   return (
     <Stack.Navigator
@@ -249,11 +389,14 @@ export default function RootNavigator({isAuthenticated}: RootNavigatorProps) {
       ) : (
         // Authenticated Flow
         <>
+          {/* Main Tabs - Admin or Employee based on role */}
           <Stack.Screen
             name="MainTabs"
-            component={MainTabs}
+            component={showAdminDashboard ? AdminTabs : MainTabs}
             options={{animation: 'fade'}}
           />
+
+          {/* Shared Screens */}
           <Stack.Screen
             name="FaceCheckIn"
             component={FaceCheckInScreen}
@@ -311,6 +454,33 @@ export default function RootNavigator({isAuthenticated}: RootNavigatorProps) {
           <Stack.Screen
             name="HolidayCalendar"
             component={HolidayCalendarScreen}
+            options={{animation: 'slide_from_right'}}
+          />
+
+          {/* Admin-specific Stack Screens */}
+          <Stack.Screen
+            name="TeamAttendance"
+            component={TeamAttendanceScreen}
+            options={{animation: 'slide_from_right'}}
+          />
+          <Stack.Screen
+            name="TeamLeaves"
+            component={TeamLeavesScreen}
+            options={{animation: 'slide_from_right'}}
+          />
+          <Stack.Screen
+            name="PayrollSummary"
+            component={PayrollSummaryScreen}
+            options={{animation: 'slide_from_right'}}
+          />
+          <Stack.Screen
+            name="EmployeeSalaryDetail"
+            component={EmployeeSalaryDetailScreen}
+            options={{animation: 'slide_from_right'}}
+          />
+          <Stack.Screen
+            name="EmployeeList"
+            component={EmployeeListScreen}
             options={{animation: 'slide_from_right'}}
           />
         </>

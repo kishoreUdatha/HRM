@@ -5,3 +5,4 @@ export * from './leaveApi';
 export * from './payrollApi';
 export * from './timesheetApi';
 export * from './employeeApi';
+export * from './adminApi';

@@ -119,7 +119,73 @@ const Payroll: React.FC = () => {
   useEffect(() => {
     fetchPayrolls();
     fetchSummary();
+    debugFetchEmployeesWithSalary();
   }, [selectedMonth, selectedYear, statusFilter]);
+
+  // Debug: fetch employees with active salary configs
+  const debugFetchEmployeesWithSalary = async () => {
+    try {
+      // Fetch all employees
+      const empResponse = await api.get('/employees');
+      const allEmployees = empResponse.data.data || [];
+
+      console.log('='.repeat(60));
+      console.log('DEBUG: EMPLOYEE SALARY STATUS');
+      console.log('='.repeat(60));
+      console.log(`Total employees: ${allEmployees.length}`);
+      console.log('');
+
+      const results: { withSalary: string[], withoutSalary: string[], inactive: string[] } = {
+        withSalary: [],
+        withoutSalary: [],
+        inactive: []
+      };
+
+      // For each employee, check if they have salary config
+      for (const emp of allEmployees) {
+        const empName = `${emp.firstName} ${emp.lastName}`;
+        try {
+          const salaryResponse = await api.get(`/payroll/employee-salary/${emp._id}`);
+          const salaries = salaryResponse.data.data?.salaries || [];
+          const activeSalary = salaries.find((s: any) => s.isActive);
+
+          if (activeSalary) {
+            results.withSalary.push(empName);
+            console.log(`✅ ${empName}`);
+            console.log(`   ID: ${emp._id}`);
+            console.log(`   Base Salary: ${activeSalary.baseSalary}`);
+            console.log(`   Structure ID: ${activeSalary.salaryStructureId}`);
+            console.log(`   Effective From: ${activeSalary.effectiveFrom}`);
+            console.log(`   isActive: ${activeSalary.isActive}`);
+          } else if (salaries.length > 0) {
+            results.inactive.push(empName);
+            console.log(`⚠️ ${empName} - has ${salaries.length} salary record(s) but NONE are active!`);
+            salaries.forEach((s: any, i: number) => {
+              console.log(`   Record ${i+1}: baseSalary=${s.baseSalary}, isActive=${s.isActive}, effectiveFrom=${s.effectiveFrom}`);
+            });
+          } else {
+            results.withoutSalary.push(empName);
+            console.log(`❌ ${empName} - NO salary config`);
+            console.log(`   ID: ${emp._id}`);
+          }
+        } catch (err: any) {
+          results.withoutSalary.push(empName);
+          console.log(`❌ ${empName} - error fetching salary: ${err.message}`);
+        }
+        console.log('');
+      }
+
+      console.log('='.repeat(60));
+      console.log('SUMMARY:');
+      console.log(`✅ With active salary (${results.withSalary.length}): ${results.withSalary.join(', ') || 'None'}`);
+      console.log(`⚠️ Inactive salary (${results.inactive.length}): ${results.inactive.join(', ') || 'None'}`);
+      console.log(`❌ No salary (${results.withoutSalary.length}): ${results.withoutSalary.join(', ') || 'None'}`);
+      console.log('='.repeat(60));
+
+    } catch (error) {
+      console.error('Debug: Failed to fetch employees', error);
+    }
+  };
 
   const fetchPayrolls = async () => {
     try {
@@ -152,15 +218,33 @@ const Payroll: React.FC = () => {
   const handleBulkGenerate = async () => {
     setIsProcessing(true);
     try {
-      await api.post('/payroll/generate/bulk', {
+      const response = await api.post('/payroll/generate/bulk', {
         month: selectedMonth,
         year: selectedYear,
       });
+      console.log('Bulk generate response:', response.data);
       fetchPayrolls();
       fetchSummary();
       setIsGenerateModalOpen(false);
-    } catch (error) {
+
+      // Show detailed message with results
+      const data = response.data.data || response.data;
+      let message = `Payroll generated: ${data.success || 0} successful, ${data.failed || 0} failed`;
+
+      // Show errors if any
+      if (data.errors && data.errors.length > 0) {
+        console.log('Payroll generation errors:', data.errors);
+        message += '\n\nDetails:\n' + data.errors.slice(0, 5).join('\n');
+        if (data.errors.length > 5) {
+          message += `\n...and ${data.errors.length - 5} more`;
+        }
+      }
+      alert(message);
+    } catch (error: any) {
       console.error('Failed to generate payrolls:', error);
+      console.error('Error response:', error.response?.data);
+      const message = error.response?.data?.message || 'Failed to generate payroll. Please try again.';
+      alert(message);
     } finally {
       setIsProcessing(false);
     }
@@ -171,8 +255,10 @@ const Payroll: React.FC = () => {
       await api.patch(`/payroll/${id}/process`);
       fetchPayrolls();
       fetchSummary();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to process payroll:', error);
+      const message = error.response?.data?.message || 'Failed to process payroll. Please try again.';
+      alert(message);
     }
   };
 
@@ -181,8 +267,10 @@ const Payroll: React.FC = () => {
       await api.patch(`/payroll/${id}/pay`);
       fetchPayrolls();
       fetchSummary();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to mark as paid:', error);
+      const message = error.response?.data?.message || 'Failed to mark as paid. Please try again.';
+      alert(message);
     }
   };
 

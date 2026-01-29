@@ -44,9 +44,18 @@ interface Employee {
   email: string;
 }
 
+interface EmployeeSalaryAssignment {
+  _id: string;
+  employeeId: string;
+  salaryStructureId: string;
+  baseSalary: number;
+  isActive: boolean;
+}
+
 const SalaryStructures: React.FC = () => {
   const [structures, setStructures] = useState<SalaryStructure[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employeeSalaries, setEmployeeSalaries] = useState<EmployeeSalaryAssignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -83,6 +92,7 @@ const SalaryStructures: React.FC = () => {
   useEffect(() => {
     fetchStructures();
     fetchEmployees();
+    fetchAllEmployeeSalaries();
   }, []);
 
   const fetchStructures = async () => {
@@ -103,6 +113,22 @@ const SalaryStructures: React.FC = () => {
     } catch (error) {
       console.error('Failed to fetch employees:', error);
     }
+  };
+
+  const fetchAllEmployeeSalaries = async () => {
+    try {
+      // Fetch all employee salaries to show who has salary configured
+      const response = await api.get('/payroll/employee-salaries');
+      const salaries = response.data.data?.salaries || response.data.data || [];
+      setEmployeeSalaries(salaries);
+      console.log('Employee salaries:', salaries);
+    } catch (error) {
+      console.error('Failed to fetch employee salaries:', error);
+    }
+  };
+
+  const getEmployeesWithSalary = () => {
+    return employeeSalaries.filter(s => s.isActive).map(s => s.employeeId);
   };
 
   const handleSeedDefault = async () => {
@@ -142,8 +168,17 @@ const SalaryStructures: React.FC = () => {
 
   const handleAssignSalary = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate baseSalary is greater than 0
+    if (!assignData.baseSalary || assignData.baseSalary <= 0) {
+      alert('Please enter a valid base salary greater than 0');
+      return;
+    }
+
     try {
-      await api.post('/payroll/employee-salary', assignData);
+      console.log('Assigning salary with data:', assignData);
+      const response = await api.post('/payroll/employee-salary', assignData);
+      console.log('Salary assignment response:', response.data);
       setIsAssignModalOpen(false);
       setAssignData({
         employeeId: '',
@@ -151,10 +186,15 @@ const SalaryStructures: React.FC = () => {
         baseSalary: 0,
         effectiveFrom: new Date().toISOString().split('T')[0],
       });
-      alert('Salary assigned successfully!');
-    } catch (error) {
+      // Refresh the employee salaries list
+      fetchAllEmployeeSalaries();
+      alert('Salary assigned successfully! You can now generate payroll for this employee.');
+    } catch (error: any) {
       console.error('Failed to assign salary:', error);
-      alert('Failed to assign salary');
+      const message = error.response?.data?.message ||
+                      error.response?.data?.errors?.[0]?.msg ||
+                      'Failed to assign salary. Please check the console for details.';
+      alert(message);
     }
   };
 
@@ -241,6 +281,16 @@ const SalaryStructures: React.FC = () => {
             </div>
             <h1 className="text-3xl font-bold mb-1">Salary Structures</h1>
             <p className="text-white/70">Manage salary components and structures</p>
+            <div className="mt-3 flex items-center gap-4 text-sm">
+              <span className="px-3 py-1 bg-white/20 rounded-lg">
+                {getEmployeesWithSalary().length} / {employees.length} employees have salary configured
+              </span>
+              {getEmployeesWithSalary().length < employees.length && (
+                <span className="text-amber-200">
+                  {employees.length - getEmployeesWithSalary().length} need salary assignment
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex gap-3">
             <button
@@ -621,12 +671,18 @@ const SalaryStructures: React.FC = () => {
                   required
                 >
                   <option value="">Select Employee</option>
-                  {employees.map((emp) => (
-                    <option key={emp._id} value={emp._id}>
-                      {emp.firstName} {emp.lastName} ({emp.employeeCode})
-                    </option>
-                  ))}
+                  {employees.map((emp) => {
+                    const hasSalary = getEmployeesWithSalary().includes(emp._id);
+                    return (
+                      <option key={emp._id} value={emp._id}>
+                        {emp.firstName} {emp.lastName} ({emp.employeeCode}) {hasSalary ? '- Has Salary' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
+                <p className="text-xs text-secondary-500 mt-1">
+                  Employees marked "Has Salary" already have a salary configuration. Assigning again will update their salary.
+                </p>
               </div>
 
               <div>

@@ -1371,3 +1371,80 @@ export const downloadPayslipByPeriodPDF = async (req: Request, res: Response): P
     });
   }
 };
+
+// Debug endpoint to check salary status for all employees
+export const debugSalaryStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+
+    console.log(`[DEBUG] Checking salary status for tenant: ${tenantId}`);
+
+    // Fetch all employees from employee service
+    const employeesResponse = await fetch(`${EMPLOYEE_SERVICE_URL}/employees`, {
+      headers: {
+        'x-tenant-id': tenantId,
+        'Content-Type': 'application/json',
+      },
+    });
+    const employeesData = await employeesResponse.json() as { data?: Array<{ _id: string; firstName: string; lastName: string; employeeCode: string }> };
+    const employees = employeesData.data || [];
+
+    console.log(`[DEBUG] Found ${employees.length} employees`);
+
+    // Fetch all active salary configurations
+    const activeSalaries = await EmployeeSalary.find({ tenantId, isActive: true }).lean();
+    console.log(`[DEBUG] Found ${activeSalaries.length} active salary configs`);
+
+    // Fetch all salary configurations (including inactive)
+    const allSalaries = await EmployeeSalary.find({ tenantId }).lean();
+    console.log(`[DEBUG] Found ${allSalaries.length} total salary configs`);
+
+    // Build comparison
+    const employeeStatus = employees.map((emp: { _id: string; firstName: string; lastName: string; employeeCode: string }) => {
+      const activeSalary = activeSalaries.find(s => s.employeeId.toString() === emp._id.toString());
+      const anySalary = allSalaries.find(s => s.employeeId.toString() === emp._id.toString());
+
+      return {
+        employeeId: emp._id,
+        name: `${emp.firstName} ${emp.lastName}`,
+        employeeCode: emp.employeeCode,
+        hasActiveSalary: !!activeSalary,
+        hasAnySalary: !!anySalary,
+        salaryDetails: activeSalary ? {
+          baseSalary: activeSalary.baseSalary,
+          structureId: activeSalary.salaryStructureId,
+          effectiveFrom: activeSalary.effectiveFrom,
+          isActive: activeSalary.isActive,
+        } : null,
+        allSalaryRecords: allSalaries.filter(s => s.employeeId.toString() === emp._id.toString()).map(s => ({
+          id: s._id,
+          baseSalary: s.baseSalary,
+          isActive: s.isActive,
+          effectiveFrom: s.effectiveFrom,
+        })),
+      };
+    });
+
+    // Summary
+    const summary = {
+      totalEmployees: employees.length,
+      employeesWithActiveSalary: employeeStatus.filter((e: { hasActiveSalary: boolean }) => e.hasActiveSalary).length,
+      employeesWithoutSalary: employeeStatus.filter((e: { hasActiveSalary: boolean }) => !e.hasActiveSalary).length,
+    };
+
+    res.status(200).json({
+      success: true,
+      tenantId,
+      summary,
+      employees: employeeStatus,
+      rawSalaryConfigs: allSalaries,
+    });
+  } catch (error) {
+    console.error('[DEBUG] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Debug endpoint failed',
+      error: String(error),
+    });
+  }
+};

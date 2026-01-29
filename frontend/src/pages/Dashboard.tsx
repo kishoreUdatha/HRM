@@ -16,7 +16,6 @@ import {
   HiPlay,
   HiLogout,
   HiLocationMarker,
-  HiExclamation,
 } from 'react-icons/hi';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import api from '../services/api';
@@ -663,11 +662,16 @@ const AdminDashboard: React.FC<{ tenant: any }> = ({ tenant }) => {
       {/* Quick Actions */}
       <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
         <h3 className="text-lg font-semibold text-secondary-900 mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Link to="/employees/new" className="p-4 bg-primary-50 rounded-lg text-left hover:bg-primary-100 transition-colors">
             <HiUserAdd className="w-6 h-6 text-primary-600 mb-2" />
             <p className="font-medium text-secondary-900">Add Employee</p>
             <p className="text-sm text-secondary-500">Create new record</p>
+          </Link>
+          <Link to="/payroll" className="p-4 bg-emerald-50 rounded-lg text-left hover:bg-emerald-100 transition-colors">
+            <HiCurrencyDollar className="w-6 h-6 text-emerald-600 mb-2" />
+            <p className="font-medium text-secondary-900">Process Payroll</p>
+            <p className="text-sm text-secondary-500">Manage salaries</p>
           </Link>
           <Link to="/leaves" className="p-4 bg-green-50 rounded-lg text-left hover:bg-green-100 transition-colors">
             <HiCalendar className="w-6 h-6 text-green-600 mb-2" />

@@ -213,6 +213,34 @@ export const seedSalaryStructure = async (req: Request, res: Response): Promise<
 
 // ==================== EMPLOYEE SALARY CONTROLLERS ====================
 
+// Get all employee salaries for the tenant
+export const getAllEmployeeSalaries = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { activeOnly } = req.query;
+
+    const query: Record<string, unknown> = { tenantId };
+    if (activeOnly === 'true') {
+      query.isActive = true;
+    }
+
+    const salaries = await EmployeeSalary.find(query).lean();
+
+    console.log(`[Payroll Service] Found ${salaries.length} employee salaries for tenant ${tenantId}`);
+
+    res.status(200).json({
+      success: true,
+      data: { salaries },
+    });
+  } catch (error) {
+    console.error('[Payroll Service] Get all employee salaries error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch employee salaries',
+    });
+  }
+};
+
 export const assignSalary = async (req: Request, res: Response): Promise<void> => {
   try {
     const errors = validationResult(req);

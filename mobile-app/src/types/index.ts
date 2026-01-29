@@ -325,6 +325,13 @@ export type RootStackParamList = {
   Profile: undefined;
   Settings: undefined;
   Notifications: undefined;
+  HolidayCalendar: undefined;
+  // Admin screens
+  TeamAttendance: undefined;
+  TeamLeaves: undefined;
+  PayrollSummary: undefined;
+  EmployeeSalaryDetail: {employeeId: string};
+  EmployeeList: undefined;
 };
 
 export type MainTabParamList = {
@@ -332,5 +339,14 @@ export type MainTabParamList = {
   Attendance: undefined;
   Leave: undefined;
   Payroll: undefined;
+  More: undefined;
+};
+
+// Admin Navigation Types
+export type AdminTabParamList = {
+  AdminDashboard: undefined;
+  TeamAttendance: undefined;
+  TeamLeaves: undefined;
+  PayrollSummary: undefined;
   More: undefined;
 };
