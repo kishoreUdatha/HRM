@@ -216,7 +216,7 @@ export const services: ServiceConfig[] = [
     pathPrefix: '/api/attendance',
     targetPath: '',
     healthCheck: '/health',
-    timeout: 30000,
+    timeout: 120000,  // Increased to 2 minutes for face enrollment with ML processing
     requiresAuth: true,
   },
   {

@@ -15,7 +15,7 @@ connectDB();
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '10mb' })); // Increase limit for base64 face images
+app.use(express.json({ limit: '50mb' })); // Increased limit for multiple base64 face images during enrollment
 
 // Health check
 app.get('/health', (_req: Request, res: Response) => {

@@ -224,11 +224,13 @@ export const attendanceApi = {
 
   /**
    * Enroll face for an employee
+   * Uses extended timeout as face processing with ML can take up to 2 minutes
    */
   async enrollFace(data: EnrollFaceRequest): Promise<ApiResponse<EnrollFaceResponse>> {
     const response = await apiClient.post<ApiResponse<EnrollFaceResponse>>(
       '/attendance/enroll-face',
-      data
+      data,
+      { timeout: 120000 } // 2 minute timeout for ML face processing
     );
     return response.data;
   },

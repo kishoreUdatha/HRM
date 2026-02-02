@@ -66,6 +66,7 @@ export default function FaceEnrollmentScreen() {
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
+  const [enrollmentStatus, setEnrollmentStatus] = useState<string>('Processing...');
 
   // Liveness state
   const [livenessSession, setLivenessSession] = useState<LivenessSession | null>(null);
@@ -280,8 +281,16 @@ export default function FaceEnrollmentScreen() {
 
     setIsEnrolling(true);
     setPhase('enrolling');
+    setEnrollmentStatus('Preparing images...');
 
     try {
+      // Simulate progress updates for better UX
+      setTimeout(() => setEnrollmentStatus('Uploading photos...'), 500);
+      setTimeout(() => setEnrollmentStatus('Detecting faces...'), 2000);
+      setTimeout(() => setEnrollmentStatus('Processing face features...'), 5000);
+      setTimeout(() => setEnrollmentStatus('Creating face profile...'), 10000);
+      setTimeout(() => setEnrollmentStatus('Almost done...'), 20000);
+
       const response = await attendanceApi.enrollFace({
         employeeId: employeeId,
         images: capturedPhotos,
@@ -291,6 +300,7 @@ export default function FaceEnrollmentScreen() {
       console.log('[FaceEnrollment] API Response:', JSON.stringify(response));
 
       if (response.success) {
+        setEnrollmentStatus('Enrollment successful!');
         setPhase('complete');
         setTimeout(() => {
           navigation.goBack();
@@ -363,6 +373,26 @@ export default function FaceEnrollmentScreen() {
           </Text>
           <Text style={[styles.permissionText, {color: colors.textSecondary}]}>
             No front camera found on this device.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Render enrollment processing screen
+  if (phase === 'enrolling') {
+    return (
+      <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]}>
+        <View style={styles.processingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} style={styles.processingSpinner} />
+          <Text style={[styles.processingTitle, {color: colors.text}]}>
+            Enrolling Your Face
+          </Text>
+          <Text style={[styles.processingStatus, {color: colors.primary}]}>
+            {enrollmentStatus}
+          </Text>
+          <Text style={[styles.processingHint, {color: colors.textSecondary}]}>
+            This may take up to a minute.{'\n'}Please don't close the app.
           </Text>
         </View>
       </SafeAreaView>
@@ -776,6 +806,33 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: FontSizes.md,
+  },
+  processingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  processingSpinner: {
+    marginBottom: Spacing.xl,
+    transform: [{scale: 1.5}],
+  },
+  processingTitle: {
+    fontSize: FontSizes.xl,
+    fontWeight: '700',
+    marginBottom: Spacing.md,
+    textAlign: 'center',
+  },
+  processingStatus: {
+    fontSize: FontSizes.lg,
+    fontWeight: '600',
+    marginBottom: Spacing.lg,
+    textAlign: 'center',
+  },
+  processingHint: {
+    fontSize: FontSizes.md,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   successContainer: {
     flex: 1,
