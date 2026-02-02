@@ -71,6 +71,29 @@ export interface EnrollFaceResponse {
   totalImages: number;
 }
 
+export interface OfflineCheckInRequest {
+  employeeId: string;
+  location: {
+    latitude: number;
+    longitude: number;
+    address?: string;
+  };
+  originalTimestamp: string; // ISO string when punch was captured offline
+  confidence?: number;
+  isOffline: boolean;
+  notes?: string;
+}
+
+export interface OfflineCheckInResponse {
+  success: boolean;
+  message: string;
+  attendance?: Attendance;
+  employeeName?: string;
+  wasOffline: boolean;
+  originalTimestamp: string;
+  syncedTimestamp: string;
+}
+
 export interface AttendanceListParams {
   page?: number;
   limit?: number;
@@ -231,6 +254,30 @@ export const attendanceApi = {
       '/attendance/enroll-face',
       data,
       { timeout: 120000 } // 2 minute timeout for ML face processing
+    );
+    return response.data;
+  },
+
+  /**
+   * Confirm offline check-in with original timestamp
+   * Used to sync offline punches when back online
+   */
+  async confirmOfflineCheckIn(data: OfflineCheckInRequest): Promise<ApiResponse<OfflineCheckInResponse>> {
+    const response = await apiClient.post<ApiResponse<OfflineCheckInResponse>>(
+      '/attendance/confirm-offline-check-in',
+      data
+    );
+    return response.data;
+  },
+
+  /**
+   * Confirm offline check-out with original timestamp
+   * Used to sync offline punches when back online
+   */
+  async confirmOfflineCheckOut(data: OfflineCheckInRequest): Promise<ApiResponse<OfflineCheckInResponse>> {
+    const response = await apiClient.post<ApiResponse<OfflineCheckInResponse>>(
+      '/attendance/confirm-offline-check-out',
+      data
     );
     return response.data;
   },

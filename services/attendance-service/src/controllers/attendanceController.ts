@@ -1664,3 +1664,265 @@ export const getFaceRecognitionStatus = async (req: Request, res: Response): Pro
     });
   }
 };
+
+// Confirm Offline Face Check-In - Sync offline punch with original timestamp
+export const confirmOfflineCheckIn = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { employeeId, location, originalTimestamp, confidence, notes, isOffline } = req.body;
+
+    if (!employeeId || !originalTimestamp) {
+      res.status(400).json({
+        success: false,
+        message: 'Employee ID and original timestamp are required',
+      });
+      return;
+    }
+
+    // Parse original timestamp for the attendance date
+    const originalTime = new Date(originalTimestamp);
+    const today = getISTStartOfDay(originalTime);
+
+    console.log('[Attendance Service] Offline check-in:', {
+      employeeId,
+      originalTimestamp,
+      originalTime: originalTime.toISOString(),
+      attendanceDate: today.toISOString(),
+      isOffline,
+    });
+
+    // Check if already checked in on that date
+    const existingAttendance = await Attendance.findOne({
+      tenantId,
+      employeeId,
+      date: today,
+    });
+
+    if (existingAttendance && existingAttendance.checkIn) {
+      res.status(400).json({
+        success: false,
+        message: 'Already checked in for this date',
+      });
+      return;
+    }
+
+    // Geo-fence validation (use original location)
+    let geofenceResult: {
+      isWithin: boolean;
+      nearestOffice: string | null;
+      nearestOfficeId: string | null;
+      distanceMeters: number;
+      allowedRadius: number;
+    } | null = null;
+
+    const geofencingSettings = await getTenantGeofencing(tenantId);
+
+    if (geofencingSettings?.enabled && geofencingSettings.locations.length > 0 && location) {
+      geofenceResult = isWithinGeofence(
+        { latitude: location.latitude, longitude: location.longitude },
+        geofencingSettings.locations,
+        geofencingSettings.defaultRadius
+      );
+      // Note: For offline punches, we don't reject based on geofence - just record the result
+    }
+
+    // Determine late status based on original time
+    const shift = await Shift.findOne({ tenantId, isDefault: true });
+    let status: 'present' | 'late' = 'present';
+
+    if (shift) {
+      const [shiftHour, shiftMinute] = shift.startTime.split(':').map(Number);
+      const shiftStart = new Date(today);
+      shiftStart.setHours(shiftHour, shiftMinute + shift.graceMinutes, 0, 0);
+
+      if (originalTime > shiftStart) {
+        status = 'late';
+      }
+    }
+
+    const attendance = existingAttendance || new Attendance({
+      tenantId,
+      employeeId,
+      date: today,
+    });
+
+    // Use original timestamp for checkIn time
+    attendance.checkIn = originalTime;
+    attendance.status = status;
+    attendance.checkInMethod = 'face';
+    attendance.checkInFaceVerified = true;
+    attendance.checkInFaceScore = confidence || 0.9;
+
+    if (location) {
+      attendance.checkInLocation = {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        address: location.address,
+      };
+    }
+
+    // Mark as offline sync in notes
+    const syncNote = `[Offline: captured ${originalTimestamp}, synced ${new Date().toISOString()}]`;
+    attendance.notes = notes ? `${notes} ${syncNote}` : syncNote;
+
+    // Store geo-fence validation result if available
+    if (geofenceResult) {
+      attendance.geofenceValidation = {
+        isWithinGeofence: geofenceResult.isWithin,
+        nearestOffice: geofenceResult.nearestOffice,
+        nearestOfficeId: geofenceResult.nearestOfficeId,
+        distanceMeters: geofenceResult.distanceMeters,
+        allowedRadius: geofenceResult.allowedRadius,
+        validatedAt: originalTime, // Use original time for validation timestamp
+      };
+    }
+
+    await attendance.save();
+
+    // Get employee name for response
+    const employeeMap = await getEmployeeDetails([employeeId], tenantId);
+    const employee = employeeMap.get(employeeId);
+
+    console.log('[Attendance Service] Offline check-in synced successfully:', {
+      employeeId,
+      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown',
+      checkInTime: originalTime.toISOString(),
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Offline check-in synced for ${employee?.firstName || 'Employee'}`,
+      data: {
+        attendance,
+        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
+        wasOffline: true,
+        originalTimestamp,
+        syncedTimestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('[Attendance Service] Confirm offline check-in error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to sync offline check-in',
+    });
+  }
+};
+
+// Confirm Offline Face Check-Out - Sync offline punch with original timestamp
+export const confirmOfflineCheckOut = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { employeeId, location, originalTimestamp, confidence, notes, isOffline } = req.body;
+
+    if (!employeeId || !originalTimestamp) {
+      res.status(400).json({
+        success: false,
+        message: 'Employee ID and original timestamp are required',
+      });
+      return;
+    }
+
+    // Parse original timestamp for the attendance date
+    const originalTime = new Date(originalTimestamp);
+    const today = getISTStartOfDay(originalTime);
+
+    console.log('[Attendance Service] Offline check-out:', {
+      employeeId,
+      originalTimestamp,
+      originalTime: originalTime.toISOString(),
+      attendanceDate: today.toISOString(),
+      isOffline,
+    });
+
+    // Find today's attendance record
+    const attendance = await Attendance.findOne({
+      tenantId,
+      employeeId,
+      date: today,
+    });
+
+    if (!attendance || !attendance.checkIn) {
+      res.status(400).json({
+        success: false,
+        message: 'No check-in found for this date. Cannot check out.',
+      });
+      return;
+    }
+
+    if (attendance.checkOut) {
+      res.status(400).json({
+        success: false,
+        message: 'Already checked out for this date',
+      });
+      return;
+    }
+
+    // Use original timestamp for checkOut
+    attendance.checkOut = originalTime;
+    attendance.checkOutMethod = 'face';
+    attendance.checkOutFaceVerified = true;
+    attendance.checkOutFaceScore = confidence || 0.9;
+
+    if (location) {
+      attendance.checkOutLocation = {
+        latitude: location.latitude,
+        longitude: location.longitude,
+        address: location.address,
+      };
+    }
+
+    // Append offline sync note
+    const syncNote = `[Offline checkout: captured ${originalTimestamp}, synced ${new Date().toISOString()}]`;
+    attendance.notes = attendance.notes ? `${attendance.notes} ${syncNote}` : syncNote;
+
+    // Calculate work hours
+    const checkInTime = new Date(attendance.checkIn).getTime();
+    const checkOutTime = originalTime.getTime();
+    const workHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
+
+    attendance.workHours = workHours;
+
+    // Update status based on work hours
+    if (workHours < 4) {
+      attendance.status = 'half_day';
+    }
+
+    // Calculate overtime (if > 8 hours)
+    if (workHours > 8) {
+      attendance.overtimeHours = workHours - 8;
+    }
+
+    await attendance.save();
+
+    // Get employee name for response
+    const employeeMap = await getEmployeeDetails([employeeId], tenantId);
+    const employee = employeeMap.get(employeeId);
+
+    console.log('[Attendance Service] Offline check-out synced successfully:', {
+      employeeId,
+      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown',
+      checkOutTime: originalTime.toISOString(),
+      workHours: workHours.toFixed(2),
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Offline check-out synced for ${employee?.firstName || 'Employee'}`,
+      data: {
+        attendance,
+        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
+        workHours: workHours.toFixed(2),
+        wasOffline: true,
+        originalTimestamp,
+        syncedTimestamp: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('[Attendance Service] Confirm offline check-out error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to sync offline check-out',
+    });
+  }
+};

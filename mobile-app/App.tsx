@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {NavigationContainer} from '@react-navigation/native';
@@ -9,6 +9,8 @@ import {AlertNotificationRoot} from 'react-native-alert-notification';
 import RootNavigator from './src/navigation/RootNavigator';
 import {useAuthStore} from './src/store/authStore';
 import {Colors} from './src/theme/colors';
+import {networkService} from './src/services/networkService';
+import {syncService} from './src/services/syncService';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,6 +25,22 @@ const queryClient = new QueryClient({
 function App(): React.JSX.Element {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const isDarkMode = useAuthStore(state => state.isDarkMode);
+
+  // Initialize network and sync services on app start
+  useEffect(() => {
+    console.log('[App] Initializing services...');
+
+    // Initialize network monitoring
+    networkService.initialize();
+
+    // Initialize sync service (will sync pending punches when online)
+    syncService.initialize();
+
+    return () => {
+      // Cleanup on unmount
+      syncService.destroy();
+    };
+  }, []);
 
   return (
     <GestureHandlerRootView style={{flex: 1}}>

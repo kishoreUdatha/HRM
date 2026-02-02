@@ -139,6 +139,36 @@ router.post(
   attendanceController.enrollFace
 );
 
+// ==================== OFFLINE SYNC ROUTES ====================
+
+// Confirm offline check-in (sync offline punch with original timestamp)
+router.post(
+  '/confirm-offline-check-in',
+  [
+    body('employeeId').notEmpty().withMessage('Employee ID is required'),
+    body('originalTimestamp').notEmpty().withMessage('Original timestamp is required'),
+    body('location.latitude').optional().isFloat(),
+    body('location.longitude').optional().isFloat(),
+    body('location.address').optional().isString(),
+    body('confidence').optional().isFloat({ min: 0, max: 1 }),
+  ],
+  attendanceController.confirmOfflineCheckIn
+);
+
+// Confirm offline check-out (sync offline punch with original timestamp)
+router.post(
+  '/confirm-offline-check-out',
+  [
+    body('employeeId').notEmpty().withMessage('Employee ID is required'),
+    body('originalTimestamp').notEmpty().withMessage('Original timestamp is required'),
+    body('location.latitude').optional().isFloat(),
+    body('location.longitude').optional().isFloat(),
+    body('location.address').optional().isString(),
+    body('confidence').optional().isFloat({ min: 0, max: 1 }),
+  ],
+  attendanceController.confirmOfflineCheckOut
+);
+
 // ==================== SHIFT ROUTES ====================
 
 // Create shift

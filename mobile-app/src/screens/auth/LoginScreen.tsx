@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
+  Animated,
+  Easing,
+  Linking,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
@@ -23,6 +27,7 @@ import {authStorage} from '../../services/authStorage';
 import {Colors} from '../../theme/colors';
 import {Spacing, BorderRadius, FontSizes} from '../../theme/spacing';
 import type {RootStackParamList, User, Employee} from '../../types';
+import {networkService, NetworkStatus} from '../../services/networkService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -37,6 +42,98 @@ export default function LoginScreen() {
   const [showPin, setShowPin] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{mobileNumber?: string; pin?: string; general?: string}>({});
+
+  // Network status
+  const [isOnline, setIsOnline] = useState<boolean>(networkService.isOnline());
+  const [showOfflineModal, setShowOfflineModal] = useState(false);
+
+  // Animations
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const waveAnim1 = useRef(new Animated.Value(0)).current;
+  const waveAnim2 = useRef(new Animated.Value(0)).current;
+  const waveAnim3 = useRef(new Animated.Value(0)).current;
+
+  // Subscribe to network status changes
+  useEffect(() => {
+    const unsubscribe = networkService.subscribe((status: NetworkStatus) => {
+      const online = status.isConnected && status.isInternetReachable === true;
+      setIsOnline(online);
+      if (online && showOfflineModal) {
+        setShowOfflineModal(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [showOfflineModal]);
+
+  // Start animations when modal is shown
+  useEffect(() => {
+    if (showOfflineModal) {
+      // Reset animations
+      fadeAnim.setValue(0);
+      slideAnim.setValue(50);
+      pulseAnim.setValue(1);
+
+      // Fade in and slide up
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 400,
+          easing: Easing.out(Easing.back(1.5)),
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Pulse animation for icon
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.2,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      ).start();
+
+      // Wave animations
+      const createWaveAnimation = (anim: Animated.Value, delay: number) => {
+        return Animated.loop(
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: 2000,
+              easing: Easing.out(Easing.ease),
+              useNativeDriver: true,
+            }),
+            Animated.timing(anim, {
+              toValue: 0,
+              duration: 0,
+              useNativeDriver: true,
+            }),
+          ]),
+        );
+      };
+
+      createWaveAnimation(waveAnim1, 0).start();
+      createWaveAnimation(waveAnim2, 400).start();
+      createWaveAnimation(waveAnim3, 800).start();
+    }
+  }, [showOfflineModal]);
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
@@ -58,6 +155,12 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
+    // Check network status first
+    if (!networkService.isOnline()) {
+      setShowOfflineModal(true);
+      return;
+    }
+
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -144,6 +247,44 @@ export default function LoginScreen() {
     navigation.navigate('TenantDetection');
   };
 
+  const handleOpenSettings = () => {
+    if (Platform.OS === 'ios') {
+      Linking.openURL('app-settings:');
+    } else {
+      Linking.openSettings();
+    }
+  };
+
+  const handleRetryConnection = () => {
+    if (networkService.isOnline()) {
+      setShowOfflineModal(false);
+    }
+  };
+
+  // Render wave circle
+  const renderWave = (anim: Animated.Value, delay: number) => {
+    const scale = anim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 2.5],
+    });
+    const opacity = anim.interpolate({
+      inputRange: [0, 0.5, 1],
+      outputRange: [0.6, 0.3, 0],
+    });
+
+    return (
+      <Animated.View
+        style={[
+          styles.waveCircle,
+          {
+            transform: [{scale}],
+            opacity,
+          },
+        ]}
+      />
+    );
+  };
+
   return (
     <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]}>
       <KeyboardAvoidingView
@@ -153,6 +294,20 @@ export default function LoginScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled">
           <View style={styles.content}>
+            {/* Offline Status Banner */}
+            {!isOnline && (
+              <TouchableOpacity
+                style={styles.offlineBanner}
+                onPress={() => setShowOfflineModal(true)}
+                activeOpacity={0.8}>
+                <Icon name="wifi-off" size={18} color="#FFFFFF" />
+                <Text style={styles.offlineBannerText}>
+                  No internet connection
+                </Text>
+                <Icon name="chevron-right" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+
             {/* Tenant Info */}
             <TouchableOpacity
               style={[styles.tenantCard, {backgroundColor: colors.surface}]}
@@ -307,6 +462,97 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* No Internet Connection Modal */}
+      <Modal
+        visible={showOfflineModal}
+        transparent
+        animationType="none"
+        onRequestClose={() => setShowOfflineModal(false)}>
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            style={[
+              styles.modalContent,
+              {backgroundColor: colors.surface},
+              {
+                opacity: fadeAnim,
+                transform: [{translateY: slideAnim}],
+              },
+            ]}>
+            {/* Animated Icon with Waves */}
+            <View style={styles.iconContainer}>
+              {renderWave(waveAnim1, 0)}
+              {renderWave(waveAnim2, 400)}
+              {renderWave(waveAnim3, 800)}
+              <Animated.View
+                style={[
+                  styles.iconCircle,
+                  {transform: [{scale: pulseAnim}]},
+                ]}>
+                <Icon name="wifi-off" size={48} color="#FFFFFF" />
+              </Animated.View>
+            </View>
+
+            {/* Title */}
+            <Text style={[styles.modalTitle, {color: colors.text}]}>
+              No Internet Connection
+            </Text>
+
+            {/* Description */}
+            <Text style={[styles.modalDescription, {color: colors.textSecondary}]}>
+              Please check your mobile data or Wi-Fi connection and try again.
+            </Text>
+
+            {/* Connection Status */}
+            <View style={[styles.statusCard, {backgroundColor: colors.errorLight}]}>
+              <View style={styles.statusRow}>
+                <Icon name="signal-off" size={20} color={colors.error} />
+                <Text style={[styles.statusText, {color: colors.error}]}>
+                  Mobile Data: Off
+                </Text>
+              </View>
+              <View style={styles.statusRow}>
+                <Icon name="wifi-off" size={20} color={colors.error} />
+                <Text style={[styles.statusText, {color: colors.error}]}>
+                  Wi-Fi: Not Connected
+                </Text>
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.settingsButton]}
+                onPress={handleOpenSettings}
+                activeOpacity={0.8}>
+                <Icon name="cog" size={20} color={colors.primary} />
+                <Text style={[styles.modalButtonText, {color: colors.primary}]}>
+                  Open Settings
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.retryButton, {backgroundColor: colors.primary}]}
+                onPress={handleRetryConnection}
+                activeOpacity={0.8}>
+                <Icon name="refresh" size={20} color="#FFFFFF" />
+                <Text style={[styles.modalButtonText, {color: '#FFFFFF'}]}>
+                  Try Again
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Close Button */}
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowOfflineModal(false)}>
+              <Text style={[styles.closeButtonText, {color: colors.textSecondary}]}>
+                Dismiss
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -442,5 +688,127 @@ const styles = StyleSheet.create({
   forgotText: {
     fontSize: FontSizes.md,
     fontWeight: '600',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.lg,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 10},
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  iconContainer: {
+    width: 120,
+    height: 120,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  iconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  waveCircle: {
+    position: 'absolute',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#EF4444',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: Spacing.sm,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: FontSizes.md,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+    lineHeight: 22,
+  },
+  statusCard: {
+    width: '100%',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.lg,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
+  },
+  statusText: {
+    fontSize: FontSizes.md,
+    marginLeft: Spacing.sm,
+    fontWeight: '500',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: Spacing.sm,
+  },
+  modalButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.xs,
+  },
+  settingsButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+  },
+  retryButton: {
+    backgroundColor: '#3B82F6',
+  },
+  modalButtonText: {
+    fontSize: FontSizes.md,
+    fontWeight: '600',
+  },
+  closeButton: {
+    marginTop: Spacing.md,
+    padding: Spacing.sm,
+  },
+  closeButtonText: {
+    fontSize: FontSizes.md,
+  },
+  // Offline Banner at top
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EF4444',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  offlineBannerText: {
+    color: '#FFFFFF',
+    fontSize: FontSizes.sm,
+    fontWeight: '600',
+    flex: 1,
   },
 });

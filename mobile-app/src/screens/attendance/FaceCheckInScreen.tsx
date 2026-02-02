@@ -36,6 +36,10 @@ import {
 } from '../../services/livenessDetectionService';
 import {faceQualityService, FaceQualityResult} from '../../services/faceQualityService';
 import LivenessChallenge from '../../components/LivenessChallenge';
+import {networkService, NetworkStatus} from '../../services/networkService';
+import {locationService, FullLocationData} from '../../services/locationService';
+import {useOfflineQueueStore, usePendingPunchCount} from '../../store/offlineQueueStore';
+import {syncService} from '../../services/syncService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -69,7 +73,15 @@ export default function FaceCheckInScreen() {
     confidence: number;
   } | null>(null);
   const [location, setLocation] = useState<{latitude: number; longitude: number} | null>(null);
+  const [fullLocation, setFullLocation] = useState<FullLocationData | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
+
+  // Offline mode state
+  const [isOnline, setIsOnline] = useState<boolean>(networkService.isOnline());
+  const [isLocationEnabled, setIsLocationEnabled] = useState<boolean>(true);
+  const [isOfflineSuccess, setIsOfflineSuccess] = useState<boolean>(false);
+  const pendingPunchCount = usePendingPunchCount();
+  const addOfflinePunch = useOfflineQueueStore(state => state.addPunch);
 
   // Liveness state
   const [livenessSession, setLivenessSession] = useState<LivenessSession | null>(null);
@@ -97,6 +109,26 @@ export default function FaceCheckInScreen() {
       startLivenessSession();
     }
   }, []);
+
+  // Subscribe to network status changes
+  useEffect(() => {
+    const unsubscribe = networkService.subscribe((status: NetworkStatus) => {
+      const online = status.isConnected && status.isInternetReachable === true;
+      setIsOnline(online);
+      console.log('[FaceCheckIn] Network status:', online ? 'Online' : 'Offline');
+    });
+
+    // Check location enabled on mount
+    checkLocationEnabled();
+
+    return () => unsubscribe();
+  }, []);
+
+  const checkLocationEnabled = async () => {
+    const enabled = await locationService.isLocationEnabled();
+    setIsLocationEnabled(enabled);
+    console.log('[FaceCheckIn] Location enabled:', enabled);
+  };
 
   // Challenge timer
   useEffect(() => {
@@ -324,20 +356,29 @@ export default function FaceCheckInScreen() {
         return;
       }
 
-      // Get location
-      const locationPromise = getCurrentLocation();
-
-      // Get location
-      let currentLocation;
+      // Get full location with address using location service
+      let currentLocation: FullLocationData;
       try {
-        currentLocation = await locationPromise;
-        setLocation(currentLocation);
+        currentLocation = await locationService.getFullLocation();
+        setLocation({
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+        });
+        setFullLocation(currentLocation);
+        console.log('[FaceCheckIn] Got location:', currentLocation);
       } catch (locError: any) {
+        console.error('[FaceCheckIn] Location error:', locError);
         const errorCode = locError?.code;
-        if (errorCode === 2) {
+        if (errorCode === 2 || locError?.message?.includes('disabled')) {
           setLocationError('GPS is turned off.');
+          setIsLocationEnabled(false);
           showDialog.warning('Turn On Location', 'GPS is required for attendance check-in.', () => {
-            openLocationSettings();
+            locationService.openLocationSettings();
+          });
+        } else if (locError?.message?.includes('permission')) {
+          setLocationError('Location permission denied.');
+          showDialog.warning('Location Permission', 'Please enable location access to check in.', () => {
+            Linking.openSettings();
           });
         } else {
           setLocationError('Could not get your location.');
@@ -398,46 +439,78 @@ export default function FaceCheckInScreen() {
       // Get fresh user from store to avoid stale closure
       const currentUser = useAuthStore.getState().user;
       const employeeId = currentUser?.employeeId || currentUser?._id;
+      const tenantId = currentUser?.tenantId || '';
+      const employeeName = `${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`.trim();
       console.log('[FaceCheckIn] User object:', JSON.stringify(currentUser));
       console.log('[FaceCheckIn] Calling verify-face API with employeeId:', employeeId);
+      console.log('[FaceCheckIn] Network status - isOnline:', networkService.isOnline());
 
-      // Call verify-face API
-      const verifyResponse = await attendanceApi.verifyFace({
-        faceImage: base64Image,
-        location: currentLocation,
-        employeeId: employeeId, // Send logged-in employee ID as hint for mock mode
-      });
+      // Check if offline - save to queue instead of API call
+      if (!networkService.isOnline()) {
+        console.log('[FaceCheckIn] Offline mode - saving punch to queue');
+        await saveOfflinePunch(
+          tenantId,
+          employeeId!,
+          employeeName,
+          currentLocation,
+          0.9 // Default confidence for offline mode
+        );
+        return;
+      }
 
-      console.log('[FaceCheckIn] Verify response:', verifyResponse);
-
-      if (verifyResponse.success && verifyResponse.status === 'MATCHED') {
-        // Face matched - show personalized greeting
-        setMatchedEmployee({
-          employeeId: verifyResponse.employeeId!,
-          employeeName: verifyResponse.employeeName!,
-          confidence: verifyResponse.confidence || 0.9,
+      // Online - Call verify-face API
+      try {
+        const verifyResponse = await attendanceApi.verifyFace({
+          faceImage: base64Image,
+          location: {
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+          },
+          employeeId: employeeId, // Send logged-in employee ID as hint for mock mode
         });
-        setVerificationState('matched');
-      } else {
-        // Face not matched or error
-        setVerificationState('error');
-        let errorMessage = verifyResponse.message;
 
-        if (verifyResponse.status === 'NO_FACE') {
-          errorMessage = 'No face detected. Please position your face in the frame.';
-        } else if (verifyResponse.status === 'MULTIPLE_FACES') {
-          errorMessage = 'Multiple faces detected. Please ensure only one person is in the frame.';
-        } else if (verifyResponse.status === 'NO_ENROLLMENTS') {
-          errorMessage = 'Your face is not enrolled yet.';
-          showDialog.info('Face Not Enrolled', errorMessage, () => {
-            navigation.replace('FaceEnrollment');
+        console.log('[FaceCheckIn] Verify response:', verifyResponse);
+
+        if (verifyResponse.success && verifyResponse.status === 'MATCHED') {
+          // Face matched - show personalized greeting
+          setMatchedEmployee({
+            employeeId: verifyResponse.employeeId!,
+            employeeName: verifyResponse.employeeName!,
+            confidence: verifyResponse.confidence || 0.9,
           });
-          return;
-        } else if (verifyResponse.status === 'NO_MATCH') {
-          errorMessage = 'Face not recognized. Please try again or contact HR.';
-        }
+          setVerificationState('matched');
+        } else {
+          // Face not matched or error
+          setVerificationState('error');
+          let errorMessage = verifyResponse.message;
 
-        showDialog.error('Verification Failed', errorMessage, () => setVerificationState('camera'));
+          if (verifyResponse.status === 'NO_FACE') {
+            errorMessage = 'No face detected. Please position your face in the frame.';
+          } else if (verifyResponse.status === 'MULTIPLE_FACES') {
+            errorMessage = 'Multiple faces detected. Please ensure only one person is in the frame.';
+          } else if (verifyResponse.status === 'NO_ENROLLMENTS') {
+            errorMessage = 'Your face is not enrolled yet.';
+            showDialog.info('Face Not Enrolled', errorMessage, () => {
+              navigation.replace('FaceEnrollment');
+            });
+            return;
+          } else if (verifyResponse.status === 'NO_MATCH') {
+            errorMessage = 'Face not recognized. Please try again or contact HR.';
+          }
+
+          showDialog.error('Verification Failed', errorMessage, () => setVerificationState('camera'));
+        }
+      } catch (apiError) {
+        // API call failed - fallback to offline mode
+        console.error('[FaceCheckIn] API error, falling back to offline mode:', apiError);
+        showToast.warning('Network issue - saving punch offline');
+        await saveOfflinePunch(
+          tenantId,
+          employeeId!,
+          employeeName,
+          currentLocation,
+          0.9 // Default confidence for offline mode
+        );
       }
     } catch (error) {
       console.error('[FaceCheckIn] Error:', error);
@@ -448,6 +521,57 @@ export default function FaceCheckInScreen() {
       setIsCapturing(false);
     }
   }, [user, navigation]);
+
+  // Save punch to offline queue
+  const saveOfflinePunch = async (
+    tenantId: string,
+    employeeId: string,
+    employeeName: string,
+    locationData: FullLocationData,
+    confidence: number
+  ) => {
+    const punchId = addOfflinePunch({
+      tenantId,
+      employeeId,
+      employeeName,
+      type: isCheckOut ? 'check-out' : 'check-in',
+      timestamp: new Date().toISOString(),
+      location: {
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        address: locationData.address?.formattedAddress,
+        accuracy: locationData.accuracy,
+      },
+      faceVerification: {
+        verified: true,
+        confidence,
+      },
+    });
+
+    console.log('[FaceCheckIn] Saved offline punch:', punchId);
+
+    // Show offline success
+    setIsOfflineSuccess(true);
+    setSuccessMessage(
+      isCheckOut
+        ? `Your check-out has been saved offline. It will sync automatically when you're back online.`
+        : `Your check-in has been saved offline. It will sync automatically when you're back online.`
+    );
+    setVerificationState('success');
+
+    // Animate success icon
+    Animated.spring(successScale, {
+      toValue: 1,
+      friction: 4,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+
+    // Auto-close after 3 seconds
+    setTimeout(() => {
+      navigation.goBack();
+    }, 3000);
+  };
 
   const handleConfirmCheckIn = async () => {
     if (!matchedEmployee || !location) return;
@@ -561,13 +685,15 @@ export default function FaceCheckInScreen() {
   // Render success screen
   if (verificationState === 'success') {
     return (
-      <SafeAreaView style={[styles.container, {backgroundColor: colors.success}]}>
+      <SafeAreaView style={[styles.container, {backgroundColor: isOfflineSuccess ? '#F59E0B' : colors.success}]}>
         <View style={styles.successContainer}>
           <Animated.View style={[styles.successIcon, {transform: [{scale: successScale}]}]}>
-            <Icon name="check-circle" size={100} color="#FFFFFF" />
+            <Icon name={isOfflineSuccess ? 'cloud-check' : 'check-circle'} size={100} color="#FFFFFF" />
           </Animated.View>
           <Text style={styles.successTitle}>
-            {isCheckOut ? 'Checked Out!' : 'Checked In!'}
+            {isOfflineSuccess
+              ? 'Saved Offline!'
+              : isCheckOut ? 'Checked Out!' : 'Checked In!'}
           </Text>
           <Text style={styles.successMessage}>{successMessage}</Text>
           <Text style={styles.successTime}>
@@ -576,6 +702,12 @@ export default function FaceCheckInScreen() {
               minute: '2-digit',
             })}
           </Text>
+          {isOfflineSuccess && (
+            <View style={styles.offlineSuccessBadge}>
+              <Icon name="sync" size={16} color="#FFFFFF" />
+              <Text style={styles.offlineSuccessBadgeText}>Will sync when online</Text>
+            </View>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -716,13 +848,44 @@ export default function FaceCheckInScreen() {
           )}
         </View>
 
-        {/* Location Error */}
-        {locationError && (
-          <View style={styles.errorBanner}>
-            <Icon name="map-marker-alert" size={20} color={colors.error} />
-            <Text style={styles.errorText}>{locationError}</Text>
-          </View>
-        )}
+        {/* Status Banners */}
+        <View style={styles.statusBannersContainer}>
+          {/* Offline Banner */}
+          {!isOnline && (
+            <View style={[styles.statusBanner, styles.offlineBanner]}>
+              <Icon name="wifi-off" size={18} color="#FFFFFF" />
+              <Text style={styles.statusBannerText}>You are offline - punch will be saved locally</Text>
+            </View>
+          )}
+
+          {/* Location Disabled Banner */}
+          {!isLocationEnabled && (
+            <TouchableOpacity
+              style={[styles.statusBanner, styles.locationBanner]}
+              onPress={() => locationService.openLocationSettings()}>
+              <Icon name="crosshairs-gps" size={18} color="#FFFFFF" />
+              <Text style={styles.statusBannerText}>Location is disabled - tap to enable</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Pending Sync Badge */}
+          {pendingPunchCount > 0 && (
+            <View style={[styles.statusBanner, styles.pendingBanner]}>
+              <Icon name="cloud-sync" size={18} color="#FFFFFF" />
+              <Text style={styles.statusBannerText}>
+                {pendingPunchCount} punch{pendingPunchCount > 1 ? 'es' : ''} pending sync
+              </Text>
+            </View>
+          )}
+
+          {/* Location Error */}
+          {locationError && (
+            <View style={[styles.statusBanner, styles.errorBannerNew]}>
+              <Icon name="map-marker-alert" size={18} color="#FFFFFF" />
+              <Text style={styles.statusBannerText}>{locationError}</Text>
+            </View>
+          )}
+        </View>
 
         {/* Capture Button */}
         <SafeAreaView edges={['bottom']} style={styles.bottomContainer}>
@@ -856,6 +1019,35 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.md,
     marginTop: Spacing.lg,
   },
+  statusBannersContainer: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  statusBannerText: {
+    color: '#FFFFFF',
+    fontSize: FontSizes.sm,
+    marginLeft: Spacing.sm,
+    fontWeight: '500',
+  },
+  offlineBanner: {
+    backgroundColor: 'rgba(245, 158, 11, 0.9)',
+  },
+  locationBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+  },
+  pendingBanner: {
+    backgroundColor: 'rgba(59, 130, 246, 0.9)',
+  },
+  errorBannerNew: {
+    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+  },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -973,6 +1165,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 48,
     fontWeight: '300',
+  },
+  offlineSuccessBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.lg,
+  },
+  offlineSuccessBadgeText: {
+    color: '#FFFFFF',
+    fontSize: FontSizes.sm,
+    marginLeft: Spacing.xs,
+    fontWeight: '500',
   },
   // Matched employee screen styles
   matchedContainer: {
