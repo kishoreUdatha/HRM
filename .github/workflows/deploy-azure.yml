@@ -209,6 +209,7 @@ jobs:
           az containerapp update \
             --name hrm-production-gateway \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-production-gateway \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-api-gateway:${{ needs.build-push.outputs.image_tag }} \
             --set-env-vars "AUTH_SERVICE_URL=$AUTH_URL" "TENANT_SERVICE_URL=$TENANT_URL" "EMPLOYEE_SERVICE_URL=$EMPLOYEE_URL" "ATTENDANCE_SERVICE_URL=$ATTENDANCE_URL" "LEAVE_SERVICE_URL=$LEAVE_URL" "PAYROLL_SERVICE_URL=$PAYROLL_URL" "NOTIFICATION_SERVICE_URL=$NOTIFICATION_URL" "ONBOARDING_SERVICE_URL=$ONBOARDING_URL" "BILLING_SERVICE_URL=$BILLING_URL" "TIMESHEET_SERVICE_URL=$TIMESHEET_URL" "PORT=3000"
 
@@ -236,53 +237,63 @@ jobs:
           # Use HTTP for internal container-to-container communication (Azure Container Apps internal networking)
           echo "Updating auth service..."
           az containerapp update --name hrm-auth-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-auth-service \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-auth-service:$IMAGE_TAG \
             --set-env-vars "EMPLOYEE_SERVICE_URL=$EMPLOYEE_URL" "TENANT_SERVICE_URL=$TENANT_URL" "PORT=3001" &
 
           echo "Updating tenant service..."
           az containerapp update --name hrm-tenant-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-tenant-service \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-tenant-service:$IMAGE_TAG \
             --set-env-vars "INTERNAL_API_KEY=${{ secrets.INTERNAL_API_KEY }}" "PORT=3002" &
 
           # Employee service needs URLs for tenant and billing services
           echo "Updating employee service..."
           az containerapp update --name hrm-employee-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-employee-service \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-employee-service:$IMAGE_TAG \
             --set-env-vars "TENANT_SERVICE_URL=$TENANT_URL" "BILLING_SERVICE_URL=$BILLING_URL" "INTERNAL_API_KEY=${{ secrets.INTERNAL_API_KEY }}" "PORT=3003" &
 
           # Attendance service needs employee service URL
           echo "Updating attendance service..."
           az containerapp update --name hrm-attendance-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-attendance-service \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-attendance-service:$IMAGE_TAG \
             --set-env-vars "EMPLOYEE_SERVICE_URL=$EMPLOYEE_URL" "PORT=3004" &
 
           echo "Updating leave service..."
           az containerapp update --name hrm-leave-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-leave-service \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-leave-service:$IMAGE_TAG \
             --set-env-vars "PORT=3005" &
 
           echo "Updating timesheet service..."
           az containerapp update --name hrm-timesheet-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-timesheet-service \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-timesheet-service:$IMAGE_TAG \
             --set-env-vars "PORT=3024" &
 
           echo "Updating payroll service..."
           az containerapp update --name hrm-payroll-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-payroll-service \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-payroll-service:$IMAGE_TAG \
             --set-env-vars "PORT=3006" &
 
           echo "Updating notification service..."
           az containerapp update --name hrm-notification-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-notification-service \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-notification-service:$IMAGE_TAG \
             --set-env-vars "PORT=3007" &
 
           echo "Updating onboarding service..."
           az containerapp update --name hrm-onboarding-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-onboarding-service \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-onboarding-service:$IMAGE_TAG \
             --set-env-vars "PORT=3021" &
 
           echo "Updating billing service..."
           az containerapp update --name hrm-billing-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-billing-service \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-billing-service:$IMAGE_TAG \
             --set-env-vars "PORT=3027" &
 
