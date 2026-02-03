@@ -477,6 +477,63 @@ export const getCurrentUser = async (
   }
 };
 
+// Update current user profile
+export const updateProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.headers['x-user-id'] as string;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'Not authenticated',
+      });
+      return;
+    }
+
+    const { firstName, lastName, mobileNumber } = req.body;
+
+    // Build update object with only allowed fields
+    const updateData: Record<string, unknown> = {};
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (mobileNumber !== undefined) updateData.mobileNumber = mobileNumber;
+
+    if (Object.keys(updateData).length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'No valid fields to update',
+      });
+      return;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: user.toJSON(),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // Change password
 export const changePassword = async (
   req: Request,

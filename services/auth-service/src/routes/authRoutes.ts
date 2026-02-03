@@ -8,6 +8,7 @@ import {
   logout,
   refreshToken,
   getCurrentUser,
+  updateProfile,
   changePassword,
   setMobileCredentials,
   getUsersByTenant,
@@ -93,6 +94,8 @@ router.post('/refresh', refreshToken);
 // Protected routes (auth verified by gateway)
 router.get('/me', getCurrentUser);
 router.get('/profile', getCurrentUser); // Alias for /me
+router.put('/me', updateProfile);
+router.put('/profile', updateProfile); // Alias for /me
 router.post('/change-password', changePasswordValidation, validate, changePassword);
 router.post('/set-mobile-credentials', setMobileCredentialsValidation, validate, setMobileCredentials);
 router.get('/users', getUsersByTenant);
