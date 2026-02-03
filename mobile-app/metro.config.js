@@ -7,6 +7,9 @@ const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
  * @type {import('metro-config').MetroConfig}
  */
 const config = {
+  resolver: {
+    unstable_enablePackageExports: true,
+  },
   server: {
     enhanceMiddleware: (middleware) => {
       return middleware;
