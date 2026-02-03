@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("com.facebook.react")
+    id("com.google.gms.google-services")
 }
 
 /**
@@ -34,9 +35,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.hrmobile"
+    namespace "com.candycode.hrzio"
     defaultConfig {
-        applicationId "com.hrmobile"
+        applicationId "com.candycode.hrzio"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

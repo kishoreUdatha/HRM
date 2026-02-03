@@ -124,6 +124,10 @@ azure.json
 *.credentials
 *.secrets
 
+# Firebase Admin SDK credentials (never commit!)
+*-firebase-adminsdk-*.json
+firebase-adminsdk*.json
+
 # Debug
 *.debug
 .fusebox/

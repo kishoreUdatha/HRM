@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "711962193179",
+    "project_id": "hrzio-7631e",
+    "storage_bucket": "hrzio-7631e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:711962193179:android:9d6d1bc8a931793edcf7be",
+        "android_client_info": {
+          "package_name": "com.candycode.hrzio"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPOMGon301kd2cSwRShqBAu1VcsAFFnaE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

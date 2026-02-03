@@ -1,4 +1,4 @@
-package com.hrmobile
+package com.candycode.hrzio
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
