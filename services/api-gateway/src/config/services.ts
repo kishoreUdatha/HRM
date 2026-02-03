@@ -89,12 +89,21 @@ export const services: ServiceConfig[] = [
     timeout: 30000,
     requiresAuth: false,
   },
-  // Protected auth routes (me, change-password, etc.)
+  // Protected auth routes (me, profile, change-password, etc.)
   {
     name: 'auth-protected-service',
     url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
     pathPrefix: '/api/auth/me',
     targetPath: '/me',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication
+  },
+  {
+    name: 'auth-profile-service',
+    url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+    pathPrefix: '/api/auth/profile',
+    targetPath: '/profile',
     healthCheck: '/health',
     timeout: 30000,
     requiresAuth: true,  // Requires authentication
@@ -107,6 +116,24 @@ export const services: ServiceConfig[] = [
     healthCheck: '/health',
     timeout: 30000,
     requiresAuth: true,  // Requires authentication
+  },
+  {
+    name: 'auth-set-mobile-credentials',
+    url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+    pathPrefix: '/api/auth/set-mobile-credentials',
+    targetPath: '/set-mobile-credentials',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication
+  },
+  {
+    name: 'auth-device-token',
+    url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+    pathPrefix: '/api/auth/device-token',
+    targetPath: '/device-token',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,  // Requires authentication for FCM token registration
   },
   {
     name: 'auth-users',
