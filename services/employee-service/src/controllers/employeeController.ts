@@ -431,8 +431,14 @@ export const verifyMobileCredentials = async (
       return;
     }
 
-    // Verify PIN (default is 1122 if not set)
-    const employeePin = employee.pin || '1122';
+    // Verify PIN
+    // Default PIN: 4499 for admin roles (tenant_admin, hr, manager), 1122 for regular employees
+    // Check if employee has admin designation or is linked to admin user
+    const isAdminRole = ['CEO', 'CTO', 'CFO', 'COO', 'Director', 'Manager', 'HR Manager', 'Admin', 'Administrator', 'Tenant Admin'].some(
+      role => employee.designation?.toLowerCase().includes(role.toLowerCase())
+    );
+    const defaultPin = isAdminRole ? '4499' : '1122';
+    const employeePin = employee.pin || defaultPin;
     if (employeePin !== pin) {
       res.status(401).json({
         success: false,
@@ -504,7 +510,7 @@ export const toggleSelfyPunch = async (
   }
 };
 
-// Reset employee PIN to default (1122)
+// Reset employee PIN to default (4499 for admins, 1122 for regular employees)
 export const resetPin = async (
   req: Request,
   res: Response,
@@ -519,21 +525,33 @@ export const resetPin = async (
       return;
     }
 
-    const employee = await Employee.findOneAndUpdate(
-      { _id: id, tenantId: new mongoose.Types.ObjectId(tenantId) },
-      { $set: { pin: '1122' } },
-      { new: true }
-    ).populate('departmentId', 'name code');
+    // First find the employee to determine their role
+    const existingEmployee = await Employee.findOne({
+      _id: id,
+      tenantId: new mongoose.Types.ObjectId(tenantId),
+    });
 
-    if (!employee) {
+    if (!existingEmployee) {
       res.status(404).json({ success: false, message: 'Employee not found' });
       return;
     }
 
+    // Determine default PIN based on designation
+    const isAdminRole = ['CEO', 'CTO', 'CFO', 'COO', 'Director', 'Manager', 'HR Manager', 'Admin', 'Administrator', 'Tenant Admin'].some(
+      role => existingEmployee.designation?.toLowerCase().includes(role.toLowerCase())
+    );
+    const defaultPin = isAdminRole ? '4499' : '1122';
+
+    const employee = await Employee.findOneAndUpdate(
+      { _id: id, tenantId: new mongoose.Types.ObjectId(tenantId) },
+      { $set: { pin: defaultPin } },
+      { new: true }
+    ).populate('departmentId', 'name code');
+
     res.json({
       success: true,
       data: employee,
-      message: 'PIN reset to default (1122) successfully',
+      message: `PIN reset to default (${defaultPin}) successfully`,
     });
   } catch (error) {
     next(error);

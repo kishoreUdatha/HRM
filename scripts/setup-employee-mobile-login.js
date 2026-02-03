@@ -11,8 +11,11 @@ const bcrypt = require('bcryptjs');
 const AUTH_DB_URI = process.env.AUTH_DB_URI || 'mongodb://admin:hrm_password_2024@localhost:27017/hrm_auth?authSource=admin';
 const EMPLOYEE_DB_URI = process.env.EMPLOYEE_DB_URI || 'mongodb://admin:hrm_password_2024@localhost:27017/hrm_employees?authSource=admin';
 
-const DEFAULT_PIN = '1122';
+// Default PINs: 4499 for admin roles, 1122 for regular employees
+const DEFAULT_ADMIN_PIN = '4499';
+const DEFAULT_EMPLOYEE_PIN = '1122';
 const DEFAULT_PASSWORD = 'Employee@123';
+const ADMIN_DESIGNATIONS = ['CEO', 'CTO', 'CFO', 'COO', 'Director', 'Manager', 'HR Manager', 'Admin', 'Administrator', 'Tenant Admin'];
 
 async function setupEmployeeMobileLogin() {
   const authClient = new MongoClient(AUTH_DB_URI);
@@ -29,12 +32,20 @@ async function setupEmployeeMobileLogin() {
     const usersCollection = authDb.collection('users');
     const employeesCollection = employeeDb.collection('employees');
 
-    // Hash the default PIN and password
+    // Hash the default PINs and password
     const pinSalt = await bcrypt.genSalt(10);
-    const hashedPin = await bcrypt.hash(DEFAULT_PIN, pinSalt);
+    const hashedAdminPin = await bcrypt.hash(DEFAULT_ADMIN_PIN, pinSalt);
+    const hashedEmployeePin = await bcrypt.hash(DEFAULT_EMPLOYEE_PIN, pinSalt);
 
     const passwordSalt = await bcrypt.genSalt(12);
     const hashedPassword = await bcrypt.hash(DEFAULT_PASSWORD, passwordSalt);
+
+    // Helper function to check if designation is admin-level
+    const isAdminDesignation = (designation) => {
+      return ADMIN_DESIGNATIONS.some(role =>
+        (designation || '').toLowerCase().includes(role.toLowerCase())
+      );
+    };
 
     // Get all employees
     const employees = await employeesCollection.find({ status: 'active' }).toArray();
@@ -56,6 +67,11 @@ async function setupEmployeeMobileLogin() {
         // Generate a unique mobile number if phone is invalid
         mobileNumber = `90${employee._id.toString().slice(-8)}`;
       }
+
+      // Determine PIN based on designation
+      const isAdmin = isAdminDesignation(employee.designation);
+      const hashedPin = isAdmin ? hashedAdminPin : hashedEmployeePin;
+      const plainPin = isAdmin ? DEFAULT_ADMIN_PIN : DEFAULT_EMPLOYEE_PIN;
 
       // Check if user already exists for this employee
       let user = null;
@@ -97,6 +113,8 @@ async function setupEmployeeMobileLogin() {
           name: `${employee.firstName} ${employee.lastName}`,
           email: employee.email,
           mobile: mobileNumber,
+          pin: plainPin,
+          designation: employee.designation,
           status: 'updated'
         });
         updated++;
@@ -133,6 +151,8 @@ async function setupEmployeeMobileLogin() {
           name: `${employee.firstName} ${employee.lastName}`,
           email: employee.email,
           mobile: mobileNumber,
+          pin: plainPin,
+          designation: employee.designation,
           status: 'created'
         });
         created++;
@@ -143,23 +163,25 @@ async function setupEmployeeMobileLogin() {
     console.log(`Created: ${created} new user accounts`);
     console.log(`Updated: ${updated} existing user accounts`);
     console.log(`Skipped: ${skipped}`);
-    console.log(`\nDefault PIN for all employees: ${DEFAULT_PIN}`);
+    console.log(`\nDefault PIN for admin roles: ${DEFAULT_ADMIN_PIN}`);
+    console.log(`Default PIN for employees: ${DEFAULT_EMPLOYEE_PIN}`);
     console.log(`Default Password (for web): ${DEFAULT_PASSWORD}`);
 
     console.log(`\n========== EMPLOYEE LOGIN CREDENTIALS ==========`);
-    console.log('Mobile Number\t\tName\t\t\t\tEmail\t\t\t\tStatus');
-    console.log('-'.repeat(100));
+    console.log('Mobile Number\t\tPIN\tName\t\t\t\tDesignation\t\tStatus');
+    console.log('-'.repeat(120));
 
     results.forEach(r => {
       const name = `${r.name}`.padEnd(24);
-      const email = `${r.email}`.padEnd(32);
-      console.log(`${r.mobile}\t\t${name}\t${email}\t${r.status}`);
+      const designation = `${r.designation || 'N/A'}`.padEnd(20);
+      console.log(`${r.mobile}\t\t${r.pin}\t${name}\t${designation}\t${r.status}`);
     });
 
     console.log('\n========== SUMMARY ==========');
     console.log('All employees can now login to the mobile app using:');
     console.log('- Their mobile number (shown above)');
-    console.log(`- PIN: ${DEFAULT_PIN}`);
+    console.log(`- PIN: ${DEFAULT_ADMIN_PIN} for admin designations (${ADMIN_DESIGNATIONS.join(', ')})`);
+    console.log(`- PIN: ${DEFAULT_EMPLOYEE_PIN} for regular employees`);
 
   } catch (error) {
     console.error('Error:', error);

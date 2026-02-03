@@ -60,7 +60,7 @@ export interface IEmployee extends Document {
   faceEnrolled: boolean;
   faceEnrollmentDate?: Date;
   selfyPunch: boolean;  // Allow mobile app login with selfie punch
-  pin?: string;  // 4-digit PIN for mobile login (default: 1122)
+  pin?: string;  // 4-digit PIN for mobile login (default: 4499 for admins, 1122 for employees)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -194,7 +194,8 @@ const employeeSchema = new Schema<IEmployee>(
     },
     pin: {
       type: String,
-      default: '1122',  // Default 4-digit PIN
+      // Note: Default PIN is determined at runtime based on role
+      // 4499 for admins (CEO, Director, Manager, etc.), 1122 for regular employees
       match: [/^\d{4}$/, 'PIN must be 4 digits'],
     },
   },
