@@ -40,6 +40,7 @@ import {networkService, NetworkStatus} from '../../services/networkService';
 import {locationService, FullLocationData} from '../../services/locationService';
 import {useOfflineQueueStore, usePendingPunchCount} from '../../store/offlineQueueStore';
 import {syncService} from '../../services/syncService';
+import {checkoutReminderService} from '../../services/checkoutReminderService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -595,6 +596,17 @@ export default function FaceCheckInScreen() {
           : `Thank you, ${matchedEmployee.employeeName.split(' ')[0]}! Have a productive day!`));
         setVerificationState('success');
 
+        // Handle checkout reminder
+        if (isCheckOut) {
+          // Cancel any pending checkout reminder on check-out
+          checkoutReminderService.cancelReminder().catch(err => {
+            console.log('[FaceCheckIn] Error cancelling checkout reminder:', err);
+          });
+        } else {
+          // Schedule checkout reminder on successful check-in
+          scheduleCheckoutReminder(matchedEmployee.employeeName);
+        }
+
         // Invalidate attendance queries to refresh data immediately
         queryClient.invalidateQueries({queryKey: ['todayAttendance']});
         queryClient.invalidateQueries({queryKey: ['attendanceSummary']});
@@ -619,6 +631,45 @@ export default function FaceCheckInScreen() {
     } catch (error) {
       const errorMessage = handleApiError(error);
       showDialog.error('Error', errorMessage, () => setVerificationState('camera'));
+    }
+  };
+
+  // Schedule checkout reminder after successful check-in
+  const scheduleCheckoutReminder = async (employeeName: string) => {
+    try {
+      // Fetch notification settings and shift config
+      const [notificationSettingsRes, shiftConfigRes] = await Promise.all([
+        attendanceApi.getNotificationSettings().catch(() => null),
+        attendanceApi.getShiftConfig().catch(() => null),
+      ]);
+
+      const notificationSettings = notificationSettingsRes?.data;
+      const shiftConfig = shiftConfigRes?.data;
+
+      // Check if checkout reminder is enabled
+      if (notificationSettings && !notificationSettings.enableCheckoutReminder) {
+        console.log('[FaceCheckIn] Checkout reminder disabled for tenant');
+        return;
+      }
+
+      // Get shift end time (default to 18:00 if not configured)
+      const shiftEndTime = shiftConfig?.endTime || '18:00';
+      const checkoutReminderThreshold = notificationSettings?.checkoutReminderThreshold || 30;
+
+      console.log('[FaceCheckIn] Scheduling checkout reminder:', {
+        shiftEndTime,
+        checkoutReminderThreshold,
+        employeeName,
+      });
+
+      await checkoutReminderService.scheduleReminder({
+        employeeName,
+        shiftEndTime,
+        checkoutReminderThreshold,
+      });
+    } catch (error) {
+      console.error('[FaceCheckIn] Error scheduling checkout reminder:', error);
+      // Don't show error to user - checkout reminder is not critical
     }
   };
 

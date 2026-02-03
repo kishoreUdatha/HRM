@@ -11,6 +11,9 @@ import {
   changePassword,
   setMobileCredentials,
   getUsersByTenant,
+  registerDeviceToken,
+  removeDeviceToken,
+  getUsersWithFCMTokens,
 } from '../controllers/authController';
 import {
   getUsers,
@@ -92,6 +95,13 @@ router.get('/me', getCurrentUser);
 router.post('/change-password', changePasswordValidation, validate, changePassword);
 router.post('/set-mobile-credentials', setMobileCredentialsValidation, validate, setMobileCredentials);
 router.get('/users', getUsersByTenant);
+
+// FCM Device Token routes (for push notifications)
+router.post('/device-token', registerDeviceToken);
+router.delete('/device-token', removeDeviceToken);
+
+// Internal API for notification service to get users with FCM tokens
+router.post('/internal/users-with-fcm-tokens', getUsersWithFCMTokens);
 
 // ==================== ADMIN USER MANAGEMENT ROUTES ====================
 const createUserValidation = [

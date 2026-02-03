@@ -1378,3 +1378,161 @@ export const deleteGeofenceLocation = async (
     next(error);
   }
 };
+
+// Get notification settings (for tenant admin)
+export const getNotificationSettings = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    const tenant = await Tenant.findById(tenantId).select('settings.attendanceSettings');
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    // Return notification-related settings with defaults
+    const attendanceSettings = tenant.settings?.attendanceSettings || {};
+    const notificationSettings = {
+      lateNotificationThreshold: attendanceSettings.lateNotificationThreshold ?? 30,
+      enableLateNotifications: attendanceSettings.enableLateNotifications ?? true,
+      checkoutReminderThreshold: attendanceSettings.checkoutReminderThreshold ?? 30,
+      enableCheckoutReminder: attendanceSettings.enableCheckoutReminder ?? true,
+    };
+
+    res.json({
+      success: true,
+      data: notificationSettings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update notification settings (for tenant admin)
+export const updateNotificationSettings = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const {
+      lateNotificationThreshold,
+      enableLateNotifications,
+      checkoutReminderThreshold,
+      enableCheckoutReminder,
+    } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    const updateData: Record<string, unknown> = {};
+
+    if (typeof lateNotificationThreshold === 'number') {
+      updateData['settings.attendanceSettings.lateNotificationThreshold'] = lateNotificationThreshold;
+    }
+    if (typeof enableLateNotifications === 'boolean') {
+      updateData['settings.attendanceSettings.enableLateNotifications'] = enableLateNotifications;
+    }
+    if (typeof checkoutReminderThreshold === 'number') {
+      updateData['settings.attendanceSettings.checkoutReminderThreshold'] = checkoutReminderThreshold;
+    }
+    if (typeof enableCheckoutReminder === 'boolean') {
+      updateData['settings.attendanceSettings.enableCheckoutReminder'] = enableCheckoutReminder;
+    }
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      tenantId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    const attendanceSettings = tenant.settings?.attendanceSettings || {};
+    const notificationSettings = {
+      lateNotificationThreshold: attendanceSettings.lateNotificationThreshold ?? 30,
+      enableLateNotifications: attendanceSettings.enableLateNotifications ?? true,
+      checkoutReminderThreshold: attendanceSettings.checkoutReminderThreshold ?? 30,
+      enableCheckoutReminder: attendanceSettings.enableCheckoutReminder ?? true,
+    };
+
+    res.json({
+      success: true,
+      data: notificationSettings,
+      message: 'Notification settings updated successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Internal API: Get notification settings by tenant ID (called by other services)
+export const getNotificationSettingsInternal = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { tenantId } = req.params;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant ID is required',
+      });
+      return;
+    }
+
+    const tenant = await Tenant.findById(tenantId).select('settings.attendanceSettings');
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    // Return notification-related settings with defaults
+    const attendanceSettings = tenant.settings?.attendanceSettings || {};
+    const notificationSettings = {
+      lateNotificationThreshold: attendanceSettings.lateNotificationThreshold ?? 30,
+      enableLateNotifications: attendanceSettings.enableLateNotifications ?? true,
+      checkoutReminderThreshold: attendanceSettings.checkoutReminderThreshold ?? 30,
+      enableCheckoutReminder: attendanceSettings.enableCheckoutReminder ?? true,
+    };
+
+    res.json({
+      success: true,
+      data: notificationSettings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

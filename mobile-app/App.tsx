@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {StatusBar} from 'react-native';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import {NavigationContainer} from '@react-navigation/native';
@@ -11,6 +11,7 @@ import {useAuthStore} from './src/store/authStore';
 import {Colors} from './src/theme/colors';
 import {networkService} from './src/services/networkService';
 import {syncService} from './src/services/syncService';
+import {pushNotificationService} from './src/services/pushNotificationService';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,6 +26,7 @@ const queryClient = new QueryClient({
 function App(): React.JSX.Element {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const isDarkMode = useAuthStore(state => state.isDarkMode);
+  const wasAuthenticated = useRef(false);
 
   // Initialize network and sync services on app start
   useEffect(() => {
@@ -36,11 +38,29 @@ function App(): React.JSX.Element {
     // Initialize sync service (will sync pending punches when online)
     syncService.initialize();
 
+    // Initialize push notification service
+    pushNotificationService.initialize();
+
     return () => {
       // Cleanup on unmount
       syncService.destroy();
+      pushNotificationService.destroy();
     };
   }, []);
+
+  // Register/unregister FCM token on auth state change
+  useEffect(() => {
+    if (isAuthenticated && !wasAuthenticated.current) {
+      // User just logged in - register FCM token
+      console.log('[App] User authenticated, registering FCM token...');
+      pushNotificationService.registerToken();
+    } else if (!isAuthenticated && wasAuthenticated.current) {
+      // User just logged out - unregister FCM token
+      console.log('[App] User logged out, unregistering FCM token...');
+      pushNotificationService.unregisterToken();
+    }
+    wasAuthenticated.current = isAuthenticated;
+  }, [isAuthenticated]);
 
   return (
     <GestureHandlerRootView style={{flex: 1}}>

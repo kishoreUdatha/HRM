@@ -1,8 +1,13 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
+import axios from 'axios';
 import Notification from '../models/Notification';
 import NotificationTemplate from '../models/NotificationTemplate';
 import emailService from '../services/emailService';
+import pushNotificationService from '../services/pushNotificationService';
+
+// Auth service URL for getting users with FCM tokens
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
 
 // Get notifications for user
 export const getNotifications = async (req: Request, res: Response): Promise<void> => {
@@ -457,6 +462,141 @@ export const seedTemplates = async (req: Request, res: Response): Promise<void> 
     res.status(500).json({
       success: false,
       message: 'Failed to seed templates',
+    });
+  }
+};
+
+// ==================== LATE ATTENDANCE NOTIFICATION ====================
+
+// Send late attendance notification to tenant admins (internal API called by attendance service)
+export const sendLateAttendanceNotification = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const {
+      tenantId,
+      employeeId,
+      employeeName,
+      checkInTime,
+      lateByMinutes,
+      shiftStartTime,
+      isOfflineSync,
+    } = req.body;
+
+    if (!tenantId || !employeeId || !employeeName || !lateByMinutes) {
+      res.status(400).json({
+        success: false,
+        message: 'Missing required fields: tenantId, employeeId, employeeName, lateByMinutes',
+      });
+      return;
+    }
+
+    console.log(`[Notification Service] Late attendance notification for ${employeeName} (${lateByMinutes} min late)`);
+
+    // 1. Get tenant admins with FCM tokens from auth service
+    let adminsWithTokens: Array<{
+      _id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      role: string;
+      fcmTokens: Array<{ token: string; isActive: boolean }>;
+    }> = [];
+
+    try {
+      const response = await axios.post(
+        `${AUTH_SERVICE_URL}/internal/users-with-fcm-tokens`,
+        {
+          tenantId,
+          roles: ['tenant_admin', 'hr'],
+        },
+        {
+          headers: { 'X-Internal-Service': 'notification-service' },
+          timeout: 5000,
+        }
+      );
+
+      if (response.data.success) {
+        adminsWithTokens = response.data.data;
+      }
+    } catch (error) {
+      console.error('[Notification Service] Failed to fetch admins from auth service:', error);
+    }
+
+    // 2. Create in-app notifications for all admins
+    const adminIds = adminsWithTokens.map(admin => admin._id);
+
+    // If we couldn't get admins from auth service, we still create in-app notification
+    // by querying the notification based on tenantId (admin will see it in dashboard)
+    const notificationTitle = isOfflineSync
+      ? 'Late Check-in Alert (Offline Sync)'
+      : 'Late Check-in Alert';
+
+    const notificationMessage = `${employeeName} checked in ${lateByMinutes} minutes late` +
+      (shiftStartTime ? ` (Shift starts at ${shiftStartTime})` : '') +
+      (checkInTime ? `. Check-in time: ${new Date(checkInTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : '');
+
+    // Create notifications for each admin
+    if (adminIds.length > 0) {
+      const notifications = adminIds.map(userId => ({
+        tenantId,
+        userId,
+        category: 'attendance',
+        type: 'warning',
+        title: notificationTitle,
+        message: notificationMessage,
+        data: {
+          employeeId,
+          employeeName,
+          checkInTime,
+          lateByMinutes,
+          shiftStartTime,
+          isOfflineSync: isOfflineSync || false,
+        },
+        link: `/attendance?employeeId=${employeeId}`,
+        isRead: false,
+      }));
+
+      await Notification.insertMany(notifications);
+      console.log(`[Notification Service] Created ${notifications.length} in-app notifications`);
+    }
+
+    // 3. Send push notifications to admins with FCM tokens
+    const allTokens = adminsWithTokens.flatMap(admin =>
+      admin.fcmTokens
+        .filter(t => t.isActive)
+        .map(t => t.token)
+    );
+
+    let pushResult = { successCount: 0, failureCount: 0, failedTokens: [] as string[] };
+
+    if (allTokens.length > 0 && pushNotificationService.isEnabled()) {
+      pushResult = await pushNotificationService.sendLateAttendanceNotification({
+        tokens: allTokens,
+        employeeName,
+        lateByMinutes,
+        checkInTime: new Date(checkInTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        employeeId,
+        tenantId,
+      });
+
+      console.log(`[Notification Service] Push sent: ${pushResult.successCount} success, ${pushResult.failureCount} failed`);
+    } else if (allTokens.length === 0) {
+      console.log('[Notification Service] No FCM tokens found for admins');
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Late attendance notification sent',
+      data: {
+        adminsNotified: adminIds.length,
+        pushSent: pushResult.successCount,
+        pushFailed: pushResult.failureCount,
+      },
+    });
+  } catch (error) {
+    console.error('[Notification Service] Late attendance notification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send late attendance notification',
     });
   }
 };

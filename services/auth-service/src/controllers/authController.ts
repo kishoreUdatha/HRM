@@ -614,3 +614,168 @@ export const getUsersByTenant = async (
     next(error);
   }
 };
+
+// Register FCM device token for push notifications
+export const registerDeviceToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.headers['x-user-id'] as string;
+    const { token, platform, deviceId } = req.body;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'Not authenticated',
+      });
+      return;
+    }
+
+    if (!token || !platform || !deviceId) {
+      res.status(400).json({
+        success: false,
+        message: 'Token, platform, and deviceId are required',
+      });
+      return;
+    }
+
+    if (!['android', 'ios'].includes(platform)) {
+      res.status(400).json({
+        success: false,
+        message: 'Platform must be android or ios',
+      });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Remove existing token for this device (if any)
+    user.fcmTokens = user.fcmTokens.filter(t => t.deviceId !== deviceId);
+
+    // Add new token
+    user.fcmTokens.push({
+      token,
+      platform,
+      deviceId,
+      lastUpdated: new Date(),
+      isActive: true,
+    });
+
+    // Keep only last 5 devices
+    if (user.fcmTokens.length > 5) {
+      user.fcmTokens = user.fcmTokens.slice(-5);
+    }
+
+    await user.save();
+
+    console.log(`[Auth] FCM token registered for user ${userId}, device ${deviceId}`);
+
+    res.json({
+      success: true,
+      message: 'Device token registered successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Remove FCM device token (on logout)
+export const removeDeviceToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.headers['x-user-id'] as string;
+    const { deviceId } = req.body;
+
+    if (!userId) {
+      res.status(401).json({
+        success: false,
+        message: 'Not authenticated',
+      });
+      return;
+    }
+
+    if (!deviceId) {
+      res.status(400).json({
+        success: false,
+        message: 'Device ID is required',
+      });
+      return;
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+      return;
+    }
+
+    // Remove token for this device
+    user.fcmTokens = user.fcmTokens.filter(t => t.deviceId !== deviceId);
+    await user.save();
+
+    console.log(`[Auth] FCM token removed for user ${userId}, device ${deviceId}`);
+
+    res.json({
+      success: true,
+      message: 'Device token removed successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get users with FCM tokens by tenant and roles (internal API for notification service)
+export const getUsersWithFCMTokens = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { tenantId, roles } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant ID is required',
+      });
+      return;
+    }
+
+    const roleFilter = roles && roles.length > 0 ? { role: { $in: roles } } : {};
+
+    const users = await User.find({
+      tenantId,
+      ...roleFilter,
+      isActive: true,
+      'fcmTokens.0': { $exists: true }, // Has at least one FCM token
+    }).select('_id firstName lastName email role fcmTokens');
+
+    res.json({
+      success: true,
+      data: users.map(user => ({
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        fcmTokens: user.fcmTokens.filter(t => t.isActive),
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};

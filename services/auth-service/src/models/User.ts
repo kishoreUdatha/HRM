@@ -1,6 +1,14 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+export interface IFCMToken {
+  token: string;
+  platform: 'android' | 'ios';
+  deviceId: string;
+  lastUpdated: Date;
+  isActive: boolean;
+}
+
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   tenantId?: mongoose.Types.ObjectId;  // Optional for super_admin
@@ -19,6 +27,7 @@ export interface IUser extends Document {
   isEmailVerified: boolean;
   lastLogin?: Date;
   refreshTokens: string[];
+  fcmTokens: IFCMToken[];  // FCM tokens for push notifications
   passwordResetToken?: string;
   passwordResetExpires?: Date;
   createdAt: Date;
@@ -103,6 +112,13 @@ const userSchema = new Schema<IUser>(
     },
     refreshTokens: [{
       type: String,
+    }],
+    fcmTokens: [{
+      token: { type: String, required: true },
+      platform: { type: String, enum: ['android', 'ios'], required: true },
+      deviceId: { type: String, required: true },
+      lastUpdated: { type: Date, default: Date.now },
+      isActive: { type: Boolean, default: true },
     }],
     passwordResetToken: {
       type: String,

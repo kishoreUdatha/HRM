@@ -35,6 +35,11 @@ router.post(
 // Send bulk notification
 router.post('/bulk', notificationController.sendBulkNotification);
 
+// ==================== INTERNAL API ROUTES (called by other services) ====================
+
+// Late attendance notification (called by attendance service)
+router.post('/late-attendance', notificationController.sendLateAttendanceNotification);
+
 // Mark all as read
 router.patch('/mark-all-read', notificationController.markAllAsRead);
 

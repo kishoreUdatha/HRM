@@ -35,6 +35,12 @@ export interface ITenant extends Document {
       graceTimeMins: number;
       halfDayHours: number;
       fullDayHours: number;
+      // Late attendance notification settings
+      lateNotificationThreshold: number; // Minutes late before notifying admin (default: 30)
+      enableLateNotifications: boolean; // Enable/disable late notifications to admin
+      // Checkout reminder settings
+      checkoutReminderThreshold: number; // Minutes after shift end to remind employee (default: 30)
+      enableCheckoutReminder: boolean; // Enable/disable checkout reminders
     };
     geofencing: {
       enabled: boolean;
@@ -146,6 +152,12 @@ const tenantSchema = new Schema<ITenant>(
         graceTimeMins: { type: Number, default: 15 },
         halfDayHours: { type: Number, default: 4 },
         fullDayHours: { type: Number, default: 8 },
+        // Late attendance notification settings
+        lateNotificationThreshold: { type: Number, default: 30 }, // Minutes
+        enableLateNotifications: { type: Boolean, default: true },
+        // Checkout reminder settings
+        checkoutReminderThreshold: { type: Number, default: 30 }, // Minutes after shift end
+        enableCheckoutReminder: { type: Boolean, default: true },
       },
       geofencing: {
         enabled: { type: Boolean, default: false },

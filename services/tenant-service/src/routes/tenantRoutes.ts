@@ -32,6 +32,9 @@ import {
   addGeofenceLocation,
   updateGeofenceLocation,
   deleteGeofenceLocation,
+  getNotificationSettings,
+  updateNotificationSettings,
+  getNotificationSettingsInternal,
 } from '../controllers/tenantController';
 
 // Ensure uploads directory exists
@@ -168,6 +171,13 @@ router.put('/current/geofencing', updateGeofencing);
 router.post('/current/geofencing/locations', addGeofenceLocation);
 router.put('/current/geofencing/locations/:locationId', updateGeofenceLocation);
 router.delete('/current/geofencing/locations/:locationId', deleteGeofenceLocation);
+
+// Notification settings routes
+router.get('/current/notification-settings', getNotificationSettings);
+router.put('/current/notification-settings', updateNotificationSettings);
+
+// Internal API: Get notification settings by tenant ID (called by other services)
+router.get('/internal/:tenantId/notification-settings', getNotificationSettingsInternal);
 
 // Admin routes (super_admin only)
 router.get('/admin/list', requireSuperAdmin, getAdminTenantList);

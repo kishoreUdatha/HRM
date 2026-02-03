@@ -1,10 +1,15 @@
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import mongoose from 'mongoose';
+import axios from 'axios';
 import Attendance from '../models/Attendance';
 import Shift from '../models/Shift';
 import { faceRecognitionService, FaceEmbeddingData } from '../services/faceRecognitionService';
 import { isWithinGeofence, formatDistance } from '../utils/geofencing';
+
+// Service URLs for internal communication
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3007';
+const TENANT_SERVICE_URL = process.env.TENANT_SERVICE_URL || 'http://localhost:3002';
 
 // IST timezone offset: UTC+5:30
 const IST_OFFSET_HOURS = 5;
@@ -363,6 +368,87 @@ const getTenantGeofencing = async (tenantId: string): Promise<GeofencingSettings
   }
 };
 
+// Helper to get tenant's notification settings
+interface NotificationSettings {
+  lateNotificationThreshold: number;
+  enableLateNotifications: boolean;
+  checkoutReminderThreshold: number;
+  enableCheckoutReminder: boolean;
+}
+
+const getTenantNotificationSettings = async (tenantId: string): Promise<NotificationSettings> => {
+  try {
+    const response = await axios.get(
+      `${TENANT_SERVICE_URL}/internal/${tenantId}/notification-settings`,
+      { timeout: 5000 }
+    );
+    if (response.data.success) {
+      return response.data.data;
+    }
+  } catch (error) {
+    console.log('[Attendance Service] Could not fetch tenant notification settings, using defaults');
+  }
+  // Return defaults
+  return {
+    lateNotificationThreshold: 30,
+    enableLateNotifications: true,
+    checkoutReminderThreshold: 30,
+    enableCheckoutReminder: true,
+  };
+};
+
+// Helper to notify tenant admins of late check-in
+const notifyAdminsOfLateCheckIn = async (
+  tenantId: string,
+  employeeId: string,
+  employeeName: string,
+  checkInTime: Date,
+  lateByMinutes: number,
+  shiftStartTime: string,
+  isOfflineSync = false
+): Promise<void> => {
+  try {
+    // Get tenant notification settings
+    const settings = await getTenantNotificationSettings(tenantId);
+
+    // Check if notifications are enabled and if late by more than threshold
+    if (!settings.enableLateNotifications) {
+      console.log('[Attendance Service] Late notifications disabled for tenant');
+      return;
+    }
+
+    if (lateByMinutes < settings.lateNotificationThreshold) {
+      console.log(`[Attendance Service] Late by ${lateByMinutes}min is below threshold of ${settings.lateNotificationThreshold}min`);
+      return;
+    }
+
+    console.log(`[Attendance Service] Sending late notification: ${employeeName} is ${lateByMinutes}min late (threshold: ${settings.lateNotificationThreshold}min)`);
+
+    // Call notification service asynchronously
+    await axios.post(
+      `${NOTIFICATION_SERVICE_URL}/late-attendance`,
+      {
+        tenantId,
+        employeeId,
+        employeeName,
+        checkInTime: checkInTime.toISOString(),
+        lateByMinutes,
+        shiftStartTime,
+        isOfflineSync,
+      },
+      {
+        headers: { 'X-Internal-Service': 'attendance-service' },
+        timeout: 10000,
+      }
+    );
+
+    console.log('[Attendance Service] Late notification sent successfully');
+  } catch (error) {
+    // Don't throw - notification failure shouldn't block check-in
+    console.error('[Attendance Service] Failed to send late notification:', error);
+  }
+};
+
 // Check In
 export const checkIn = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -439,6 +525,29 @@ export const checkIn = async (req: Request, res: Response): Promise<void> => {
     }
 
     await attendance.save();
+
+    // Send late notification to admins if employee is late beyond threshold
+    if (status === 'late' && shift) {
+      const [shiftHour, shiftMinute] = shift.startTime.split(':').map(Number);
+      const pureShiftStart = new Date(today);
+      pureShiftStart.setHours(shiftHour, shiftMinute, 0, 0);
+      const lateByMinutes = Math.floor((now.getTime() - pureShiftStart.getTime()) / 60000);
+
+      // Get employee name
+      const employeeDetails = await getEmployeeDetails([targetEmployeeId], tenantId);
+      const employee = employeeDetails.get(targetEmployeeId);
+      const employeeName = employee ? `${employee.firstName} ${employee.lastName}` : 'Employee';
+
+      // Send notification asynchronously (don't await to not block response)
+      notifyAdminsOfLateCheckIn(
+        tenantId,
+        targetEmployeeId,
+        employeeName,
+        now,
+        lateByMinutes,
+        shift.startTime
+      ).catch(err => console.error('[Attendance Service] Late notification error:', err));
+    }
 
     res.status(200).json({
       success: true,
@@ -982,6 +1091,29 @@ export const faceCheckIn = async (req: Request, res: Response): Promise<void> =>
 
     await attendance.save();
 
+    // Send late notification to admins if employee is late beyond threshold
+    if (status === 'late' && shift) {
+      const [shiftHour, shiftMinute] = shift.startTime.split(':').map(Number);
+      const pureShiftStart = new Date(today);
+      pureShiftStart.setHours(shiftHour, shiftMinute, 0, 0);
+      const lateByMinutes = Math.floor((now.getTime() - pureShiftStart.getTime()) / 60000);
+
+      // Get employee name
+      const employeeDetails = await getEmployeeDetails([targetEmployeeId], tenantId);
+      const employee = employeeDetails.get(targetEmployeeId);
+      const employeeName = employee ? `${employee.firstName} ${employee.lastName}` : 'Employee';
+
+      // Send notification asynchronously (don't await to not block response)
+      notifyAdminsOfLateCheckIn(
+        tenantId,
+        targetEmployeeId,
+        employeeName,
+        now,
+        lateByMinutes,
+        shift.startTime
+      ).catch(err => console.error('[Attendance Service] Late notification error:', err));
+    }
+
     res.status(200).json({
       success: true,
       message: faceVerificationResult.verified
@@ -1323,6 +1455,25 @@ export const confirmFaceCheckIn = async (req: Request, res: Response): Promise<v
     // Get employee name for response
     const employeeMap = await getEmployeeDetails([employeeId], tenantId);
     const employee = employeeMap.get(employeeId);
+    const employeeName = employee ? `${employee.firstName} ${employee.lastName}` : 'Employee';
+
+    // Send late notification to admins if employee is late beyond threshold
+    if (status === 'late' && shift) {
+      const [shiftHour, shiftMinute] = shift.startTime.split(':').map(Number);
+      const pureShiftStart = new Date(today);
+      pureShiftStart.setHours(shiftHour, shiftMinute, 0, 0);
+      const lateByMinutes = Math.floor((now.getTime() - pureShiftStart.getTime()) / 60000);
+
+      // Send notification asynchronously (don't await to not block response)
+      notifyAdminsOfLateCheckIn(
+        tenantId,
+        employeeId,
+        employeeName,
+        now,
+        lateByMinutes,
+        shift.startTime
+      ).catch(err => console.error('[Attendance Service] Late notification error:', err));
+    }
 
     // Include geo-fence warning in message if not strict mode
     let message = `Thank you, ${employee?.firstName || 'Employee'}! Have a productive day!`;
@@ -1335,7 +1486,7 @@ export const confirmFaceCheckIn = async (req: Request, res: Response): Promise<v
       message,
       data: {
         attendance,
-        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
+        employeeName,
       },
     });
   } catch (error) {
@@ -1782,10 +1933,30 @@ export const confirmOfflineCheckIn = async (req: Request, res: Response): Promis
     // Get employee name for response
     const employeeMap = await getEmployeeDetails([employeeId], tenantId);
     const employee = employeeMap.get(employeeId);
+    const employeeName = employee ? `${employee.firstName} ${employee.lastName}` : 'Employee';
+
+    // Send late notification to admins if employee is late beyond threshold (offline sync)
+    if (status === 'late' && shift) {
+      const [shiftHour, shiftMinute] = shift.startTime.split(':').map(Number);
+      const pureShiftStart = new Date(today);
+      pureShiftStart.setHours(shiftHour, shiftMinute, 0, 0);
+      const lateByMinutes = Math.floor((originalTime.getTime() - pureShiftStart.getTime()) / 60000);
+
+      // Send notification asynchronously with offline flag
+      notifyAdminsOfLateCheckIn(
+        tenantId,
+        employeeId,
+        employeeName,
+        originalTime,
+        lateByMinutes,
+        shift.startTime,
+        true // isOfflineSync
+      ).catch(err => console.error('[Attendance Service] Late notification error:', err));
+    }
 
     console.log('[Attendance Service] Offline check-in synced successfully:', {
       employeeId,
-      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown',
+      employeeName,
       checkInTime: originalTime.toISOString(),
     });
 
@@ -1794,7 +1965,7 @@ export const confirmOfflineCheckIn = async (req: Request, res: Response): Promis
       message: `Offline check-in synced for ${employee?.firstName || 'Employee'}`,
       data: {
         attendance,
-        employeeName: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
+        employeeName,
         wasOffline: true,
         originalTimestamp,
         syncedTimestamp: new Date().toISOString(),

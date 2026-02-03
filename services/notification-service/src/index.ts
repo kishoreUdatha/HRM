@@ -6,12 +6,16 @@ import cors from 'cors';
 
 import connectDB from './config/database';
 import routes from './routes';
+import pushNotificationService from './services/pushNotificationService';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3007;
 
 // Connect to MongoDB
 connectDB();
+
+// Initialize push notification service (Firebase Admin SDK)
+pushNotificationService.initialize();
 
 // Middleware
 app.use(cors());

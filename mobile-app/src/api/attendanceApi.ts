@@ -117,6 +117,19 @@ export interface GeofencingConfig {
   strictMode: boolean;
 }
 
+export interface NotificationSettings {
+  lateNotificationThreshold: number;
+  enableLateNotifications: boolean;
+  checkoutReminderThreshold: number;
+  enableCheckoutReminder: boolean;
+}
+
+export interface ShiftConfig {
+  startTime: string; // Format: "HH:mm"
+  endTime: string;   // Format: "HH:mm"
+  graceMinutes: number;
+}
+
 export const attendanceApi = {
   /**
    * Check in with location
@@ -280,5 +293,28 @@ export const attendanceApi = {
       data
     );
     return response.data;
+  },
+
+  /**
+   * Get notification settings for the tenant
+   */
+  async getNotificationSettings(): Promise<ApiResponse<NotificationSettings>> {
+    const response = await apiClient.get<ApiResponse<NotificationSettings>>(
+      '/tenants/current/notification-settings'
+    );
+    return response.data;
+  },
+
+  /**
+   * Get default shift configuration
+   */
+  async getShiftConfig(): Promise<ApiResponse<ShiftConfig>> {
+    const response = await apiClient.get<ApiResponse<{shift: ShiftConfig}>>(
+      '/attendance/shifts/default'
+    );
+    return {
+      success: response.data.success,
+      data: response.data.data?.shift || { startTime: '09:00', endTime: '18:00', graceMinutes: 15 },
+    };
   },
 };
