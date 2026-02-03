@@ -7,7 +7,7 @@ interface PushNotificationOptions {
   data?: Record<string, string>;
   android?: {
     channelId?: string;
-    priority?: 'high' | 'normal';
+    priority?: 'high' | 'default' | 'low' | 'min' | 'max';
   };
   ios?: {
     sound?: string;
