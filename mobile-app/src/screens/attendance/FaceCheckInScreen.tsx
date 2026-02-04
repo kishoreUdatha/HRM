@@ -18,6 +18,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {Camera, useCameraDevice, useCameraPermission} from 'react-native-vision-camera';
 import Geolocation from '@react-native-community/geolocation';
 import RNFS from 'react-native-fs';
+import {getImageSizeInfo} from '../../utils/imageCompression';
 import {useQueryClient} from '@tanstack/react-query';
 
 import {useAuthStore, useUser} from '../../store/authStore';
@@ -336,50 +337,48 @@ export default function FaceCheckInScreen() {
 
     setIsCapturing(true);
     setLocationError(null);
+    const captureStartTime = Date.now();
 
     try {
-      // Take photo FIRST while camera is still active
+      // OPTIMIZED: Start location request in parallel with photo capture
+      // This saves ~1-2 seconds since location can take time
+      const locationPromise = (async () => {
+        const hasLocationPermission = await requestLocationPermission();
+        if (!hasLocationPermission) {
+          throw new Error('permission_denied');
+        }
+        return locationService.getFullLocation();
+      })();
+
+      // Take photo with speed prioritization for faster capture
       const photo = await camera.current.takePhoto({
-        qualityPrioritization: 'quality',
+        qualityPrioritization: 'speed', // Changed from 'quality' to 'speed' for faster capture
       });
 
-      // Now set verifying state after photo is captured
+      // Set verifying state after photo is captured
       setVerificationState('verifying');
 
-      // Request location permission
-      const hasLocationPermission = await requestLocationPermission();
-      if (!hasLocationPermission) {
-        showDialog.warning('Location Required', 'Please enable location access to check in.', () => {
-          Linking.openSettings();
-        });
-        setIsCapturing(false);
-        setVerificationState('camera');
-        return;
-      }
+      // OPTIMIZED: Read image and fetch geofencing config in parallel
+      const [base64Result, geofencingResult, locationResult] = await Promise.allSettled([
+        RNFS.readFile(photo.path, 'base64'),
+        attendanceApi.getGeofencingConfig(),
+        locationPromise,
+      ]);
 
-      // Get full location with address using location service
+      // Handle location result
       let currentLocation: FullLocationData;
-      try {
-        currentLocation = await locationService.getFullLocation();
-        setLocation({
-          latitude: currentLocation.latitude,
-          longitude: currentLocation.longitude,
-        });
-        setFullLocation(currentLocation);
-        console.log('[FaceCheckIn] Got location:', currentLocation);
-      } catch (locError: any) {
+      if (locationResult.status === 'rejected') {
+        const locError = locationResult.reason;
         console.error('[FaceCheckIn] Location error:', locError);
-        const errorCode = locError?.code;
-        if (errorCode === 2 || locError?.message?.includes('disabled')) {
+        if (locError?.message === 'permission_denied') {
+          showDialog.warning('Location Required', 'Please enable location access to check in.', () => {
+            Linking.openSettings();
+          });
+        } else if (locError?.message?.includes('disabled')) {
           setLocationError('GPS is turned off.');
           setIsLocationEnabled(false);
           showDialog.warning('Turn On Location', 'GPS is required for attendance check-in.', () => {
             locationService.openLocationSettings();
-          });
-        } else if (locError?.message?.includes('permission')) {
-          setLocationError('Location permission denied.');
-          showDialog.warning('Location Permission', 'Please enable location access to check in.', () => {
-            Linking.openSettings();
           });
         } else {
           setLocationError('Could not get your location.');
@@ -388,63 +387,63 @@ export default function FaceCheckInScreen() {
         setVerificationState('camera');
         return;
       }
+      currentLocation = locationResult.value;
+      setLocation({
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+      });
+      setFullLocation(currentLocation);
 
-      // Check geo-fencing
-      try {
-        const geofencingResponse = await attendanceApi.getGeofencingConfig();
+      // Handle base64 result
+      let base64Image = '';
+      if (base64Result.status === 'fulfilled') {
+        base64Image = `data:image/jpeg;base64,${base64Result.value}`;
+      } else {
+        console.error('[FaceCheckIn] Error reading image:', base64Result.reason);
+        base64Image = `captured:${Date.now()}:${photo.path.split('/').pop()}`;
+      }
+
+      // Handle geofencing validation (non-blocking)
+      if (geofencingResult.status === 'fulfilled') {
+        const geofencingResponse = geofencingResult.value;
         if (geofencingResponse.success && geofencingResponse.data?.enabled) {
           const geofenceConfig = geofencingResponse.data;
 
           if (geofenceConfig.locations && geofenceConfig.locations.length > 0) {
-            const geofenceResult = isWithinGeofence(
+            const geofenceValidation = isWithinGeofence(
               currentLocation,
               geofenceConfig.locations,
               geofenceConfig.defaultRadius
             );
 
-            console.log('[FaceCheckIn] Geo-fence validation:', geofenceResult);
+            console.log('[FaceCheckIn] Geo-fence validation:', geofenceValidation);
 
-            if (!geofenceResult.isWithin) {
+            if (!geofenceValidation.isWithin) {
               if (geofenceConfig.strictMode) {
-                // Strict mode: Block check-in
-                const message = `You are ${formatDistance(geofenceResult.distanceMeters)} away from ${geofenceResult.nearestOffice || 'the office'}.\n\nAllowed radius: ${formatDistance(geofenceResult.allowedRadius)}.\n\nPlease move closer to your office to check in.`;
+                const message = `You are ${formatDistance(geofenceValidation.distanceMeters)} away from ${geofenceValidation.nearestOffice || 'the office'}.\n\nAllowed radius: ${formatDistance(geofenceValidation.allowedRadius)}.\n\nPlease move closer to your office to check in.`;
                 showDialog.error('Outside Work Location', message, () => {
                   setVerificationState('camera');
                 });
                 setIsCapturing(false);
                 return;
               } else {
-                // Non-strict mode: Show warning but allow
-                showToast.warning(`You are ${formatDistance(geofenceResult.distanceMeters)} away from ${geofenceResult.nearestOffice || 'the office'}. Check-in will be recorded with a location warning.`);
+                showToast.warning(`You are ${formatDistance(geofenceValidation.distanceMeters)} away from ${geofenceValidation.nearestOffice || 'the office'}. Check-in will be recorded with a location warning.`);
               }
             }
           }
         }
-      } catch (geoError) {
-        console.log('[FaceCheckIn] Could not fetch geofencing config:', geoError);
-        // Continue without geo-fence validation if config fetch fails
       }
 
-      // Read image and convert to base64
-      let base64Image = '';
-      try {
-        base64Image = await RNFS.readFile(photo.path, 'base64');
-        base64Image = `data:image/jpeg;base64,${base64Image}`;
-      } catch (err) {
-        console.error('[FaceCheckIn] Error reading image:', err);
-        // Fallback to path reference
-        base64Image = `captured:${Date.now()}:${photo.path.split('/').pop()}`;
-      }
-
-      // Use employeeId from user object (set during mobile login)
-      // Get fresh user from store to avoid stale closure
+      // Get user data
       const currentUser = useAuthStore.getState().user;
       const employeeId = currentUser?.employeeId || currentUser?._id;
       const tenantId = currentUser?.tenantId || '';
       const employeeName = `${currentUser?.firstName || ''} ${currentUser?.lastName || ''}`.trim();
-      console.log('[FaceCheckIn] User object:', JSON.stringify(currentUser));
-      console.log('[FaceCheckIn] Calling verify-face API with employeeId:', employeeId);
-      console.log('[FaceCheckIn] Network status - isOnline:', networkService.isOnline());
+
+      // Log image size info
+      const imageInfo = getImageSizeInfo(base64Image);
+      console.log(`[FaceCheckIn] Image: ${imageInfo.sizeKB}KB, est. upload: ${imageInfo.estimatedUploadMs}ms`);
+      console.log('[FaceCheckIn] Capture took', Date.now() - captureStartTime, 'ms');
 
       // Check if offline - save to queue instead of API call
       if (!networkService.isOnline()) {
@@ -454,12 +453,13 @@ export default function FaceCheckInScreen() {
           employeeId!,
           employeeName,
           currentLocation,
-          0.9 // Default confidence for offline mode
+          0.9
         );
         return;
       }
 
       // Online - Call verify-face API
+      const apiStartTime = Date.now();
       try {
         const verifyResponse = await attendanceApi.verifyFace({
           faceImage: base64Image,
@@ -467,13 +467,13 @@ export default function FaceCheckInScreen() {
             latitude: currentLocation.latitude,
             longitude: currentLocation.longitude,
           },
-          employeeId: employeeId, // Send logged-in employee ID as hint for mock mode
+          employeeId: employeeId,
         });
 
-        console.log('[FaceCheckIn] Verify response:', verifyResponse);
+        console.log('[FaceCheckIn] API took', Date.now() - apiStartTime, 'ms');
+        console.log('[FaceCheckIn] Total time:', Date.now() - captureStartTime, 'ms');
 
         if (verifyResponse.success && verifyResponse.status === 'MATCHED') {
-          // Face matched - show personalized greeting
           setMatchedEmployee({
             employeeId: verifyResponse.employeeId!,
             employeeName: verifyResponse.employeeName!,
@@ -481,7 +481,6 @@ export default function FaceCheckInScreen() {
           });
           setVerificationState('matched');
         } else {
-          // Face not matched or error
           setVerificationState('error');
           let errorMessage = verifyResponse.message;
 
@@ -502,7 +501,6 @@ export default function FaceCheckInScreen() {
           showDialog.error('Verification Failed', errorMessage, () => setVerificationState('camera'));
         }
       } catch (apiError) {
-        // API call failed - fallback to offline mode
         console.error('[FaceCheckIn] API error, falling back to offline mode:', apiError);
         showToast.warning('Network issue - saving punch offline');
         await saveOfflinePunch(
@@ -510,7 +508,7 @@ export default function FaceCheckInScreen() {
           employeeId!,
           employeeName,
           currentLocation,
-          0.9 // Default confidence for offline mode
+          0.9
         );
       }
     } catch (error) {

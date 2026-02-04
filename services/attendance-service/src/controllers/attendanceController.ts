@@ -55,7 +55,48 @@ const getISTEndOfDay = (dateStr: string): Date => {
 
 // Cache for face embeddings to avoid frequent DB queries
 let faceEmbeddingsCache: { tenantId: string; embeddings: FaceEmbeddingData[]; timestamp: number } | null = null;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes (increased from 5 for better performance)
+
+// Persistent database connections (reuse instead of creating new ones)
+let employeesDbConnection: mongoose.Connection | null = null;
+let employeesDbConnectionPromise: Promise<mongoose.Connection> | null = null;
+
+// Get or create persistent employees database connection
+const getEmployeesDbConnection = async (): Promise<mongoose.Connection> => {
+  if (employeesDbConnection && employeesDbConnection.readyState === 1) {
+    return employeesDbConnection;
+  }
+
+  // If connection is being established, wait for it
+  if (employeesDbConnectionPromise) {
+    return employeesDbConnectionPromise;
+  }
+
+  employeesDbConnectionPromise = (async () => {
+    const mongoUri = process.env.MONGODB_URI || '';
+    const employeesDbUri = constructDbUriFaceEmbed(mongoUri, 'hrm_employees');
+    console.log('[Attendance Service] Creating persistent employees DB connection...');
+    employeesDbConnection = await mongoose.createConnection(employeesDbUri).asPromise();
+    console.log('[Attendance Service] Employees DB connection established');
+
+    // Handle connection errors
+    employeesDbConnection.on('error', (err) => {
+      console.error('[Attendance Service] Employees DB connection error:', err);
+      employeesDbConnection = null;
+      employeesDbConnectionPromise = null;
+    });
+
+    employeesDbConnection.on('disconnected', () => {
+      console.log('[Attendance Service] Employees DB disconnected');
+      employeesDbConnection = null;
+      employeesDbConnectionPromise = null;
+    });
+
+    return employeesDbConnection;
+  })();
+
+  return employeesDbConnectionPromise;
+};
 
 // Helper function to construct database URI for cross-database queries (Cosmos DB compatible)
 const constructDbUriFaceEmbed = (baseUri: string, dbName: string): string => {
@@ -72,37 +113,46 @@ const constructDbUriFaceEmbed = (baseUri: string, dbName: string): string => {
 };
 
 // Helper to get face embeddings from employees database
+// OPTIMIZED: Uses persistent connection and improved caching
 const getFaceEmbeddings = async (tenantId: string): Promise<FaceEmbeddingData[]> => {
-  // Check cache first
+  // Check cache first (fast path)
   if (faceEmbeddingsCache &&
       faceEmbeddingsCache.tenantId === tenantId &&
       Date.now() - faceEmbeddingsCache.timestamp < CACHE_TTL) {
+    console.log('[Attendance Service] getFaceEmbeddings - Using cached embeddings');
     return faceEmbeddingsCache.embeddings;
   }
 
   try {
-    const mongoUri = process.env.MONGODB_URI || '';
-    console.log('[Attendance Service] getFaceEmbeddings - Original URI has db in path:', mongoUri.includes('/hrm_attendance'));
-    const employeesDbUri = constructDbUriFaceEmbed(mongoUri, 'hrm_employees');
-    console.log('[Attendance Service] getFaceEmbeddings - Constructed employees DB URI');
-    const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+    const startTime = Date.now();
 
-    const faceEmbeddingSchema = new mongoose.Schema({
-      tenantId: mongoose.Schema.Types.ObjectId,
-      employeeId: mongoose.Schema.Types.ObjectId,
-      employeeName: String,
-      averageEmbedding: [Number],
-      isActive: Boolean,
-    });
+    // Use persistent connection instead of creating new one
+    const employeesConn = await getEmployeesDbConnection();
 
-    const FaceEmbedding = employeesConn.model('FaceEmbedding', faceEmbeddingSchema);
+    // Get or create the model (mongoose caches models per connection)
+    let FaceEmbedding;
+    try {
+      FaceEmbedding = employeesConn.model('FaceEmbedding');
+    } catch {
+      const faceEmbeddingSchema = new mongoose.Schema({
+        tenantId: mongoose.Schema.Types.ObjectId,
+        employeeId: mongoose.Schema.Types.ObjectId,
+        employeeName: String,
+        averageEmbedding: [Number],
+        isActive: Boolean,
+      });
+      FaceEmbedding = employeesConn.model('FaceEmbedding', faceEmbeddingSchema);
+    }
 
+    // Use lean() and select only needed fields for faster query
     const embeddings = await FaceEmbedding.find({
       tenantId: new mongoose.Types.ObjectId(tenantId),
       isActive: true,
-    }).lean();
+    })
+      .select('employeeId employeeName averageEmbedding')
+      .lean();
 
-    await employeesConn.close();
+    // NOTE: Don't close the connection - it's persistent
 
     const result: FaceEmbeddingData[] = embeddings
       .filter(e => e.averageEmbedding && e.averageEmbedding.length > 0 && e.employeeId && e.employeeName)
@@ -119,6 +169,7 @@ const getFaceEmbeddings = async (tenantId: string): Promise<FaceEmbeddingData[]>
       timestamp: Date.now(),
     };
 
+    console.log(`[Attendance Service] getFaceEmbeddings - Fetched ${result.length} embeddings in ${Date.now() - startTime}ms`);
     return result;
   } catch (error) {
     console.error('[Attendance Service] Error fetching face embeddings:', error);
@@ -1266,10 +1317,13 @@ export const bulkMarkAttendance = async (req: Request, res: Response): Promise<v
 };
 
 // Verify Face - Identify employee from face image
+// OPTIMIZED: Added timing logs and uses tenantId for vector DB search
 export const verifyFace = async (req: Request, res: Response): Promise<void> => {
+  const startTime = Date.now();
+
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
-    const { faceImage, location } = req.body;
+    const { faceImage, location, employeeId: hintEmployeeId } = req.body;
 
     if (!faceImage) {
       res.status(400).json({
@@ -1282,8 +1336,10 @@ export const verifyFace = async (req: Request, res: Response): Promise<void> => 
 
     console.log('[Attendance Service] Verifying face for tenant:', tenantId);
 
-    // Get stored face embeddings for this tenant
+    // Get stored face embeddings for this tenant (uses cache when available)
+    const embeddingsStartTime = Date.now();
     const storedEmbeddings = await getFaceEmbeddings(tenantId);
+    console.log(`[Attendance Service] Embeddings fetch took ${Date.now() - embeddingsStartTime}ms`);
 
     if (storedEmbeddings.length === 0) {
       res.status(200).json({
@@ -1297,9 +1353,16 @@ export const verifyFace = async (req: Request, res: Response): Promise<void> => 
     console.log('[Attendance Service] Found', storedEmbeddings.length, 'enrolled faces');
 
     // Match face against stored embeddings
-    const matchResult = await faceRecognitionService.matchFace(faceImage, storedEmbeddings);
+    // Pass tenantId for vector database search optimization
+    const matchStartTime = Date.now();
+    const matchResult = await faceRecognitionService.matchFace(faceImage, storedEmbeddings, {
+      tenantId,
+      hintEmployeeId, // Pass hint for faster mock mode matching
+    });
+    console.log(`[Attendance Service] Face matching took ${Date.now() - matchStartTime}ms`);
 
-    console.log('[Attendance Service] Match result:', matchResult.status);
+    const totalTime = Date.now() - startTime;
+    console.log(`[Attendance Service] Total verification time: ${totalTime}ms, result: ${matchResult.status}`);
 
     res.status(200).json({
       success: matchResult.status === 'MATCHED',
@@ -1308,6 +1371,7 @@ export const verifyFace = async (req: Request, res: Response): Promise<void> => 
       employeeName: matchResult.employeeName,
       confidence: matchResult.confidence,
       message: matchResult.message,
+      processingTimeMs: totalTime,
     });
   } catch (error) {
     console.error('[Attendance Service] Face verification error:', error);

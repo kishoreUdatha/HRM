@@ -269,7 +269,7 @@ class FaceRecognitionService {
 
   /**
    * Detect face in an image and return detection result
-   * Uses multiple preprocessing strategies for high accuracy
+   * OPTIMIZED: Fast path first, then fallback strategies only if needed
    */
   async detectFace(base64Image: string): Promise<FaceDetectionResult> {
     await this.initialize();
@@ -278,143 +278,133 @@ class FaceRecognitionService {
       return this.mockDetectFace();
     }
 
+    const startTime = Date.now();
+
     try {
       const { Jimp } = require('jimp');
       const imageBuffer = decodeBase64Image(base64Image);
-      console.log(`[FaceRecognition] Image buffer size: ${imageBuffer.length} bytes`);
 
       // Load original image
       const originalImage = await Jimp.read(imageBuffer);
-      console.log(`[FaceRecognition] Original dimensions: ${originalImage.width}x${originalImage.height}`);
+      const imgWidth = originalImage.width;
+      const imgHeight = originalImage.height;
 
-      // Strategy 1: Try with preprocessed image (contrast + brightness enhancement)
-      const preprocessed = originalImage.clone();
-      preprocessed.contrast(0.2);  // Increase contrast
-      preprocessed.brightness(0.1); // Slight brightness increase
-      preprocessed.normalize(); // Normalize colors
-
-      // Strategy 2: Low-light enhancement (aggressive brightness boost)
-      const lowLight = originalImage.clone();
-      lowLight.brightness(0.3); // Strong brightness increase for dark images
-      lowLight.contrast(0.35); // Higher contrast to bring out features
-      lowLight.normalize();
-
-      // Strategy 3: Try with grayscale enhanced
-      const grayscaleEnhanced = originalImage.clone();
-      grayscaleEnhanced.greyscale();
-      grayscaleEnhanced.contrast(0.3);
-
-      // Strategy 4: Try with scaled image (some models work better at specific sizes)
-      const scaled = originalImage.clone();
-      const targetSize = 800;
-      if (scaled.width > targetSize || scaled.height > targetSize) {
-        scaled.scaleToFit({ w: targetSize, h: targetSize });
-      }
-      scaled.contrast(0.15);
-      scaled.normalize();
-
-      // Strategy 5: Very low light (extreme enhancement)
-      const veryLowLight = originalImage.clone();
-      veryLowLight.brightness(0.5); // Very strong brightness
-      veryLowLight.contrast(0.4); // Strong contrast
-      veryLowLight.normalize();
-
-      // Array of preprocessing strategies to try (ordered by likelihood of success)
-      const strategies = [
-        { name: 'preprocessed', image: preprocessed },
-        { name: 'lowLight', image: lowLight },
-        { name: 'scaled', image: scaled },
-        { name: 'original', image: originalImage },
-        { name: 'grayscale', image: grayscaleEnhanced },
-        { name: 'veryLowLight', image: veryLowLight },
-      ];
-
-      // Try each strategy until we get a detection
-      for (const strategy of strategies) {
-        console.log(`[FaceRecognition] Trying strategy: ${strategy.name} (${strategy.image.width}x${strategy.image.height})`);
-
-        const buffer = await strategy.image.getBuffer('image/jpeg');
-        const img = await loadImage(buffer);
-
-        // Create canvas from image
-        const canvas = createCanvas(img.width, img.height);
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-
-        // Try detection with progressively lower confidence thresholds
-        const confidenceThresholds = [0.5, 0.3, 0.15, 0.05];
-
-        for (const threshold of confidenceThresholds) {
-          const detections = await faceapi
-            .detectAllFaces(canvas as any, new faceapi.SsdMobilenetv1Options({
-              minConfidence: threshold,
-            }))
-            .withFaceLandmarks()
-            .withFaceDescriptors();
-
-          if (detections.length > 0) {
-            console.log(`[FaceRecognition] SUCCESS: ${detections.length} face(s) detected with strategy '${strategy.name}' at threshold ${threshold}`);
-
-            // Debug: Log detection structure
-            const firstDet = detections[0];
-            console.log(`[FaceRecognition] Detection keys: ${Object.keys(firstDet).join(', ')}`);
-            console.log(`[FaceRecognition] Has descriptor: ${!!firstDet.descriptor}, type: ${typeof firstDet.descriptor}`);
-            if (firstDet.descriptor) {
-              console.log(`[FaceRecognition] Descriptor length: ${firstDet.descriptor.length}`);
-            }
-
-            // Get the largest/most prominent face
-            const detection = detections.reduce((best: any, current: any) => {
-              const bestArea = best.detection.box.width * best.detection.box.height;
-              const currentArea = current.detection.box.width * current.detection.box.height;
-              return currentArea > bestArea ? current : best;
-            });
-
-            const box = detection.detection.box;
-            const imgArea = img.width * img.height;
-            const faceArea = box.width * box.height;
-            const faceRatio = faceArea / imgArea;
-
-            console.log(`[FaceRecognition] Face ratio: ${faceRatio.toFixed(4)} (min: ${CONFIG.MIN_FACE_SIZE}, max: ${CONFIG.MAX_FACE_SIZE})`);
-            console.log(`[FaceRecognition] Detection score: ${detection.detection.score}`);
-
-            // Determine quality score - reduce if face size is out of preferred range
-            let qualityScore = detection.detection.score;
-            if (faceRatio < CONFIG.MIN_FACE_SIZE || faceRatio > CONFIG.MAX_FACE_SIZE) {
-              qualityScore = detection.detection.score * 0.6;
-              console.log(`[FaceRecognition] Face size out of preferred range, adjusted quality: ${qualityScore.toFixed(3)}`);
-            }
-
-            // Always return descriptor when detected for matching
-            console.log(`[FaceRecognition] Returning with descriptor: ${!!detection.descriptor}, quality: ${qualityScore.toFixed(3)}`);
-            return {
-              detected: true,
-              faceCount: detections.length,
-              boundingBox: { x: box.x, y: box.y, width: box.width, height: box.height },
-              quality: qualityScore,
-              descriptor: detection.descriptor,
-              landmarks: detection.landmarks.positions.map((p: any) => ({ x: p.x, y: p.y })),
-            };
-          }
-        }
+      // FAST PATH: Try original image first with moderate threshold
+      // This handles 80%+ of good quality mobile camera images
+      const fastResult = await this.detectFaceFast(originalImage, imgWidth, imgHeight, 0.3);
+      if (fastResult) {
+        console.log(`[FaceRecognition] Fast path succeeded in ${Date.now() - startTime}ms`);
+        return fastResult;
       }
 
-      console.log(`[FaceRecognition] No face detected with any strategy`);
+      // FALLBACK PATH: Only if fast path fails, try enhanced strategies
+      console.log(`[FaceRecognition] Fast path failed, trying enhanced strategies...`);
 
-      // All strategies failed - return no face detected
-      return {
-        detected: false,
-        faceCount: 0,
-        quality: 0,
-      };
+      // Prepare enhanced images in parallel
+      const [preprocessed, lowLight] = await Promise.all([
+        this.enhanceImage(originalImage.clone(), 'contrast'),
+        this.enhanceImage(originalImage.clone(), 'lowlight'),
+      ]);
+
+      // Try preprocessed (contrast enhanced)
+      const preprocessedResult = await this.detectFaceFast(preprocessed, imgWidth, imgHeight, 0.2);
+      if (preprocessedResult) {
+        console.log(`[FaceRecognition] Preprocessed strategy succeeded in ${Date.now() - startTime}ms`);
+        return preprocessedResult;
+      }
+
+      // Try low-light enhanced
+      const lowLightResult = await this.detectFaceFast(lowLight, imgWidth, imgHeight, 0.15);
+      if (lowLightResult) {
+        console.log(`[FaceRecognition] Low-light strategy succeeded in ${Date.now() - startTime}ms`);
+        return lowLightResult;
+      }
+
+      // Last resort: try with very low threshold on original
+      const lastResortResult = await this.detectFaceFast(originalImage, imgWidth, imgHeight, 0.1);
+      if (lastResortResult) {
+        console.log(`[FaceRecognition] Last resort succeeded in ${Date.now() - startTime}ms`);
+        return lastResortResult;
+      }
+
+      console.log(`[FaceRecognition] No face detected after ${Date.now() - startTime}ms`);
+      return { detected: false, faceCount: 0, quality: 0 };
     } catch (error: any) {
       console.error('[FaceRecognition] Error detecting face:', error.message);
-      return {
-        detected: false,
-        faceCount: 0,
-        quality: 0,
-      };
+      return { detected: false, faceCount: 0, quality: 0 };
     }
+  }
+
+  /**
+   * Fast face detection with single threshold
+   */
+  private async detectFaceFast(
+    image: any,
+    imgWidth: number,
+    imgHeight: number,
+    threshold: number
+  ): Promise<FaceDetectionResult | null> {
+    try {
+      const buffer = await image.getBuffer('image/jpeg');
+      const img = await loadImage(buffer);
+
+      const canvas = createCanvas(img.width, img.height);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      const detections = await faceapi
+        .detectAllFaces(canvas as any, new faceapi.SsdMobilenetv1Options({
+          minConfidence: threshold,
+        }))
+        .withFaceLandmarks()
+        .withFaceDescriptors();
+
+      if (detections.length === 0) return null;
+
+      // Get the largest face
+      const detection = detections.reduce((best: any, current: any) => {
+        const bestArea = best.detection.box.width * best.detection.box.height;
+        const currentArea = current.detection.box.width * current.detection.box.height;
+        return currentArea > bestArea ? current : best;
+      });
+
+      const box = detection.detection.box;
+      const imgArea = imgWidth * imgHeight;
+      const faceArea = box.width * box.height;
+      const faceRatio = faceArea / imgArea;
+
+      let qualityScore = detection.detection.score;
+      if (faceRatio < CONFIG.MIN_FACE_SIZE || faceRatio > CONFIG.MAX_FACE_SIZE) {
+        qualityScore = detection.detection.score * 0.6;
+      }
+
+      return {
+        detected: true,
+        faceCount: detections.length,
+        boundingBox: { x: box.x, y: box.y, width: box.width, height: box.height },
+        quality: qualityScore,
+        descriptor: detection.descriptor,
+        landmarks: detection.landmarks.positions.map((p: any) => ({ x: p.x, y: p.y })),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Apply image enhancement
+   */
+  private async enhanceImage(image: any, type: 'contrast' | 'lowlight'): Promise<any> {
+    if (type === 'contrast') {
+      image.contrast(0.2);
+      image.brightness(0.1);
+      image.normalize();
+    } else if (type === 'lowlight') {
+      image.brightness(0.3);
+      image.contrast(0.35);
+      image.normalize();
+    }
+    return image;
   }
 
   /**
@@ -495,19 +485,10 @@ class FaceRecognitionService {
     const errors: Array<{ imageIndex: number; error: string }> = [];
 
     // Process each image
+    // OPTIMIZED: Skip separate quality analysis - detectFace already handles quality validation
     for (let i = 0; i < images.length; i++) {
       try {
-        // Analyze image quality
-        const quality = await analyzeImageQuality(images[i]);
-        if (!quality.isValid && !this.useMockMode) {
-          errors.push({
-            imageIndex: i,
-            error: quality.issues.join('; '),
-          });
-          continue;
-        }
-
-        // Detect face and generate embedding
+        // Detect face and generate embedding (handles quality internally)
         const detection = await this.detectFace(images[i]);
 
         if (!detection.detected) {

@@ -31,6 +31,7 @@ export interface VerifyFaceRequest {
     latitude: number;
     longitude: number;
   };
+  employeeId?: string; // Optional hint for faster matching
 }
 
 export interface VerifyFaceResponse {
