@@ -411,28 +411,107 @@ export const validateUpload = async (req: Request, res: Response): Promise<void>
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     if (!tenantId) {
-      res.status(400).json({ success: false, message: 'Tenant ID required' });
+      res.status(400).json({
+        success: false,
+        message: 'Tenant ID required. Please ensure you are logged in.',
+        errorCode: 'TENANT_ID_MISSING'
+      });
       return;
     }
 
     if (!req.file) {
-      res.status(400).json({ success: false, message: 'No file uploaded' });
+      res.status(400).json({
+        success: false,
+        message: 'No file uploaded. Please select an Excel or CSV file.',
+        errorCode: 'NO_FILE_UPLOADED'
+      });
       return;
     }
 
     // Parse Excel file
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    let workbook;
+    try {
+      workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    } catch (parseError) {
+      console.error('File parse error:', parseError);
+      res.status(400).json({
+        success: false,
+        message: 'Unable to read the uploaded file. Please ensure it is a valid Excel (.xlsx, .xls) or CSV file.',
+        errorCode: 'FILE_PARSE_ERROR',
+        error: parseError instanceof Error ? parseError.message : 'Unknown parse error'
+      });
+      return;
+    }
+
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'The uploaded file has no sheets. Please ensure the file contains data.',
+        errorCode: 'NO_SHEETS_FOUND'
+      });
+      return;
+    }
+
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data: EmployeeRow[] = XLSX.utils.sheet_to_json(worksheet);
+
+    let data: EmployeeRow[];
+    try {
+      data = XLSX.utils.sheet_to_json(worksheet);
+    } catch (sheetError) {
+      console.error('Sheet parse error:', sheetError);
+      res.status(400).json({
+        success: false,
+        message: 'Unable to parse sheet data. Please check the file format.',
+        errorCode: 'SHEET_PARSE_ERROR',
+        error: sheetError instanceof Error ? sheetError.message : 'Unknown error'
+      });
+      return;
+    }
 
     if (data.length === 0) {
-      res.status(400).json({ success: false, message: 'No data found in the file' });
+      res.status(400).json({
+        success: false,
+        message: 'No data found in the file. Please add employee records after the header row.',
+        errorCode: 'NO_DATA_FOUND'
+      });
+      return;
+    }
+
+    // Validate required columns exist
+    const requiredColumns = ['firstName', 'lastName', 'email', 'phone', 'dateOfBirth', 'gender', 'department', 'designation', 'joiningDate'];
+    const fileColumns = Object.keys(data[0] || {});
+    const missingColumns = requiredColumns.filter(col => !fileColumns.includes(col));
+
+    if (missingColumns.length > 0) {
+      res.status(400).json({
+        success: false,
+        message: `Missing required columns: ${missingColumns.join(', ')}. Please download the template and ensure all required columns are present.`,
+        errorCode: 'MISSING_COLUMNS',
+        data: {
+          missingColumns,
+          foundColumns: fileColumns,
+          requiredColumns
+        }
+      });
       return;
     }
 
     // Get all departments for this tenant
-    const departments = await Department.find({ tenantId });
+    let departments;
+    try {
+      departments = await Department.find({ tenantId });
+    } catch (dbError) {
+      console.error('Database error fetching departments:', dbError);
+      res.status(500).json({
+        success: false,
+        message: 'Unable to fetch departments. Please try again later.',
+        errorCode: 'DATABASE_ERROR',
+        error: dbError instanceof Error ? dbError.message : 'Unknown database error'
+      });
+      return;
+    }
+
     const departmentMap = new Map(departments.map(d => [d.name.toLowerCase(), d._id]));
 
     const errors: ValidationError[] = [];
@@ -448,7 +527,7 @@ export const validateUpload = async (req: Request, res: Response): Promise<void>
         rowErrors.push({
           row: rowIndex,
           field: 'department',
-          message: `Department "${row.department}" does not exist`,
+          message: `Department "${row.department}" does not exist. Available departments: ${departments.map(d => d.name).join(', ') || 'None (please create departments first)'}`,
           value: row.department,
         });
       }
@@ -460,41 +539,89 @@ export const validateUpload = async (req: Request, res: Response): Promise<void>
       }
     }
 
-    // Check for existing emails
-    const emails = data.map(row => row.email?.toLowerCase()).filter(Boolean);
-    const existingEmployees = await Employee.find({
-      tenantId,
-      email: { $in: emails },
+    // Check for duplicate emails in file
+    const emailCounts = new Map<string, number[]>();
+    data.forEach((row, index) => {
+      if (row.email) {
+        const email = row.email.toLowerCase().trim();
+        if (!emailCounts.has(email)) {
+          emailCounts.set(email, []);
+        }
+        emailCounts.get(email)!.push(index + 2);
+      }
     });
 
+    emailCounts.forEach((rows, email) => {
+      if (rows.length > 1) {
+        errors.push({
+          row: rows[0],
+          field: 'email',
+          message: `Duplicate email "${email}" found in rows: ${rows.join(', ')}. Each employee must have a unique email.`,
+          value: email,
+        });
+      }
+    });
+
+    // Check for existing emails in database
+    const emails = data.map(row => row.email?.toLowerCase().trim()).filter(Boolean);
+    let existingEmployees: { email: string }[] = [];
+
+    try {
+      existingEmployees = await Employee.find({
+        tenantId,
+        email: { $in: emails },
+      }).select('email');
+    } catch (dbError) {
+      console.error('Database error checking existing employees:', dbError);
+      // Continue with validation, just warn about the issue
+    }
+
     existingEmployees.forEach(emp => {
-      const rowIndex = data.findIndex(row => row.email?.toLowerCase() === emp.email.toLowerCase()) + 2;
+      const rowIndex = data.findIndex(row => row.email?.toLowerCase().trim() === emp.email.toLowerCase()) + 2;
       errors.push({
         row: rowIndex,
         field: 'email',
-        message: 'Employee with this email already exists',
+        message: `Employee with email "${emp.email}" already exists in the system.`,
         value: emp.email,
       });
     });
+
+    // Sort errors by row number for easier reading
+    errors.sort((a, b) => a.row - b.row);
 
     res.json({
       success: errors.length === 0,
       message: errors.length === 0
         ? `All ${data.length} rows are valid and ready to upload`
-        : `Found ${errors.length} validation errors`,
+        : `Found ${errors.length} validation error(s) in your file. Please correct the issues and re-upload.`,
       data: {
         totalRows: data.length,
-        validRows: validCount - existingEmployees.length,
+        validRows: Math.max(0, validCount - existingEmployees.length),
         invalidRows: errors.length,
-        errors,
+        errors: errors.slice(0, 100), // Limit to first 100 errors to avoid huge responses
+        hasMoreErrors: errors.length > 100,
+        totalErrors: errors.length,
         availableDepartments: departments.map(d => d.name),
+        tips: errors.length > 0 ? [
+          'Check that all required fields are filled in',
+          'Ensure email addresses are valid and unique',
+          'Verify that department names match exactly (case-insensitive)',
+          'Date format should be YYYY-MM-DD (e.g., 2024-01-15)',
+          'Gender should be: male, female, or other'
+        ] : []
       },
     });
   } catch (error) {
     console.error('Validation error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
     res.status(500).json({
       success: false,
-      message: 'Failed to validate file',
+      message: 'Failed to validate file. Please check the file format and try again.',
+      errorCode: 'VALIDATION_FAILED',
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? errorStack : undefined
     });
   }
 };
