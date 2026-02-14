@@ -130,7 +130,7 @@ const getFaceEmbeddings = async (tenantId: string): Promise<FaceEmbeddingData[]>
     const employeesConn = await getEmployeesDbConnection();
 
     // Get or create the model (mongoose caches models per connection)
-    let FaceEmbedding;
+    let FaceEmbedding: mongoose.Model<any>;
     try {
       FaceEmbedding = employeesConn.model('FaceEmbedding');
     } catch {
@@ -155,8 +155,8 @@ const getFaceEmbeddings = async (tenantId: string): Promise<FaceEmbeddingData[]>
     // NOTE: Don't close the connection - it's persistent
 
     const result: FaceEmbeddingData[] = embeddings
-      .filter(e => e.averageEmbedding && e.averageEmbedding.length > 0 && e.employeeId && e.employeeName)
-      .map(e => ({
+      .filter((e: any) => e.averageEmbedding && e.averageEmbedding.length > 0 && e.employeeId && e.employeeName)
+      .map((e: any) => ({
         employeeId: e.employeeId!.toString(),
         employeeName: e.employeeName as string,
         embedding: e.averageEmbedding as number[],
