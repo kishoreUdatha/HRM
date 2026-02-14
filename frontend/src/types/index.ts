@@ -41,6 +41,7 @@ export interface User {
   role: UserRole;
   permissions: string[];
   avatar?: string;
+  employeeId?: string;
 }
 
 export type UserRole = 'super_admin' | 'tenant_admin' | 'hr' | 'manager' | 'employee' | 'admin' | 'hr_manager';
