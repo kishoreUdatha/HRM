@@ -1,7 +1,22 @@
-import React, { useState } from 'react';
-import { HiUser, HiMail, HiPhone, HiLockClosed, HiCamera } from 'react-icons/hi';
+import React, { useState, useEffect } from 'react';
+import { HiUser, HiMail, HiPhone, HiLockClosed, HiCamera, HiLibrary, HiPencil, HiPlus } from 'react-icons/hi';
 import { useAppSelector } from '../hooks/useAppDispatch';
 import api from '../services/api';
+
+interface BankDetails {
+  bankName: string;
+  accountNumber: string;
+  ifscCode: string;
+  accountHolderName: string;
+  branchName?: string;
+  accountType?: 'savings' | 'current';
+}
+
+interface Employee {
+  _id: string;
+  bankDetails?: BankDetails;
+  phone?: string;
+}
 
 const Profile: React.FC = () => {
   const { user } = useAppSelector((state) => state.auth);
@@ -9,6 +24,20 @@ const Profile: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [isLoadingEmployee, setIsLoadingEmployee] = useState(true);
+
+  // Bank details modal state
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [isSavingBank, setIsSavingBank] = useState(false);
+  const [bankDetails, setBankDetails] = useState<BankDetails>({
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
+    accountHolderName: '',
+    branchName: '',
+    accountType: 'savings',
+  });
 
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
@@ -22,6 +51,37 @@ const Profile: React.FC = () => {
     newPassword: '',
     confirmPassword: '',
   });
+
+  // Fetch employee data on mount
+  useEffect(() => {
+    fetchEmployeeData();
+  }, []);
+
+  const fetchEmployeeData = async () => {
+    try {
+      setIsLoadingEmployee(true);
+      const response = await api.get(`/employees/${user?.employeeId || user?._id}`);
+      if (response.data.success && response.data.data) {
+        const emp = response.data.data;
+        setEmployee(emp);
+        setFormData(prev => ({ ...prev, phone: emp.phone || '' }));
+        if (emp.bankDetails) {
+          setBankDetails({
+            bankName: emp.bankDetails.bankName || '',
+            accountNumber: emp.bankDetails.accountNumber || '',
+            ifscCode: emp.bankDetails.ifscCode || '',
+            accountHolderName: emp.bankDetails.accountHolderName || '',
+            branchName: emp.bankDetails.branchName || '',
+            accountType: emp.bankDetails.accountType || 'savings',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch employee data:', error);
+    } finally {
+      setIsLoadingEmployee(false);
+    }
+  };
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +124,64 @@ const Profile: React.FC = () => {
       setIsSaving(false);
     }
   };
+
+  const handleBankDetailsSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate required fields
+    if (!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.ifscCode || !bankDetails.accountHolderName) {
+      setMessage({ type: 'error', text: 'Please fill all required bank details fields' });
+      return;
+    }
+
+    setIsSavingBank(true);
+    try {
+      const response = await api.patch('/employees/me/profile', { bankDetails });
+      if (response.data.success) {
+        setEmployee(response.data.data.employee);
+        setMessage({ type: 'success', text: 'Bank details updated successfully' });
+        setShowBankModal(false);
+      }
+    } catch (error: any) {
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.message || 'Failed to update bank details',
+      });
+    } finally {
+      setIsSavingBank(false);
+    }
+  };
+
+  const handleCancelBankModal = () => {
+    // Reset to employee's current bank details
+    if (employee?.bankDetails) {
+      setBankDetails({
+        bankName: employee.bankDetails.bankName || '',
+        accountNumber: employee.bankDetails.accountNumber || '',
+        ifscCode: employee.bankDetails.ifscCode || '',
+        accountHolderName: employee.bankDetails.accountHolderName || '',
+        branchName: employee.bankDetails.branchName || '',
+        accountType: employee.bankDetails.accountType || 'savings',
+      });
+    } else {
+      setBankDetails({
+        bankName: '',
+        accountNumber: '',
+        ifscCode: '',
+        accountHolderName: '',
+        branchName: '',
+        accountType: 'savings',
+      });
+    }
+    setShowBankModal(false);
+  };
+
+  const maskAccountNumber = (accountNumber: string) => {
+    if (!accountNumber || accountNumber.length < 4) return accountNumber;
+    return '****' + accountNumber.slice(-4);
+  };
+
+  const hasBankDetails = employee?.bankDetails?.accountNumber;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -193,6 +311,75 @@ const Profile: React.FC = () => {
         </form>
       </div>
 
+      {/* Bank Account Details */}
+      <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-secondary-900">
+            <HiLibrary className="inline w-5 h-5 mr-2" />
+            Bank Account Details
+          </h3>
+          <button
+            onClick={() => setShowBankModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+          >
+            {hasBankDetails ? (
+              <>
+                <HiPencil className="w-4 h-4" />
+                Edit
+              </>
+            ) : (
+              <>
+                <HiPlus className="w-4 h-4" />
+                Add
+              </>
+            )}
+          </button>
+        </div>
+
+        {isLoadingEmployee ? (
+          <div className="animate-pulse space-y-3">
+            <div className="h-4 bg-secondary-200 rounded w-1/3"></div>
+            <div className="h-4 bg-secondary-200 rounded w-1/2"></div>
+            <div className="h-4 bg-secondary-200 rounded w-2/5"></div>
+          </div>
+        ) : hasBankDetails ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <p className="text-sm text-secondary-500">Bank Name</p>
+              <p className="font-medium text-secondary-900">{employee?.bankDetails?.bankName}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-secondary-500">Account Number</p>
+              <p className="font-medium text-secondary-900">{maskAccountNumber(employee?.bankDetails?.accountNumber || '')}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-secondary-500">IFSC Code</p>
+              <p className="font-medium text-secondary-900">{employee?.bankDetails?.ifscCode}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm text-secondary-500">Account Holder Name</p>
+              <p className="font-medium text-secondary-900">{employee?.bankDetails?.accountHolderName}</p>
+            </div>
+            {employee?.bankDetails?.branchName && (
+              <div className="space-y-1">
+                <p className="text-sm text-secondary-500">Branch Name</p>
+                <p className="font-medium text-secondary-900">{employee?.bankDetails?.branchName}</p>
+              </div>
+            )}
+            <div className="space-y-1">
+              <p className="text-sm text-secondary-500">Account Type</p>
+              <p className="font-medium text-secondary-900 capitalize">{employee?.bankDetails?.accountType || 'Savings'}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <HiLibrary className="w-12 h-12 text-secondary-300 mx-auto mb-3" />
+            <p className="text-secondary-500 mb-1">No bank account details added</p>
+            <p className="text-sm text-secondary-400">Add your bank details for salary payments</p>
+          </div>
+        )}
+      </div>
+
       {/* Change Password */}
       <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -272,6 +459,145 @@ const Profile: React.FC = () => {
           </p>
         )}
       </div>
+
+      {/* Bank Details Modal */}
+      {showBankModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-secondary-200">
+              <h2 className="text-xl font-semibold text-secondary-900">
+                {hasBankDetails ? 'Edit Bank Details' : 'Add Bank Details'}
+              </h2>
+              <button
+                onClick={handleCancelBankModal}
+                className="p-2 hover:bg-secondary-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleBankDetailsSave} className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-130px)]">
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Bank Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={bankDetails.bankName}
+                  onChange={(e) => setBankDetails({ ...bankDetails, bankName: e.target.value })}
+                  className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="e.g., State Bank of India"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Account Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={bankDetails.accountNumber}
+                  onChange={(e) => setBankDetails({ ...bankDetails, accountNumber: e.target.value })}
+                  className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Enter account number"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  IFSC Code <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={bankDetails.ifscCode}
+                  onChange={(e) => setBankDetails({ ...bankDetails, ifscCode: e.target.value.toUpperCase() })}
+                  className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="e.g., SBIN0001234"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Account Holder Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={bankDetails.accountHolderName}
+                  onChange={(e) => setBankDetails({ ...bankDetails, accountHolderName: e.target.value })}
+                  className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Name as per bank records"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Branch Name
+                </label>
+                <input
+                  type="text"
+                  value={bankDetails.branchName}
+                  onChange={(e) => setBankDetails({ ...bankDetails, branchName: e.target.value })}
+                  className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="e.g., Main Branch"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Account Type
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="accountType"
+                      value="savings"
+                      checked={bankDetails.accountType === 'savings'}
+                      onChange={() => setBankDetails({ ...bankDetails, accountType: 'savings' })}
+                      className="w-4 h-4 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="ml-2 text-secondary-700">Savings</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="accountType"
+                      value="current"
+                      checked={bankDetails.accountType === 'current'}
+                      onChange={() => setBankDetails({ ...bankDetails, accountType: 'current' })}
+                      className="w-4 h-4 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="ml-2 text-secondary-700">Current</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-secondary-200">
+                <button
+                  type="button"
+                  onClick={handleCancelBankModal}
+                  className="px-4 py-2 text-secondary-700 border border-secondary-200 rounded-lg hover:bg-secondary-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingBank}
+                  className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
+                >
+                  {isSavingBank ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -567,7 +567,7 @@ export const updateMyProfile = async (
   try {
     const tenantId = req.headers['x-tenant-id'] as string;
     const userId = req.headers['x-user-id'] as string;
-    const { phone, address, emergencyContact } = req.body;
+    const { phone, address, emergencyContact, bankDetails } = req.body;
 
     if (!tenantId || !userId) {
       res.status(400).json({ success: false, message: 'Tenant ID and User ID required' });
@@ -597,6 +597,7 @@ export const updateMyProfile = async (
       if (phone !== undefined) updateData.phone = phone;
       if (address !== undefined) updateData.address = address;
       if (emergencyContact !== undefined) updateData.emergencyContact = emergencyContact;
+      if (bankDetails !== undefined) updateData.bankDetails = bankDetails;
 
       const updatedEmployee = await Employee.findByIdAndUpdate(
         employeeById._id,
@@ -617,6 +618,7 @@ export const updateMyProfile = async (
     if (phone !== undefined) updateData.phone = phone;
     if (address !== undefined) updateData.address = address;
     if (emergencyContact !== undefined) updateData.emergencyContact = emergencyContact;
+    if (bankDetails !== undefined) updateData.bankDetails = bankDetails;
 
     const updatedEmployee = await Employee.findByIdAndUpdate(
       employee._id,
