@@ -103,11 +103,8 @@ const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClose, onSu
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await api.post('/employees/bulk-upload/validate', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // Don't set Content-Type manually - axios will set it with the correct boundary
+      const response = await api.post('/employees/bulk-upload/validate', formData);
 
       setValidationResult({
         valid: response.data.success,
@@ -132,11 +129,8 @@ const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ isOpen, onClose, onSu
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await api.post('/employees/bulk-upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // Don't set Content-Type manually - axios will set it with the correct boundary
+      const response = await api.post('/employees/bulk-upload', formData);
 
       setUploadResult(response.data.data);
       setStep('result');
