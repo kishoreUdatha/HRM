@@ -31,7 +31,8 @@ env:
   LOCATION: centralindia
 
   # Production URLs
-  API_URL: https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api
+  API_URL: https://api.hrzio.com/api
+  API_INTERNAL_URL: https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api
   FRONTEND_URL: https://hrzio.com
   FRONTEND_FALLBACK_URL: https://brave-cliff-0a9fb0400.1.azurestaticapps.net
 

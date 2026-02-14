@@ -1,8 +1,8 @@
 import axios, { AxiosError } from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
 
-// Production API URL - Azure Container Apps (Central India)
-const API_URL = import.meta.env.VITE_API_URL || 'https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api';
+// Production API URL - Custom domain with fallback to Azure Container Apps
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.hrzio.com/api';
 
 const api = axios.create({
   baseURL: API_URL,

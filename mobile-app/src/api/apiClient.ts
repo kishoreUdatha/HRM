@@ -3,13 +3,13 @@ import {useAuthStore} from '../store/authStore';
 import {authStorage} from '../services/authStorage';
 import type {ApiResponse, AuthTokens} from '../types';
 
-// API Base URL - Production deployment (Azure Container Apps - Central India)
+// API Base URL - Production deployment
 // Change this URL when switching between environments:
 // - Android Emulator: http://10.0.2.2:3000/api (emulator uses 10.0.2.2 for host machine)
 // - Physical Device: http://10.241.49.192:3000/api (use your computer's IP)
 // - Local Development: http://localhost:3000/api
-// - Production (Azure): https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api
-const API_BASE_URL = 'https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api';
+// - Production: https://api.hrzio.com/api
+const API_BASE_URL = 'https://api.hrzio.com/api';
 
 if (__DEV__) {
   console.log('[API] Using base URL:', API_BASE_URL);

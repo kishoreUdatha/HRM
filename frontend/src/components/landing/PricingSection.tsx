@@ -159,7 +159,7 @@ const PricingSection: React.FC = () => {
 
   const fetchPlans = async () => {
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'https://hrm-production-gateway.thankfulriver-4edafef0.centralindia.azurecontainerapps.io/api';
+      const API_URL = import.meta.env.VITE_API_URL || 'https://api.hrzio.com/api';
       const response = await fetch(`${API_URL}/billing/plans`);
       const data = await response.json();
 
