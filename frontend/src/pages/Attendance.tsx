@@ -14,6 +14,8 @@ import {
   HiSun,
   HiPlus,
   HiUpload,
+  HiViewGrid,
+  HiViewList,
 } from 'react-icons/hi';
 import api from '../services/api';
 import SortableTableHeader, { useSortConfig } from '../components/common/SortableTableHeader';
@@ -56,6 +58,7 @@ interface AttendanceRecord {
   checkOut?: string;
   status: 'present' | 'absent' | 'late' | 'half_day' | 'on_leave';
   workHours?: number;
+  overtimeHours?: number;
   notes?: string;
 }
 
@@ -63,6 +66,8 @@ interface Department {
   _id: string;
   name: string;
 }
+
+type ViewMode = 'day' | 'week' | 'month';
 
 // Employee Attendance View Component
 const EmployeeAttendanceView: React.FC<{ user: any }> = ({ user }) => {
@@ -121,7 +126,8 @@ const EmployeeAttendanceView: React.FC<{ user: any }> = ({ user }) => {
 
   const fetchAttendanceHistory = async () => {
     if (!user?.employeeId && !user?._id) {
-      generateMockHistory();
+      setAttendanceHistory([]);
+      setIsLoadingHistory(false);
       return;
     }
 
@@ -147,50 +153,14 @@ const EmployeeAttendanceView: React.FC<{ user: any }> = ({ user }) => {
         }));
         setAttendanceHistory(processedRecords.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       } else {
-        // If no records from API, show empty or generate mock
         setAttendanceHistory([]);
       }
     } catch (error) {
       console.error('Failed to fetch attendance history:', error);
-      generateMockHistory();
+      setAttendanceHistory([]);
     } finally {
       setIsLoadingHistory(false);
     }
-  };
-
-  const generateMockHistory = () => {
-    const records: AttendanceRecord[] = [];
-    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    const today = new Date();
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(selectedYear, selectedMonth, day);
-      if (date > today) continue; // Don't show future dates
-      if (date.getDay() === 0 || date.getDay() === 6) continue; // Skip weekends
-
-      const statuses: Array<'present' | 'absent' | 'late' | 'on_leave'> = ['present', 'present', 'present', 'present', 'late', 'on_leave'];
-      const status = statuses[Math.floor(Math.random() * statuses.length)];
-
-      let checkIn, checkOut, workHours;
-      if (status === 'present' || status === 'late') {
-        const baseHour = status === 'late' ? 9 + Math.floor(Math.random() * 2) : 8 + Math.floor(Math.random() * 2);
-        checkIn = new Date(selectedYear, selectedMonth, day, baseHour, Math.floor(Math.random() * 60)).toISOString();
-        checkOut = new Date(selectedYear, selectedMonth, day, 17 + Math.floor(Math.random() * 2), Math.floor(Math.random() * 60)).toISOString();
-        workHours = 8 + Math.random() * 2;
-      }
-
-      records.push({
-        _id: `att-${day}`,
-        date: date.toISOString().split('T')[0],
-        status,
-        checkIn,
-        checkOut,
-        workHours,
-      });
-    }
-
-    setAttendanceHistory(records.reverse());
-    setIsLoadingHistory(false);
   };
 
   const handleCheckIn = async () => {
@@ -206,7 +176,6 @@ const EmployeeAttendanceView: React.FC<{ user: any }> = ({ user }) => {
         setIsCheckedIn(true);
         setCheckInTime(new Date().toLocaleTimeString());
         setAttendanceStatus(response.data.data.attendance.status);
-        // Refresh attendance history to show today's record
         fetchAttendanceHistory();
       }
     } catch (error: any) {
@@ -233,7 +202,6 @@ const EmployeeAttendanceView: React.FC<{ user: any }> = ({ user }) => {
         if (response.data.data.attendance.status) {
           setAttendanceStatus(response.data.data.attendance.status);
         }
-        // Refresh attendance history to show updated record
         fetchAttendanceHistory();
       }
     } catch (error: any) {
@@ -496,27 +464,155 @@ const EmployeeAttendanceView: React.FC<{ user: any }> = ({ user }) => {
   );
 };
 
-// Admin Attendance View Component (Original)
+// Calendar Grid Component
+const CalendarGrid: React.FC<{
+  year: number;
+  month: number;
+  attendanceData: Map<string, AttendanceRecord[]>;
+  onDateClick: (date: string) => void;
+}> = ({ year, month, attendanceData, onDateClick }) => {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
+  const today = new Date().toISOString().split('T')[0];
+
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const getDateString = (day: number) => {
+    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
+  const getDayStats = (dateStr: string) => {
+    const records = attendanceData.get(dateStr) || [];
+    return {
+      total: records.length,
+      present: records.filter(r => r.status === 'present' || r.status === 'late').length,
+      absent: records.filter(r => r.status === 'absent').length,
+      late: records.filter(r => r.status === 'late').length,
+      onLeave: records.filter(r => r.status === 'on_leave').length,
+    };
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-secondary-200 overflow-hidden">
+      {/* Day headers */}
+      <div className="grid grid-cols-7 bg-secondary-50 border-b border-secondary-200">
+        {dayNames.map(day => (
+          <div key={day} className="px-2 py-3 text-center text-xs font-semibold text-secondary-600 uppercase">
+            {day}
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7">
+        {/* Empty cells for days before the first day of month */}
+        {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+          <div key={`empty-${i}`} className="p-2 min-h-[80px] border-b border-r border-secondary-100 bg-secondary-50/50" />
+        ))}
+
+        {/* Days of the month */}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day = i + 1;
+          const dateStr = getDateString(day);
+          const isToday = dateStr === today;
+          const isWeekend = new Date(year, month, day).getDay() === 0 || new Date(year, month, day).getDay() === 6;
+          const stats = getDayStats(dateStr);
+
+          return (
+            <div
+              key={day}
+              onClick={() => onDateClick(dateStr)}
+              className={`p-2 min-h-[80px] border-b border-r border-secondary-100 cursor-pointer hover:bg-secondary-50 transition-colors ${
+                isToday ? 'bg-primary-50 ring-2 ring-primary-500 ring-inset' : ''
+              } ${isWeekend ? 'bg-secondary-50/50' : ''}`}
+            >
+              <div className={`text-sm font-medium mb-1 ${isToday ? 'text-primary-600' : 'text-secondary-900'}`}>
+                {day}
+              </div>
+              {stats.total > 0 && (
+                <div className="space-y-1">
+                  {stats.present > 0 && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="text-xs text-emerald-700">{stats.present}</span>
+                    </div>
+                  )}
+                  {stats.absent > 0 && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-rose-500" />
+                      <span className="text-xs text-rose-700">{stats.absent}</span>
+                    </div>
+                  )}
+                  {stats.onLeave > 0 && (
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      <span className="text-xs text-blue-700">{stats.onLeave}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Admin Attendance View Component
 const AdminAttendanceView: React.FC = () => {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('day');
+  const [displayMode, setDisplayMode] = useState<'list' | 'calendar'>('list');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, onLeave: 0 });
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, onLeave: 0, totalHours: 0, totalOT: 0 });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('');
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 0 });
   const { sortConfig, handleSort } = useSortConfig('date', 'desc');
   const [showMarkModal, setShowMarkModal] = useState(false);
   const [showBulkModal, setShowBulkModal] = useState(false);
+  const [calendarData, setCalendarData] = useState<Map<string, AttendanceRecord[]>>(new Map());
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  // Get date range based on view mode
+  const getDateRange = () => {
+    if (viewMode === 'day') {
+      return { startDate: selectedDate, endDate: selectedDate };
+    } else if (viewMode === 'week') {
+      const date = new Date(selectedDate);
+      const day = date.getDay();
+      const start = new Date(date);
+      start.setDate(date.getDate() - day);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      return {
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+      };
+    } else {
+      // month view
+      const start = new Date(selectedYear, selectedMonth, 1);
+      const end = new Date(selectedYear, selectedMonth + 1, 0);
+      return {
+        startDate: start.toISOString().split('T')[0],
+        endDate: end.toISOString().split('T')[0],
+      };
+    }
+  };
+
   useEffect(() => {
     fetchAttendance();
-  }, [selectedDate, statusFilter, departmentFilter, debouncedSearchTerm, pagination.page, pagination.limit, sortConfig]);
+  }, [selectedDate, selectedMonth, selectedYear, viewMode, statusFilter, departmentFilter, debouncedSearchTerm, pagination.page, pagination.limit, sortConfig]);
 
   useEffect(() => {
     fetchDepartments();
@@ -534,11 +630,13 @@ const AdminAttendanceView: React.FC = () => {
   const fetchAttendance = async () => {
     try {
       setIsSearching(true);
+      const { startDate, endDate } = getDateRange();
+
       const params = new URLSearchParams({
         page: pagination.page.toString(),
-        limit: pagination.limit.toString(),
-        startDate: selectedDate,
-        endDate: selectedDate,
+        limit: viewMode === 'month' ? '500' : pagination.limit.toString(),
+        startDate,
+        endDate,
       });
       if (statusFilter) params.append('status', statusFilter);
       if (debouncedSearchTerm) params.append('search', debouncedSearchTerm);
@@ -560,15 +658,31 @@ const AdminAttendanceView: React.FC = () => {
         }));
       }
 
+      // Calculate stats
       const present = data.filter((r: AttendanceRecord) => r.status === 'present').length;
       const absent = data.filter((r: AttendanceRecord) => r.status === 'absent').length;
       const late = data.filter((r: AttendanceRecord) => r.status === 'late').length;
       const onLeave = data.filter((r: AttendanceRecord) => r.status === 'on_leave').length;
-      setStats({ present, absent, late, onLeave });
+      const totalHours = data.reduce((sum: number, r: AttendanceRecord) => sum + (r.workHours || 0), 0);
+      const totalOT = data.reduce((sum: number, r: AttendanceRecord) => sum + (r.overtimeHours || 0), 0);
+      setStats({ present, absent, late, onLeave, totalHours, totalOT });
+
+      // For calendar view, organize data by date
+      if (viewMode === 'month' || displayMode === 'calendar') {
+        const dataByDate = new Map<string, AttendanceRecord[]>();
+        data.forEach((record: AttendanceRecord) => {
+          const dateKey = record.date.split('T')[0];
+          if (!dataByDate.has(dateKey)) {
+            dataByDate.set(dateKey, []);
+          }
+          dataByDate.get(dateKey)!.push(record);
+        });
+        setCalendarData(dataByDate);
+      }
     } catch (error) {
       console.error('Failed to fetch attendance:', error);
       setRecords([]);
-      setStats({ present: 0, absent: 0, late: 0, onLeave: 0 });
+      setStats({ present: 0, absent: 0, late: 0, onLeave: 0, totalHours: 0, totalOT: 0 });
     } finally {
       setIsInitialLoading(false);
       setIsSearching(false);
@@ -580,6 +694,41 @@ const AdminAttendanceView: React.FC = () => {
       setPagination((prev) => ({ ...prev, page: 1 }));
     }
   }, [debouncedSearchTerm]);
+
+  const handleCalendarDateClick = (date: string) => {
+    setSelectedDate(date);
+    setViewMode('day');
+    setDisplayMode('list');
+  };
+
+  const navigatePeriod = (direction: 'prev' | 'next') => {
+    if (viewMode === 'day') {
+      const date = new Date(selectedDate);
+      date.setDate(date.getDate() + (direction === 'next' ? 1 : -1));
+      setSelectedDate(date.toISOString().split('T')[0]);
+    } else if (viewMode === 'week') {
+      const date = new Date(selectedDate);
+      date.setDate(date.getDate() + (direction === 'next' ? 7 : -7));
+      setSelectedDate(date.toISOString().split('T')[0]);
+    } else {
+      if (direction === 'next') {
+        if (selectedMonth === 11) {
+          setSelectedMonth(0);
+          setSelectedYear(selectedYear + 1);
+        } else {
+          setSelectedMonth(selectedMonth + 1);
+        }
+      } else {
+        if (selectedMonth === 0) {
+          setSelectedMonth(11);
+          setSelectedYear(selectedYear - 1);
+        } else {
+          setSelectedMonth(selectedMonth - 1);
+        }
+      }
+    }
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
@@ -603,6 +752,21 @@ const AdminAttendanceView: React.FC = () => {
     return new Date(time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatDateDisplay = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  const getPeriodLabel = () => {
+    if (viewMode === 'day') {
+      return new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    } else if (viewMode === 'week') {
+      const { startDate, endDate } = getDateRange();
+      return `${new Date(startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    } else {
+      return `${months[selectedMonth]} ${selectedYear}`;
+    }
+  };
+
   if (isInitialLoading) {
     return (
       <div className="animate-pulse space-y-4">
@@ -619,21 +783,13 @@ const AdminAttendanceView: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-secondary-900">Attendance</h1>
           <p className="text-secondary-500">Track and manage employee attendance records</p>
         </div>
         <div className="flex items-center gap-3">
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => {
-              setSelectedDate(e.target.value);
-              setPagination((prev) => ({ ...prev, page: 1 }));
-            }}
-            className="px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-          />
           <button
             onClick={() => setShowMarkModal(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
@@ -651,6 +807,91 @@ const AdminAttendanceView: React.FC = () => {
         </div>
       </div>
 
+      {/* View Mode & Calendar Controls */}
+      <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          {/* View Mode Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-secondary-600">View:</span>
+            <div className="flex bg-secondary-100 rounded-lg p-1">
+              {(['day', 'week', 'month'] as ViewMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => {
+                    setViewMode(mode);
+                    setPagination((prev) => ({ ...prev, page: 1 }));
+                  }}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+                    viewMode === mode
+                      ? 'bg-white text-primary-600 shadow-sm'
+                      : 'text-secondary-600 hover:text-secondary-900'
+                  }`}
+                >
+                  {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Period Navigation */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigatePeriod('prev')}
+              className="p-2 hover:bg-secondary-100 rounded-lg transition-all"
+            >
+              <HiChevronLeft className="w-5 h-5 text-secondary-600" />
+            </button>
+            <div className="min-w-[200px] text-center">
+              <span className="font-medium text-secondary-900">{getPeriodLabel()}</span>
+            </div>
+            <button
+              onClick={() => navigatePeriod('next')}
+              className="p-2 hover:bg-secondary-100 rounded-lg transition-all"
+            >
+              <HiChevronRight className="w-5 h-5 text-secondary-600" />
+            </button>
+
+            {/* Quick date picker for day view */}
+            {viewMode === 'day' && (
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                }}
+                className="ml-2 px-3 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
+              />
+            )}
+          </div>
+
+          {/* Display Mode Toggle (for month view) */}
+          {viewMode === 'month' && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setDisplayMode('list')}
+                className={`p-2 rounded-lg transition-all ${
+                  displayMode === 'list' ? 'bg-primary-100 text-primary-600' : 'text-secondary-400 hover:bg-secondary-100'
+                }`}
+                title="List View"
+              >
+                <HiViewList className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setDisplayMode('calendar')}
+                className={`p-2 rounded-lg transition-all ${
+                  displayMode === 'calendar' ? 'bg-primary-100 text-primary-600' : 'text-secondary-400 hover:bg-secondary-100'
+                }`}
+                title="Calendar View"
+              >
+                <HiViewGrid className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 relative">
@@ -703,7 +944,8 @@ const AdminAttendanceView: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
@@ -748,95 +990,145 @@ const AdminAttendanceView: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
-
-      <div className={`bg-white rounded-xl shadow-sm border border-secondary-200 overflow-hidden transition-opacity ${isSearching ? 'opacity-60' : 'opacity-100'}`}>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-secondary-50 border-b border-secondary-200">
-              <tr>
-                <th className="text-left px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">Employee</th>
-                <SortableTableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} />
-                <SortableTableHeader label="Check In" sortKey="checkIn" currentSort={sortConfig} onSort={handleSort} />
-                <SortableTableHeader label="Check Out" sortKey="checkOut" currentSort={sortConfig} onSort={handleSort} />
-                <SortableTableHeader label="Work Hours" sortKey="workHours" currentSort={sortConfig} onSort={handleSort} />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-secondary-200">
-              {records.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
-                    <HiClock className="w-12 h-12 text-secondary-400 mx-auto mb-4" />
-                    <p className="text-secondary-500">No attendance records found</p>
-                  </td>
-                </tr>
-              ) : (
-                records.map((record) => (
-                  <tr key={record._id} className="hover:bg-secondary-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                          <span className="text-primary-700 font-medium">
-                            {record.employee?.firstName?.[0] || '?'}{record.employee?.lastName?.[0] || ''}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-secondary-900">
-                            {record.employee?.firstName || 'Unknown'} {record.employee?.lastName || ''}
-                          </p>
-                          <p className="text-sm text-secondary-500">{record.employee?.employeeCode || record.employeeId}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">{getStatusBadge(record.status)}</td>
-                    <td className="px-6 py-4 text-secondary-600">{formatTime(record.checkIn)}</td>
-                    <td className="px-6 py-4 text-secondary-600">{formatTime(record.checkOut)}</td>
-                    <td className="px-6 py-4 text-secondary-600">{record.workHours ? `${record.workHours.toFixed(1)}h` : '-'}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex items-center justify-between px-6 py-4 border-t border-secondary-200">
-          <div className="flex items-center gap-4">
-            <p className="text-sm text-secondary-500">
-              Showing {pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0} to{' '}
-              {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} records
-            </p>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-secondary-500">Rows per page:</label>
-              <select
-                value={pagination.limit}
-                onChange={(e) => setPagination((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))}
-                className="px-2 py-1 text-sm border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
+        <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <HiClock className="w-6 h-6 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm text-secondary-500">Total Hours</p>
+              <p className="text-2xl font-bold text-secondary-900">{stats.totalHours.toFixed(1)}h</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-              disabled={pagination.page === 1}
-              className="px-3 py-1 text-sm border border-secondary-200 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <span className="text-sm text-secondary-600">Page {pagination.page} of {pagination.pages || 1}</span>
-            <button
-              onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-              disabled={pagination.page === pagination.pages || pagination.pages === 0}
-              className="px-3 py-1 text-sm border border-secondary-200 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <HiClock className="w-6 h-6 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-sm text-secondary-500">Overtime</p>
+              <p className="text-2xl font-bold text-secondary-900">{stats.totalOT.toFixed(1)}h</p>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Calendar View */}
+      {viewMode === 'month' && displayMode === 'calendar' ? (
+        <CalendarGrid
+          year={selectedYear}
+          month={selectedMonth}
+          attendanceData={calendarData}
+          onDateClick={handleCalendarDateClick}
+        />
+      ) : (
+        /* List View */
+        <div className={`bg-white rounded-xl shadow-sm border border-secondary-200 overflow-hidden transition-opacity ${isSearching ? 'opacity-60' : 'opacity-100'}`}>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-secondary-50 border-b border-secondary-200">
+                <tr>
+                  {viewMode !== 'day' && (
+                    <SortableTableHeader label="Date" sortKey="date" currentSort={sortConfig} onSort={handleSort} />
+                  )}
+                  <th className="text-left px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">Employee</th>
+                  <SortableTableHeader label="Status" sortKey="status" currentSort={sortConfig} onSort={handleSort} />
+                  <SortableTableHeader label="Check In" sortKey="checkIn" currentSort={sortConfig} onSort={handleSort} />
+                  <SortableTableHeader label="Check Out" sortKey="checkOut" currentSort={sortConfig} onSort={handleSort} />
+                  <SortableTableHeader label="Work Hours" sortKey="workHours" currentSort={sortConfig} onSort={handleSort} />
+                  <th className="text-center px-6 py-3 text-xs font-semibold text-secondary-600 uppercase tracking-wider">OT Hours</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-secondary-200">
+                {records.length === 0 ? (
+                  <tr>
+                    <td colSpan={viewMode !== 'day' ? 7 : 6} className="px-6 py-12 text-center">
+                      <HiClock className="w-12 h-12 text-secondary-400 mx-auto mb-4" />
+                      <p className="text-secondary-500">No attendance records found</p>
+                    </td>
+                  </tr>
+                ) : (
+                  records.map((record) => (
+                    <tr key={record._id} className="hover:bg-secondary-50">
+                      {viewMode !== 'day' && (
+                        <td className="px-6 py-4 text-sm text-secondary-600">{formatDateDisplay(record.date)}</td>
+                      )}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+                            <span className="text-primary-700 font-medium">
+                              {record.employee?.firstName?.[0] || '?'}{record.employee?.lastName?.[0] || ''}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-secondary-900">
+                              {record.employee?.firstName || 'Unknown'} {record.employee?.lastName || ''}
+                            </p>
+                            <p className="text-sm text-secondary-500">{record.employee?.employeeCode || record.employeeId}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">{getStatusBadge(record.status)}</td>
+                      <td className="px-6 py-4 text-secondary-600">{formatTime(record.checkIn)}</td>
+                      <td className="px-6 py-4 text-secondary-600">{formatTime(record.checkOut)}</td>
+                      <td className="px-6 py-4 text-secondary-600">{record.workHours ? `${record.workHours.toFixed(1)}h` : '-'}</td>
+                      <td className="px-6 py-4 text-center">
+                        {record.overtimeHours ? (
+                          <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
+                            +{record.overtimeHours.toFixed(1)}h
+                          </span>
+                        ) : '-'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {viewMode === 'day' && (
+            <div className="flex items-center justify-between px-6 py-4 border-t border-secondary-200">
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-secondary-500">
+                  Showing {pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0} to{' '}
+                  {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} records
+                </p>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-secondary-500">Rows per page:</label>
+                  <select
+                    value={pagination.limit}
+                    onChange={(e) => setPagination((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))}
+                    className="px-2 py-1 text-sm border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+                  disabled={pagination.page === 1}
+                  className="px-3 py-1 text-sm border border-secondary-200 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-secondary-600">Page {pagination.page} of {pagination.pages || 1}</span>
+                <button
+                  onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+                  disabled={pagination.page === pagination.pages || pagination.pages === 0}
+                  className="px-3 py-1 text-sm border border-secondary-200 rounded-lg hover:bg-secondary-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Mark Attendance Modal */}
       <MarkAttendanceModal
