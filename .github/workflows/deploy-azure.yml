@@ -327,6 +327,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Pull LFS files
+        run: git lfs pull
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -349,8 +354,12 @@ jobs:
         run: |
           mkdir -p frontend/dist/app
           cp app-download-page/index.html frontend/dist/app/
-          cp app-download-page/HRMobile-release.apk frontend/dist/app/
-          echo "App download page copied to frontend/dist/app/"
+          # Copy APK (prioritize new version from frontend/public/app)
+          if [ -f "frontend/public/app/HRZio.apk" ]; then
+            cp frontend/public/app/HRZio.apk frontend/dist/app/
+          fi
+          ls -la frontend/dist/app/
+          echo "App download page and APK copied to frontend/dist/app/"
 
       - name: Deploy to Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1

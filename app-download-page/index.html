@@ -185,16 +185,16 @@
 
         <div class="version-info">
             <h3>Latest Version</h3>
-            <div class="version-number" id="version">1.0.1</div>
-            <div class="build-date" id="build-date">Built on: February 14, 2026</div>
+            <div class="version-number" id="version">1.0.2</div>
+            <div class="build-date" id="build-date">Built on: February 15, 2026</div>
         </div>
 
-        <a href="HRMobile-release.apk" class="download-btn" download>
+        <a href="HRZio.apk" class="download-btn" download>
             Download for Android
         </a>
 
         <div class="file-info">
-            APK Size: <span id="file-size">~85 MB</span>
+            APK Size: <span id="file-size">~89 MB</span>
         </div>
 
         <div class="warning">
@@ -219,7 +219,7 @@
 
     <script>
         // Auto-update file size
-        fetch('HRMobile-release.apk', { method: 'HEAD' })
+        fetch('HRZio.apk', { method: 'HEAD' })
             .then(response => {
                 const size = response.headers.get('content-length');
                 if (size) {
