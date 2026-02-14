@@ -51,7 +51,8 @@ const MarkAttendanceModal: React.FC<MarkAttendanceModalProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (searchTerm) {
+    // Only show dropdown when searching and no employee is selected
+    if (searchTerm && !selectedEmployee) {
       const filtered = employees.filter(
         (emp) =>
           `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -63,7 +64,7 @@ const MarkAttendanceModal: React.FC<MarkAttendanceModalProps> = ({
       setFilteredEmployees([]);
       setShowDropdown(false);
     }
-  }, [searchTerm, employees]);
+  }, [searchTerm, employees, selectedEmployee]);
 
   const fetchEmployees = async () => {
     try {
