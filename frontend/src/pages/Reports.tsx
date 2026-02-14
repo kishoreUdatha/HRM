@@ -168,6 +168,11 @@ const Reports: React.FC = () => {
 
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
+  // Helper function to safely get array for reduce operations
+  const safeArray = <T,>(data: any): T[] => {
+    return Array.isArray(data) ? data : [];
+  };
+
   useEffect(() => {
     fetchEmployees();
     fetchDepartments();
@@ -358,8 +363,12 @@ const Reports: React.FC = () => {
       }
 
       const response = await api.get(`${endpoint}?${params}`);
-      let records = response.data.data || [];
-      setReportData(records);
+      let records = response.data.data;
+      // Ensure records is always an array
+      if (!Array.isArray(records)) {
+        records = records?.records || records?.items || [];
+      }
+      setReportData(Array.isArray(records) ? records : []);
     } catch (error) {
       console.error('Failed to fetch salary report:', error);
       // Generate mock data for demo
@@ -461,34 +470,34 @@ const Reports: React.FC = () => {
 
     if (selectedReportType?.startsWith('leave-balance')) {
       csvContent += `Employee Code,Employee Name,Department,Leave Type,Total,Used,Pending,Available\n`;
-      reportData.forEach((item: LeaveBalance) => {
-        item.balances.forEach(balance => {
+      safeArray<LeaveBalance>(reportData).forEach((item) => {
+        (item.balances || []).forEach(balance => {
           csvContent += `${item.employee?.employeeCode || '-'},${item.employee?.firstName || ''} ${item.employee?.lastName || ''},${item.employee?.departmentId?.name || '-'},${balance.type},${balance.total},${balance.used},${balance.pending},${balance.available}\n`;
         });
       });
     } else if (selectedReportType === 'leave-application') {
       csvContent += `Employee Code,Employee Name,Department,Leave Type,Start Date,End Date,Days,Status,Reason,Applied On\n`;
-      reportData.forEach((item: LeaveRecord) => {
+      safeArray<LeaveRecord>(reportData).forEach((item) => {
         csvContent += `${item.employee?.employeeCode || '-'},${item.employee?.firstName || ''} ${item.employee?.lastName || ''},${item.employee?.departmentId?.name || '-'},${item.leaveType},${item.startDate?.split('T')[0]},${item.endDate?.split('T')[0]},${item.days},${item.status},${item.reason || '-'},${item.appliedOn?.split('T')[0]}\n`;
       });
     } else if (selectedReportType === 'pf-statement') {
       csvContent += `Employee Code,Employee Name,Department,UAN Number,Basic Salary,PF Wages,Employee Contribution,Employer Contribution,Total Contribution\n`;
-      reportData.forEach((item: PFStatement) => {
+      safeArray<PFStatement>(reportData).forEach((item) => {
         csvContent += `${item.employee?.employeeCode || '-'},${item.employee?.firstName || ''} ${item.employee?.lastName || ''},${item.employee?.departmentId?.name || '-'},${item.uanNumber || '-'},${item.basicSalary},${item.pfWages},${item.employeeContribution},${item.employerContribution},${item.totalContribution}\n`;
       });
     } else if (selectedReportType === 'esi-statement') {
       csvContent += `Employee Code,Employee Name,Department,ESIC Number,Gross Salary,ESI Wages,Employee Contribution,Employer Contribution,Total Contribution\n`;
-      reportData.forEach((item: ESIStatement) => {
+      safeArray<ESIStatement>(reportData).forEach((item) => {
         csvContent += `${item.employee?.employeeCode || '-'},${item.employee?.firstName || ''} ${item.employee?.lastName || ''},${item.employee?.departmentId?.name || '-'},${item.esicNumber || '-'},${item.grossSalary},${item.esiWages},${item.employeeContribution},${item.employerContribution},${item.totalContribution}\n`;
       });
     } else if (selectedReportType?.startsWith('salary')) {
       csvContent += `Employee Code,Employee Name,Department,Basic,HRA,Allowances,Gross Salary,PF,ESI,PT,TDS,Other Deductions,Total Deductions,Net Salary,Status\n`;
-      reportData.forEach((item: SalaryRecord) => {
+      safeArray<SalaryRecord>(reportData).forEach((item) => {
         csvContent += `${item.employee?.employeeCode || '-'},${item.employee?.firstName || ''} ${item.employee?.lastName || ''},${item.employee?.departmentId?.name || '-'},${item.basicSalary},${item.hra},${item.allowances},${item.grossSalary},${item.pfEmployee},${item.esiEmployee},${item.professionalTax},${item.tds},${item.otherDeductions},${item.deductions},${item.netSalary},${item.status}\n`;
       });
     } else {
       csvContent += `Date,Employee Code,Employee Name,Department,Status,Check In,Check Out,Work Hours,OT Hours,Late (min),Early Out (min),GPS Status\n`;
-      reportData.forEach((item: AttendanceRecord) => {
+      safeArray<AttendanceRecord>(reportData).forEach((item) => {
         csvContent += `${item.date?.split('T')[0]},${item.employee?.employeeCode || '-'},${item.employee?.firstName || ''} ${item.employee?.lastName || ''},${item.employee?.departmentId?.name || '-'},${item.status},${item.checkIn ? new Date(item.checkIn).toLocaleTimeString() : '-'},${item.checkOut ? new Date(item.checkOut).toLocaleTimeString() : '-'},${item.workHours?.toFixed(2) || '0'},${item.overtimeHours?.toFixed(2) || '0'},${item.lateMinutes || '0'},${item.earlyLeaveMinutes || '0'},${item.gpsStatus || '-'}\n`;
       });
     }
@@ -514,15 +523,15 @@ const Reports: React.FC = () => {
     doc.setTextColor(108, 117, 125);
     doc.text(`Period: ${period}`, 14, 28);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 34);
-    doc.text(`Total Records: ${reportData.length}`, 14, 40);
+    doc.text(`Total Records: ${safeArray(reportData).length}`, 14, 40);
 
     let tableData: (string | number)[][] = [];
     let headers: string[] = [];
 
     if (selectedReportType?.startsWith('leave-balance')) {
       headers = ['Employee Code', 'Employee Name', 'Department', 'Leave Type', 'Total', 'Used', 'Pending', 'Available'];
-      reportData.forEach((item: LeaveBalance) => {
-        item.balances.forEach(balance => {
+      safeArray<LeaveBalance>(reportData).forEach((item) => {
+        (item.balances || []).forEach(balance => {
           tableData.push([
             item.employee?.employeeCode || '-',
             `${item.employee?.firstName || ''} ${item.employee?.lastName || ''}`,
@@ -537,7 +546,7 @@ const Reports: React.FC = () => {
       });
     } else if (selectedReportType === 'leave-application') {
       headers = ['Employee Code', 'Employee Name', 'Department', 'Leave Type', 'Start Date', 'End Date', 'Days', 'Status'];
-      reportData.forEach((item: LeaveRecord) => {
+      safeArray<LeaveRecord>(reportData).forEach((item) => {
         tableData.push([
           item.employee?.employeeCode || '-',
           `${item.employee?.firstName || ''} ${item.employee?.lastName || ''}`,
@@ -551,7 +560,7 @@ const Reports: React.FC = () => {
       });
     } else if (selectedReportType === 'pf-statement') {
       headers = ['Employee Code', 'Employee Name', 'Department', 'UAN Number', 'Basic Salary', 'PF Wages', 'Employee PF', 'Employer PF', 'Total PF'];
-      reportData.forEach((item: PFStatement) => {
+      safeArray<PFStatement>(reportData).forEach((item) => {
         tableData.push([
           item.employee?.employeeCode || '-',
           `${item.employee?.firstName || ''} ${item.employee?.lastName || ''}`,
@@ -565,13 +574,13 @@ const Reports: React.FC = () => {
         ]);
       });
       // Add totals row
-      const totalEmpPF = reportData.reduce((sum: number, r: PFStatement) => sum + (r.employeeContribution || 0), 0);
-      const totalEmprPF = reportData.reduce((sum: number, r: PFStatement) => sum + (r.employerContribution || 0), 0);
-      const totalPF = reportData.reduce((sum: number, r: PFStatement) => sum + (r.totalContribution || 0), 0);
+      const totalEmpPF = safeArray<PFStatement>(reportData).reduce((sum, r) => sum + (r.employeeContribution || 0), 0);
+      const totalEmprPF = safeArray<PFStatement>(reportData).reduce((sum, r) => sum + (r.employerContribution || 0), 0);
+      const totalPF = safeArray<PFStatement>(reportData).reduce((sum, r) => sum + (r.totalContribution || 0), 0);
       tableData.push(['', 'TOTAL', '', '', '', '', `₹${totalEmpPF.toLocaleString('en-IN')}`, `₹${totalEmprPF.toLocaleString('en-IN')}`, `₹${totalPF.toLocaleString('en-IN')}`]);
     } else if (selectedReportType === 'esi-statement') {
       headers = ['Employee Code', 'Employee Name', 'Department', 'ESIC Number', 'Gross Salary', 'ESI Wages', 'Employee ESI', 'Employer ESI', 'Total ESI'];
-      reportData.forEach((item: ESIStatement) => {
+      safeArray<ESIStatement>(reportData).forEach((item) => {
         tableData.push([
           item.employee?.employeeCode || '-',
           `${item.employee?.firstName || ''} ${item.employee?.lastName || ''}`,
@@ -585,13 +594,13 @@ const Reports: React.FC = () => {
         ]);
       });
       // Add totals row
-      const totalEmpESI = reportData.reduce((sum: number, r: ESIStatement) => sum + (r.employeeContribution || 0), 0);
-      const totalEmprESI = reportData.reduce((sum: number, r: ESIStatement) => sum + (r.employerContribution || 0), 0);
-      const totalESI = reportData.reduce((sum: number, r: ESIStatement) => sum + (r.totalContribution || 0), 0);
+      const totalEmpESI = safeArray<ESIStatement>(reportData).reduce((sum, r) => sum + (r.employeeContribution || 0), 0);
+      const totalEmprESI = safeArray<ESIStatement>(reportData).reduce((sum, r) => sum + (r.employerContribution || 0), 0);
+      const totalESI = safeArray<ESIStatement>(reportData).reduce((sum, r) => sum + (r.totalContribution || 0), 0);
       tableData.push(['', 'TOTAL', '', '', '', '', `₹${totalEmpESI.toLocaleString('en-IN')}`, `₹${totalEmprESI.toLocaleString('en-IN')}`, `₹${totalESI.toLocaleString('en-IN')}`]);
     } else if (selectedReportType?.startsWith('salary')) {
       headers = ['Employee Code', 'Employee Name', 'Department', 'Basic', 'HRA', 'Allowances', 'Gross', 'PF', 'ESI', 'PT', 'Deductions', 'Net Salary', 'Status'];
-      reportData.forEach((item: SalaryRecord) => {
+      safeArray<SalaryRecord>(reportData).forEach((item) => {
         tableData.push([
           item.employee?.employeeCode || '-',
           `${item.employee?.firstName || ''} ${item.employee?.lastName || ''}`,
@@ -609,14 +618,14 @@ const Reports: React.FC = () => {
         ]);
       });
       // Add totals row
-      const totalGross = reportData.reduce((sum: number, r: SalaryRecord) => sum + (r.grossSalary || 0), 0);
-      const totalDeductions = reportData.reduce((sum: number, r: SalaryRecord) => sum + (r.deductions || 0), 0);
-      const totalNet = reportData.reduce((sum: number, r: SalaryRecord) => sum + (r.netSalary || 0), 0);
+      const totalGross = safeArray<SalaryRecord>(reportData).reduce((sum, r) => sum + (r.grossSalary || 0), 0);
+      const totalDeductions = safeArray<SalaryRecord>(reportData).reduce((sum, r) => sum + (r.deductions || 0), 0);
+      const totalNet = safeArray<SalaryRecord>(reportData).reduce((sum, r) => sum + (r.netSalary || 0), 0);
       tableData.push(['', 'TOTAL', '', '', '', '', `₹${totalGross.toLocaleString('en-IN')}`, '', '', '', `₹${totalDeductions.toLocaleString('en-IN')}`, `₹${totalNet.toLocaleString('en-IN')}`, '']);
     } else {
       // Attendance reports
       headers = ['Date', 'Employee Code', 'Employee Name', 'Department', 'Status', 'Check In', 'Check Out', 'Work Hours', 'OT Hours'];
-      reportData.forEach((item: AttendanceRecord) => {
+      safeArray<AttendanceRecord>(reportData).forEach((item) => {
         tableData.push([
           item.date?.split('T')[0] || '-',
           item.employee?.employeeCode || '-',
@@ -832,28 +841,28 @@ const Reports: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
             <p className="text-sm text-secondary-500">Total Records</p>
-            <p className="text-2xl font-bold text-secondary-900">{reportData.length}</p>
+            <p className="text-2xl font-bold text-secondary-900">{safeArray(reportData).length}</p>
           </div>
           {selectedReportType?.startsWith('leave-balance') ? (
             <>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total Employees</p>
-                <p className="text-2xl font-bold text-blue-600">{reportData.length}</p>
+                <p className="text-2xl font-bold text-blue-600">{safeArray(reportData).length}</p>
               </div>
             </>
           ) : selectedReportType === 'leave-application' ? (
             <>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Approved</p>
-                <p className="text-2xl font-bold text-green-600">{reportData.filter((r: LeaveRecord) => r.status === 'approved').length}</p>
+                <p className="text-2xl font-bold text-green-600">{safeArray<LeaveRecord>(reportData).filter((r) => r.status === 'approved').length}</p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{reportData.filter((r: LeaveRecord) => r.status === 'pending').length}</p>
+                <p className="text-2xl font-bold text-yellow-600">{safeArray<LeaveRecord>(reportData).filter((r) => r.status === 'pending').length}</p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Rejected</p>
-                <p className="text-2xl font-bold text-red-600">{reportData.filter((r: LeaveRecord) => r.status === 'rejected').length}</p>
+                <p className="text-2xl font-bold text-red-600">{safeArray<LeaveRecord>(reportData).filter((r) => r.status === 'rejected').length}</p>
               </div>
             </>
           ) : selectedReportType === 'pf-statement' ? (
@@ -861,19 +870,19 @@ const Reports: React.FC = () => {
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total Employee PF</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {reportData.reduce((sum: number, r: PFStatement) => sum + (r.employeeContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
+                  {safeArray<PFStatement>(reportData).reduce((sum, r) => sum + (r.employeeContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total Employer PF</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {reportData.reduce((sum: number, r: PFStatement) => sum + (r.employerContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
+                  {safeArray<PFStatement>(reportData).reduce((sum, r) => sum + (r.employerContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total PF</p>
                 <p className="text-2xl font-bold text-purple-600">
-                  {reportData.reduce((sum: number, r: PFStatement) => sum + (r.totalContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
+                  {safeArray<PFStatement>(reportData).reduce((sum, r) => sum + (r.totalContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
                 </p>
               </div>
             </>
@@ -882,19 +891,19 @@ const Reports: React.FC = () => {
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total Employee ESI</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {reportData.reduce((sum: number, r: ESIStatement) => sum + (r.employeeContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
+                  {safeArray<ESIStatement>(reportData).reduce((sum, r) => sum + (r.employeeContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total Employer ESI</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {reportData.reduce((sum: number, r: ESIStatement) => sum + (r.employerContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
+                  {safeArray<ESIStatement>(reportData).reduce((sum, r) => sum + (r.employerContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total ESI</p>
                 <p className="text-2xl font-bold text-rose-600">
-                  {reportData.reduce((sum: number, r: ESIStatement) => sum + (r.totalContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
+                  {safeArray<ESIStatement>(reportData).reduce((sum, r) => sum + (r.totalContribution || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
                 </p>
               </div>
             </>
@@ -903,19 +912,19 @@ const Reports: React.FC = () => {
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total Gross Salary</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {reportData.reduce((sum: number, r: SalaryRecord) => sum + (r.grossSalary || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
+                  {safeArray<SalaryRecord>(reportData).reduce((sum, r) => sum + (r.grossSalary || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total Deductions</p>
                 <p className="text-2xl font-bold text-red-600">
-                  {reportData.reduce((sum: number, r: SalaryRecord) => sum + (r.deductions || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
+                  {safeArray<SalaryRecord>(reportData).reduce((sum, r) => sum + (r.deductions || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total Net Salary</p>
                 <p className="text-2xl font-bold text-emerald-600">
-                  {reportData.reduce((sum: number, r: SalaryRecord) => sum + (r.netSalary || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
+                  {safeArray<SalaryRecord>(reportData).reduce((sum, r) => sum + (r.netSalary || 0), 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })}
                 </p>
               </div>
             </>
@@ -924,19 +933,19 @@ const Reports: React.FC = () => {
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total Work Hours</p>
                 <p className="text-2xl font-bold text-purple-600">
-                  {reportData.reduce((sum: number, r: AttendanceRecord) => sum + (r.workHours || 0), 0).toFixed(1)}h
+                  {safeArray<AttendanceRecord>(reportData).reduce((sum, r) => sum + (r.workHours || 0), 0).toFixed(1)}h
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Total OT Hours</p>
                 <p className="text-2xl font-bold text-orange-600">
-                  {reportData.reduce((sum: number, r: AttendanceRecord) => sum + (r.overtimeHours || 0), 0).toFixed(1)}h
+                  {safeArray<AttendanceRecord>(reportData).reduce((sum, r) => sum + (r.overtimeHours || 0), 0).toFixed(1)}h
                 </p>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-4">
                 <p className="text-sm text-secondary-500">Avg Work Hours</p>
                 <p className="text-2xl font-bold text-secondary-900">
-                  {reportData.length > 0 ? (reportData.reduce((sum: number, r: AttendanceRecord) => sum + (r.workHours || 0), 0) / reportData.length).toFixed(1) : '0'}h
+                  {safeArray<AttendanceRecord>(reportData).length > 0 ? (safeArray<AttendanceRecord>(reportData).reduce((sum, r) => sum + (r.workHours || 0), 0) / safeArray<AttendanceRecord>(reportData).length).toFixed(1) : '0'}h
                 </p>
               </div>
             </>
