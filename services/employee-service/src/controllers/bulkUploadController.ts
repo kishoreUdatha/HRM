@@ -4,6 +4,87 @@ import * as XLSX from 'xlsx';
 import Employee from '../models/Employee';
 import Department from '../models/Department';
 
+// IST timezone offset: UTC+5:30
+const IST_OFFSET_HOURS = 5;
+const IST_OFFSET_MINUTES = 30;
+
+// Convert Excel serial date to JS Date
+const excelDateToJSDate = (excelDate: number): Date => {
+  // Excel dates start from Jan 1, 1900 (serial number 1)
+  // But there's a bug in Excel where 1900 is treated as a leap year
+  const excelEpoch = new Date(Date.UTC(1899, 11, 30)); // Dec 30, 1899
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return new Date(excelEpoch.getTime() + excelDate * msPerDay);
+};
+
+// Normalize date value from Excel (can be string, number, or Date)
+const normalizeDateValue = (value: any): string => {
+  if (!value) return '';
+
+  // If it's a number, it's an Excel serial date
+  if (typeof value === 'number') {
+    const date = excelDateToJSDate(value);
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  // If it's a Date object
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  // If it's a string, return as-is
+  return String(value).trim();
+};
+
+// Normalize string value (handle numbers, etc.)
+const normalizeStringValue = (value: any): string => {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+};
+
+// Parse date string as IST and convert to UTC for storage
+// Input: "YYYY-MM-DD" or "DD/MM/YYYY" or "MM/DD/YYYY"
+const parseISTDate = (dateValue: any): Date => {
+  const dateStr = normalizeDateValue(dateValue);
+  if (!dateStr) return new Date();
+
+  let year: number, month: number, day: number;
+
+  // Try to parse different date formats
+  if (dateStr.includes('-')) {
+    // YYYY-MM-DD format
+    [year, month, day] = dateStr.split('-').map(Number);
+  } else if (dateStr.includes('/')) {
+    const parts = dateStr.split('/').map(Number);
+    if (parts[2] > 31) {
+      // DD/MM/YYYY or MM/DD/YYYY with 4-digit year
+      // Assume DD/MM/YYYY (Indian format)
+      [day, month, year] = parts;
+    } else {
+      // Ambiguous, default to DD/MM/YYYY
+      [day, month, year] = parts;
+    }
+  } else {
+    // Fallback to standard Date parsing
+    return new Date(dateStr);
+  }
+
+  // Create date at midnight IST (00:00:00 IST)
+  // IST is UTC+5:30, so we need to subtract 5:30 from IST to get UTC
+  const istMidnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  // Subtract IST offset to convert to UTC
+  istMidnight.setUTCHours(istMidnight.getUTCHours() - IST_OFFSET_HOURS);
+  istMidnight.setUTCMinutes(istMidnight.getUTCMinutes() - IST_OFFSET_MINUTES);
+
+  return istMidnight;
+};
+
 // Configure multer for memory storage
 const storage = multer.memoryStorage();
 export const upload = multer({
@@ -26,23 +107,23 @@ export const upload = multer({
 });
 
 interface EmployeeRow {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  dateOfBirth: string;
-  gender: string;
-  department: string;
-  designation: string;
-  joiningDate: string;
-  employmentType?: string;
-  salary?: number;
-  maritalStatus?: string;
-  street?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  zipCode?: string;
+  firstName: any;  // Excel may return different types
+  lastName: any;
+  email: any;
+  phone: any;
+  dateOfBirth: any;  // Can be string, number (Excel serial), or Date
+  gender: any;
+  department: any;
+  designation: any;
+  joiningDate: any;  // Can be string, number (Excel serial), or Date
+  employmentType?: any;
+  salary?: any;
+  maritalStatus?: any;
+  street?: any;
+  city?: any;
+  state?: any;
+  country?: any;
+  zipCode?: any;
 }
 
 interface ValidationError {
@@ -178,49 +259,62 @@ export const downloadTemplate = async (_req: Request, res: Response): Promise<vo
 const validateRow = (row: EmployeeRow, rowIndex: number): ValidationError[] => {
   const errors: ValidationError[] = [];
 
+  // Normalize values (handles Excel returning numbers, dates, etc.)
+  const firstName = normalizeStringValue(row.firstName);
+  const lastName = normalizeStringValue(row.lastName);
+  const email = normalizeStringValue(row.email);
+  const phone = normalizeStringValue(row.phone);
+  const dateOfBirth = normalizeDateValue(row.dateOfBirth);
+  const gender = normalizeStringValue(row.gender);
+  const department = normalizeStringValue(row.department);
+  const designation = normalizeStringValue(row.designation);
+  const joiningDate = normalizeDateValue(row.joiningDate);
+  const employmentType = normalizeStringValue(row.employmentType);
+  const maritalStatus = normalizeStringValue(row.maritalStatus);
+
   // Required fields
-  if (!row.firstName?.trim()) {
+  if (!firstName) {
     errors.push({ row: rowIndex, field: 'firstName', message: 'First name is required' });
   }
-  if (!row.lastName?.trim()) {
+  if (!lastName) {
     errors.push({ row: rowIndex, field: 'lastName', message: 'Last name is required' });
   }
-  if (!row.email?.trim()) {
+  if (!email) {
     errors.push({ row: rowIndex, field: 'email', message: 'Email is required' });
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email)) {
-    errors.push({ row: rowIndex, field: 'email', message: 'Invalid email format', value: row.email });
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errors.push({ row: rowIndex, field: 'email', message: 'Invalid email format', value: email });
   }
-  if (!row.phone?.trim()) {
+  if (!phone) {
     errors.push({ row: rowIndex, field: 'phone', message: 'Phone is required' });
   }
-  if (!row.dateOfBirth?.trim()) {
+  if (!dateOfBirth) {
     errors.push({ row: rowIndex, field: 'dateOfBirth', message: 'Date of birth is required' });
-  } else if (isNaN(Date.parse(row.dateOfBirth))) {
-    errors.push({ row: rowIndex, field: 'dateOfBirth', message: 'Invalid date format', value: row.dateOfBirth });
+  } else if (isNaN(Date.parse(dateOfBirth))) {
+    errors.push({ row: rowIndex, field: 'dateOfBirth', message: 'Invalid date format', value: dateOfBirth });
   }
-  if (!row.gender?.trim()) {
+  if (!gender) {
     errors.push({ row: rowIndex, field: 'gender', message: 'Gender is required' });
-  } else if (!['male', 'female', 'other'].includes(row.gender.toLowerCase())) {
-    errors.push({ row: rowIndex, field: 'gender', message: 'Gender must be male, female, or other', value: row.gender });
+  } else if (!['male', 'female', 'other'].includes(gender.toLowerCase())) {
+    errors.push({ row: rowIndex, field: 'gender', message: 'Gender must be male, female, or other', value: gender });
   }
-  if (!row.department?.trim()) {
+  if (!department) {
     errors.push({ row: rowIndex, field: 'department', message: 'Department is required' });
   }
-  if (!row.designation?.trim()) {
+  if (!designation) {
     errors.push({ row: rowIndex, field: 'designation', message: 'Designation is required' });
   }
-  if (!row.joiningDate?.trim()) {
+  if (!joiningDate) {
     errors.push({ row: rowIndex, field: 'joiningDate', message: 'Joining date is required' });
-  } else if (isNaN(Date.parse(row.joiningDate))) {
-    errors.push({ row: rowIndex, field: 'joiningDate', message: 'Invalid date format', value: row.joiningDate });
+  } else if (isNaN(Date.parse(joiningDate))) {
+    errors.push({ row: rowIndex, field: 'joiningDate', message: 'Invalid date format', value: joiningDate });
   }
 
   // Optional field validation
-  if (row.employmentType && !['full-time', 'part-time', 'contract', 'intern'].includes(row.employmentType.toLowerCase())) {
-    errors.push({ row: rowIndex, field: 'employmentType', message: 'Invalid employment type', value: row.employmentType });
+  if (employmentType && !['full-time', 'part-time', 'contract', 'intern'].includes(employmentType.toLowerCase())) {
+    errors.push({ row: rowIndex, field: 'employmentType', message: 'Invalid employment type', value: employmentType });
   }
-  if (row.maritalStatus && !['single', 'married', 'divorced', 'widowed'].includes(row.maritalStatus.toLowerCase())) {
-    errors.push({ row: rowIndex, field: 'maritalStatus', message: 'Invalid marital status', value: row.maritalStatus });
+  if (maritalStatus && !['single', 'married', 'divorced', 'widowed'].includes(maritalStatus.toLowerCase())) {
+    errors.push({ row: rowIndex, field: 'maritalStatus', message: 'Invalid marital status', value: maritalStatus });
   }
 
   return errors;
@@ -266,12 +360,13 @@ export const bulkUploadEmployees = async (req: Request, res: Response): Promise<
       const rowErrors = validateRow(row, rowIndex);
 
       // Check if department exists
-      if (row.department && !departmentMap.has(row.department.toLowerCase())) {
+      const deptName = normalizeStringValue(row.department);
+      if (deptName && !departmentMap.has(deptName.toLowerCase())) {
         rowErrors.push({
           row: rowIndex,
           field: 'department',
-          message: `Department "${row.department}" does not exist. Please create it first.`,
-          value: row.department,
+          message: `Department "${deptName}" does not exist. Please create it first.`,
+          value: deptName,
         });
       }
 
@@ -285,8 +380,8 @@ export const bulkUploadEmployees = async (req: Request, res: Response): Promise<
     // Check for duplicate emails in the file
     const emailCounts = new Map<string, number[]>();
     data.forEach((row, index) => {
-      if (row.email) {
-        const email = row.email.toLowerCase();
+      const email = normalizeStringValue(row.email).toLowerCase();
+      if (email) {
         if (!emailCounts.has(email)) {
           emailCounts.set(email, []);
         }
@@ -308,7 +403,7 @@ export const bulkUploadEmployees = async (req: Request, res: Response): Promise<
     });
 
     // Check for existing emails in database
-    const emails = validRows.map(v => v.row.email.toLowerCase());
+    const emails = validRows.map(v => normalizeStringValue(v.row.email).toLowerCase());
     const existingEmployees = await Employee.find({
       tenantId,
       email: { $in: emails },
@@ -316,18 +411,19 @@ export const bulkUploadEmployees = async (req: Request, res: Response): Promise<
 
     const existingEmails = new Set(existingEmployees.map(e => e.email.toLowerCase()));
     validRows.forEach(({ row, index }) => {
-      if (existingEmails.has(row.email.toLowerCase())) {
+      const email = normalizeStringValue(row.email).toLowerCase();
+      if (existingEmails.has(email)) {
         allErrors.push({
           row: index,
           field: 'email',
           message: 'Employee with this email already exists',
-          value: row.email,
+          value: email,
         });
       }
     });
 
     // Filter out rows with errors
-    const rowsToCreate = validRows.filter(({ row }) => !existingEmails.has(row.email.toLowerCase()));
+    const rowsToCreate = validRows.filter(({ row }) => !existingEmails.has(normalizeStringValue(row.email).toLowerCase()));
 
     // Create employees
     const createdEmployees: string[] = [];
@@ -335,35 +431,47 @@ export const bulkUploadEmployees = async (req: Request, res: Response): Promise<
 
     for (const { row, index } of rowsToCreate) {
       try {
-        const departmentId = departmentMap.get(row.department.toLowerCase());
+        // Normalize all values from Excel
+        const firstName = normalizeStringValue(row.firstName);
+        const lastName = normalizeStringValue(row.lastName);
+        const email = normalizeStringValue(row.email).toLowerCase();
+        const phone = normalizeStringValue(row.phone);
+        const gender = normalizeStringValue(row.gender).toLowerCase();
+        const department = normalizeStringValue(row.department);
+        const designation = normalizeStringValue(row.designation);
+        const employmentType = normalizeStringValue(row.employmentType).toLowerCase() || 'full-time';
+        const maritalStatus = normalizeStringValue(row.maritalStatus).toLowerCase() || 'single';
+        const salary = typeof row.salary === 'number' ? row.salary : (parseFloat(row.salary) || 0);
+
+        const departmentId = departmentMap.get(department.toLowerCase());
 
         const employee = new Employee({
           tenantId,
-          firstName: row.firstName.trim(),
-          lastName: row.lastName.trim(),
-          email: row.email.toLowerCase().trim(),
-          phone: row.phone.trim(),
-          dateOfBirth: new Date(row.dateOfBirth),
-          gender: row.gender.toLowerCase(),
+          firstName,
+          lastName,
+          email,
+          phone,
+          dateOfBirth: parseISTDate(row.dateOfBirth),
+          gender,
           departmentId,
-          designation: row.designation.trim(),
-          joiningDate: new Date(row.joiningDate),
-          employmentType: (row.employmentType?.toLowerCase() as 'full-time' | 'part-time' | 'contract' | 'intern') || 'full-time',
-          maritalStatus: (row.maritalStatus?.toLowerCase() as 'single' | 'married' | 'divorced' | 'widowed') || 'single',
+          designation,
+          joiningDate: parseISTDate(row.joiningDate),
+          employmentType: employmentType as 'full-time' | 'part-time' | 'contract' | 'intern',
+          maritalStatus: maritalStatus as 'single' | 'married' | 'divorced' | 'widowed',
           salary: {
-            basic: row.salary || 0,
+            basic: salary,
             hra: 0,
             allowances: 0,
             deductions: 0,
-            netSalary: row.salary || 0,
-            currency: 'USD',
+            netSalary: salary,
+            currency: 'INR',
           },
           address: {
-            street: row.street || '',
-            city: row.city || '',
-            state: row.state || '',
-            country: row.country || '',
-            zipCode: row.zipCode || '',
+            street: normalizeStringValue(row.street),
+            city: normalizeStringValue(row.city),
+            state: normalizeStringValue(row.state),
+            country: normalizeStringValue(row.country),
+            zipCode: normalizeStringValue(row.zipCode),
           },
           status: 'active',
         });
@@ -523,12 +631,13 @@ export const validateUpload = async (req: Request, res: Response): Promise<void>
 
       const rowErrors = validateRow(row, rowIndex);
 
-      if (row.department && !departmentMap.has(row.department.toLowerCase())) {
+      const deptName = normalizeStringValue(row.department);
+      if (deptName && !departmentMap.has(deptName.toLowerCase())) {
         rowErrors.push({
           row: rowIndex,
           field: 'department',
-          message: `Department "${row.department}" does not exist. Available departments: ${departments.map(d => d.name).join(', ') || 'None (please create departments first)'}`,
-          value: row.department,
+          message: `Department "${deptName}" does not exist. Available departments: ${departments.map(d => d.name).join(', ') || 'None (please create departments first)'}`,
+          value: deptName,
         });
       }
 
@@ -542,8 +651,8 @@ export const validateUpload = async (req: Request, res: Response): Promise<void>
     // Check for duplicate emails in file
     const emailCounts = new Map<string, number[]>();
     data.forEach((row, index) => {
-      if (row.email) {
-        const email = row.email.toLowerCase().trim();
+      const email = normalizeStringValue(row.email).toLowerCase();
+      if (email) {
         if (!emailCounts.has(email)) {
           emailCounts.set(email, []);
         }
@@ -563,7 +672,7 @@ export const validateUpload = async (req: Request, res: Response): Promise<void>
     });
 
     // Check for existing emails in database
-    const emails = data.map(row => row.email?.toLowerCase().trim()).filter(Boolean);
+    const emails = data.map(row => normalizeStringValue(row.email).toLowerCase()).filter(Boolean);
     let existingEmployees: { email: string }[] = [];
 
     try {
@@ -577,7 +686,7 @@ export const validateUpload = async (req: Request, res: Response): Promise<void>
     }
 
     existingEmployees.forEach(emp => {
-      const rowIndex = data.findIndex(row => row.email?.toLowerCase().trim() === emp.email.toLowerCase()) + 2;
+      const rowIndex = data.findIndex(row => normalizeStringValue(row.email).toLowerCase() === emp.email.toLowerCase()) + 2;
       errors.push({
         row: rowIndex,
         field: 'email',

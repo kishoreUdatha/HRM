@@ -30,6 +30,11 @@ api.interceptors.request.use(
       config.headers['X-Tenant-ID'] = tenantId;
     }
 
+    // For FormData requests, delete Content-Type to let axios set it with boundary
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     return config;
   },
   (error) => {
