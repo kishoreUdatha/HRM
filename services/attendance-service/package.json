@@ -20,12 +20,15 @@
     "express-validator": "^7.2.0",
     "jimp": "^1.6.0",
     "mongoose": "^8.6.0",
-    "uuid": "^9.0.0"
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.5",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.11",
     "@types/node": "^22.5.4",
     "@types/uuid": "^9.0.0",
     "ts-node-dev": "^2.0.0",

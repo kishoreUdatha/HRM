@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body, query } from 'express-validator';
 import * as attendanceController from '../controllers/attendanceController';
 import * as shiftController from '../controllers/shiftController';
+import * as bulkAttendanceController from '../controllers/bulkAttendanceController';
 
 const router = Router();
 
@@ -88,6 +89,25 @@ router.post(
 
 // Bulk mark attendance
 router.post('/bulk-mark', attendanceController.bulkMarkAttendance);
+
+// ==================== BULK UPLOAD ROUTES ====================
+
+// Download bulk upload template
+router.get('/bulk-upload/template', bulkAttendanceController.downloadTemplate);
+
+// Validate bulk upload file
+router.post(
+  '/bulk-upload/validate',
+  bulkAttendanceController.upload.single('file'),
+  bulkAttendanceController.validateUpload
+);
+
+// Process bulk upload
+router.post(
+  '/bulk-upload',
+  bulkAttendanceController.upload.single('file'),
+  bulkAttendanceController.bulkUpload
+);
 
 // ==================== FACE RECOGNITION ROUTES ====================
 
