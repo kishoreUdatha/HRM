@@ -25,12 +25,11 @@ interface TenantDetail {
   name: string;
   slug: string;
   domain?: string;
-  status: 'active' | 'trial' | 'suspended' | 'cancelled';
+  status: 'active' | 'suspended' | 'cancelled';
   subscription: {
     plan: string;
     startDate: string;
     endDate: string;
-    trialEndsAt?: string;
   };
   settings: {
     employeeLimit: number;
@@ -69,8 +68,6 @@ const TenantDetails: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('');
-  const [showExtendTrialModal, setShowExtendTrialModal] = useState(false);
-  const [trialDays, setTrialDays] = useState(14);
 
   useEffect(() => {
     if (id) {
@@ -146,24 +143,6 @@ const TenantDetails: React.FC = () => {
     }
   };
 
-  const handleExtendTrial = async () => {
-    const token = localStorage.getItem('superAdminAccessToken');
-
-    try {
-      await api.put(
-        `/tenants/admin/${id}/extend-trial`,
-        { days: trialDays },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success(`Trial extended by ${trialDays} days`);
-      setShowExtendTrialModal(false);
-      fetchTenantDetails();
-    } catch (error) {
-      console.error('Failed to extend trial:', error);
-      toast.error('Failed to extend trial');
-    }
-  };
-
   const handleDelete = async () => {
     if (!confirm(`Are you sure you want to delete "${tenant?.name}"? This action cannot be undone.`)) {
       return;
@@ -186,14 +165,12 @@ const TenantDetails: React.FC = () => {
   const getStatusBadge = (status: string) => {
     const styles = {
       active: 'bg-green-100 text-green-700 border-green-200',
-      trial: 'bg-yellow-100 text-yellow-700 border-yellow-200',
       suspended: 'bg-red-100 text-red-700 border-red-200',
       cancelled: 'bg-gray-100 text-gray-700 border-gray-200',
     };
 
     const icons = {
       active: <HiCheckCircle className="w-4 h-4" />,
-      trial: <HiClock className="w-4 h-4" />,
       suspended: <HiBan className="w-4 h-4" />,
       cancelled: <HiBan className="w-4 h-4" />,
     };
@@ -377,11 +354,7 @@ const TenantDetails: React.FC = () => {
                   <p className="text-2xl font-bold text-gray-900 capitalize">
                     {tenant.subscription?.plan || 'Free'} Plan
                   </p>
-                  <p className="text-gray-500">
-                    {tenant.status === 'trial' && tenant.subscription?.trialEndsAt
-                      ? `Trial ends ${new Date(tenant.subscription.trialEndsAt).toLocaleDateString()}`
-                      : 'Active subscription'}
-                  </p>
+                  <p className="text-gray-500">Active subscription</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -400,14 +373,6 @@ const TenantDetails: React.FC = () => {
                   </p>
                 </div>
               </div>
-              {tenant.status === 'trial' && (
-                <button
-                  onClick={() => setShowExtendTrialModal(true)}
-                  className="mt-4 w-full py-2 border border-purple-200 text-purple-600 rounded-lg hover:bg-purple-50 font-medium"
-                >
-                  Extend Trial Period
-                </button>
-              )}
             </div>
           </div>
 
@@ -577,44 +542,6 @@ const TenantDetails: React.FC = () => {
         </div>
       )}
 
-      {/* Extend Trial Modal */}
-      {showExtendTrialModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">Extend Trial Period</h2>
-            </div>
-            <div className="p-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Number of days to extend
-              </label>
-              <input
-                type="number"
-                value={trialDays}
-                onChange={(e) => setTrialDays(parseInt(e.target.value) || 0)}
-                min={1}
-                max={90}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-              />
-              <p className="text-sm text-gray-500 mt-2">Maximum 90 days extension</p>
-            </div>
-            <div className="flex gap-3 p-6 border-t border-gray-100">
-              <button
-                onClick={() => setShowExtendTrialModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleExtendTrial}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700"
-              >
-                Extend Trial
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -6,32 +6,6 @@ dotenv.config();
 
 const PLANS_DATA = [
   {
-    planCode: 'trial',
-    displayName: 'Trial Plan',
-    description: '14-day free trial to explore all features',
-    pricing: {
-      monthly: 0,
-      yearly: 0,
-      currency: 'INR',
-    },
-    limits: {
-      maxEmployees: 5,
-      maxAdmins: 1,
-      maxStorage: 100, // 100MB
-      maxApiCalls: 1000,
-    },
-    features: [
-      'employees',
-      'attendance',
-      'basic_leaves',
-      'reports',
-    ],
-    isActive: true,
-    isVisible: true,
-    sortOrder: 1,
-    trialDays: 14,
-  },
-  {
     planCode: 'free',
     displayName: 'Free Plan',
     description: 'Perfect for small teams getting started',
@@ -53,7 +27,7 @@ const PLANS_DATA = [
     ],
     isActive: true,
     isVisible: true,
-    sortOrder: 2,
+    sortOrder: 1,
   },
   {
     planCode: 'starter',
@@ -80,7 +54,7 @@ const PLANS_DATA = [
     ],
     isActive: true,
     isVisible: true,
-    sortOrder: 3,
+    sortOrder: 2,
   },
   {
     planCode: 'professional',
@@ -110,7 +84,7 @@ const PLANS_DATA = [
     ],
     isActive: true,
     isVisible: true,
-    sortOrder: 4,
+    sortOrder: 3,
   },
   {
     planCode: 'enterprise',
@@ -145,7 +119,7 @@ const PLANS_DATA = [
     ],
     isActive: true,
     isVisible: true,
-    sortOrder: 5,
+    sortOrder: 4,
   },
 ];
 

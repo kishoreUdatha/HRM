@@ -22,8 +22,6 @@ import {
   HiCalendar,
   HiX,
   HiDocumentDownload,
-  HiPlay,
-  HiStop,
   HiSparkles,
 } from 'react-icons/hi';
 import { toast } from 'react-hot-toast';
@@ -33,7 +31,7 @@ interface Tenant {
   _id: string;
   name: string;
   slug: string;
-  status: 'active' | 'trial' | 'suspended' | 'cancelled' | 'inactive';
+  status: 'active' | 'suspended' | 'cancelled' | 'inactive';
   subscription: {
     plan: string;
     startDate: string;
@@ -44,7 +42,6 @@ interface Tenant {
   settings: {
     employeeLimit: number;
   };
-  trialEndsAt?: string;
   employeeCount?: number;
   createdAt: string;
   updatedAt: string;
@@ -80,16 +77,11 @@ const TenantManagement: React.FC = () => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-  const [showTrialModal, setShowTrialModal] = useState(false);
-  const [selectedTenantForTrial, setSelectedTenantForTrial] = useState<Tenant | null>(null);
-  const [trialConfig, setTrialConfig] = useState({ days: 14, plan: 'professional' });
   const [isExporting, setIsExporting] = useState(false);
-  const [isProcessingTrial, setIsProcessingTrial] = useState(false);
   const [newTenant, setNewTenant] = useState({
     name: '',
     slug: '',
-    plan: 'trial',
-    trialDays: 14,
+    plan: 'starter',
     adminEmail: '',
     adminPassword: '',
     adminFirstName: '',
@@ -273,90 +265,6 @@ const TenantManagement: React.FC = () => {
     setActiveMenu(null);
   };
 
-  // Open trial management modal
-  const openTrialModal = (tenant: Tenant, action: 'start' | 'extend' | 'end') => {
-    setSelectedTenantForTrial(tenant);
-    if (action === 'extend') {
-      setTrialConfig({ days: 14, plan: tenant.subscription?.plan || 'professional' });
-    } else if (action === 'start') {
-      setTrialConfig({ days: 14, plan: 'professional' });
-    }
-    setShowTrialModal(true);
-    setActiveMenu(null);
-  };
-
-  // Start trial for a tenant
-  const handleStartTrial = async () => {
-    if (!selectedTenantForTrial) return;
-    setIsProcessingTrial(true);
-    const token = localStorage.getItem('superAdminAccessToken');
-
-    try {
-      await api.post(
-        `/tenants/admin/${selectedTenantForTrial._id}/start-trial`,
-        { days: trialConfig.days, plan: trialConfig.plan },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success(`${trialConfig.days}-day trial started for ${selectedTenantForTrial.name}`);
-      setShowTrialModal(false);
-      setSelectedTenantForTrial(null);
-      fetchTenants();
-    } catch (error: any) {
-      console.error('Failed to start trial:', error);
-      toast.error(error.response?.data?.message || 'Failed to start trial');
-    } finally {
-      setIsProcessingTrial(false);
-    }
-  };
-
-  // Extend trial for a tenant
-  const handleExtendTrial = async () => {
-    if (!selectedTenantForTrial) return;
-    setIsProcessingTrial(true);
-    const token = localStorage.getItem('superAdminAccessToken');
-
-    try {
-      await api.put(
-        `/tenants/admin/${selectedTenantForTrial._id}/extend-trial`,
-        { days: trialConfig.days },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success(`Trial extended by ${trialConfig.days} days for ${selectedTenantForTrial.name}`);
-      setShowTrialModal(false);
-      setSelectedTenantForTrial(null);
-      fetchTenants();
-    } catch (error: any) {
-      console.error('Failed to extend trial:', error);
-      toast.error(error.response?.data?.message || 'Failed to extend trial');
-    } finally {
-      setIsProcessingTrial(false);
-    }
-  };
-
-  // End trial for a tenant
-  const handleEndTrial = async (convertToPlan: string = 'free') => {
-    if (!selectedTenantForTrial) return;
-    setIsProcessingTrial(true);
-    const token = localStorage.getItem('superAdminAccessToken');
-
-    try {
-      await api.post(
-        `/tenants/admin/${selectedTenantForTrial._id}/end-trial`,
-        { convertToPlan },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success(`Trial ended. ${selectedTenantForTrial.name} converted to ${convertToPlan} plan`);
-      setShowTrialModal(false);
-      setSelectedTenantForTrial(null);
-      fetchTenants();
-    } catch (error: any) {
-      console.error('Failed to end trial:', error);
-      toast.error(error.response?.data?.message || 'Failed to end trial');
-    } finally {
-      setIsProcessingTrial(false);
-    }
-  };
-
   const handleDeleteTenant = async (tenantId: string, tenantName: string) => {
     if (!confirm(`Are you sure you want to delete "${tenantName}"? This action cannot be undone.`)) {
       return;
@@ -400,7 +308,6 @@ const TenantManagement: React.FC = () => {
         name: newTenant.name,
         slug: newTenant.slug || undefined,
         plan: newTenant.plan,
-        trialDays: newTenant.trialDays,
         adminEmail: newTenant.adminEmail,
         adminPassword: newTenant.adminPassword,
         adminFirstName: newTenant.adminFirstName,
@@ -419,8 +326,7 @@ const TenantManagement: React.FC = () => {
         setNewTenant({
           name: '',
           slug: '',
-          plan: 'trial',
-          trialDays: 14,
+          plan: 'starter',
           adminEmail: '',
           adminPassword: '',
           adminFirstName: '',
@@ -509,10 +415,9 @@ const TenantManagement: React.FC = () => {
 
   // Export functionality
   const exportToCSV = useCallback(() => {
-    const headers = ['Name', 'Slug', 'Plan', 'Status', 'Billing Cycle', 'Amount', 'Employees', 'Trial Ends', 'Created At'];
+    const headers = ['Name', 'Slug', 'Plan', 'Status', 'Billing Cycle', 'Amount', 'Employees', 'Created At'];
 
     const csvData = tenants.map(tenant => {
-      const trialDays = getTrialDaysRemaining(tenant);
       return [
         tenant.name,
         tenant.slug,
@@ -521,7 +426,6 @@ const TenantManagement: React.FC = () => {
         tenant.subscription?.billingCycle || 'N/A',
         tenant.subscription?.amount || 0,
         tenant.employeeCount || 0,
-        trialDays !== null ? `${trialDays} days` : 'N/A',
         new Date(tenant.createdAt).toLocaleDateString(),
       ];
     });
@@ -538,7 +442,7 @@ const TenantManagement: React.FC = () => {
     setIsExporting(true);
     try {
       // Create a simple Excel-compatible XML format
-      const headers = ['Name', 'Slug', 'Plan', 'Status', 'Billing Cycle', 'Amount (INR)', 'Employees', 'Trial Days Remaining', 'Created At'];
+      const headers = ['Name', 'Slug', 'Plan', 'Status', 'Billing Cycle', 'Amount (INR)', 'Employees', 'Created At'];
 
       let xmlContent = '<?xml version="1.0" encoding="UTF-8"?>\n';
       xmlContent += '<?mso-application progid="Excel.Sheet"?>\n';
@@ -554,7 +458,6 @@ const TenantManagement: React.FC = () => {
 
       // Data rows
       tenants.forEach(tenant => {
-        const trialDays = getTrialDaysRemaining(tenant);
         xmlContent += '<Row>\n';
         xmlContent += `<Cell><Data ss:Type="String">${tenant.name}</Data></Cell>\n`;
         xmlContent += `<Cell><Data ss:Type="String">${tenant.slug}</Data></Cell>\n`;
@@ -563,7 +466,6 @@ const TenantManagement: React.FC = () => {
         xmlContent += `<Cell><Data ss:Type="String">${tenant.subscription?.billingCycle || 'N/A'}</Data></Cell>\n`;
         xmlContent += `<Cell><Data ss:Type="Number">${tenant.subscription?.amount || 0}</Data></Cell>\n`;
         xmlContent += `<Cell><Data ss:Type="Number">${tenant.employeeCount || 0}</Data></Cell>\n`;
-        xmlContent += `<Cell><Data ss:Type="String">${trialDays !== null ? `${trialDays} days` : 'N/A'}</Data></Cell>\n`;
         xmlContent += `<Cell><Data ss:Type="String">${new Date(tenant.createdAt).toLocaleDateString()}</Data></Cell>\n`;
         xmlContent += '</Row>\n';
       });
@@ -590,7 +492,6 @@ const TenantManagement: React.FC = () => {
       billingCycle: tenant.subscription?.billingCycle,
       amount: tenant.subscription?.amount,
       employeeCount: tenant.employeeCount || 0,
-      trialDaysRemaining: getTrialDaysRemaining(tenant),
       createdAt: tenant.createdAt,
     }));
 
@@ -610,24 +511,11 @@ const TenantManagement: React.FC = () => {
     toast.success(`Exported to ${filename}`);
   };
 
-  const getTrialDaysRemaining = (tenant: Tenant): number | null => {
-    if (tenant.status !== 'trial' || !tenant.trialEndsAt) {
-      return null;
-    }
-    const now = new Date();
-    const trialEnd = new Date(tenant.trialEndsAt);
-    const diffTime = trialEnd.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays > 0 ? diffDays : 0;
-  };
-
   const getStatusBadge = (tenant: Tenant) => {
     const status = tenant.status;
-    const trialDays = getTrialDaysRemaining(tenant);
 
     const styles = {
       active: 'bg-green-100 text-green-700',
-      trial: 'bg-yellow-100 text-yellow-700',
       suspended: 'bg-red-100 text-red-700',
       cancelled: 'bg-gray-100 text-gray-700',
       inactive: 'bg-gray-100 text-gray-600',
@@ -635,28 +523,20 @@ const TenantManagement: React.FC = () => {
 
     const icons = {
       active: <HiCheckCircle className="w-3 h-3" />,
-      trial: <HiClock className="w-3 h-3" />,
       suspended: <HiBan className="w-3 h-3" />,
       cancelled: <HiBan className="w-3 h-3" />,
       inactive: <HiBan className="w-3 h-3" />,
     };
 
     return (
-      <div className="flex flex-col gap-1">
-        <span
-          className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-            styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-700'
-          }`}
-        >
-          {icons[status as keyof typeof icons]}
-          {status.charAt(0).toUpperCase() + status.slice(1)}
-        </span>
-        {status === 'trial' && trialDays !== null && (
-          <span className={`text-xs ${trialDays <= 3 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
-            {trialDays === 0 ? 'Expires today' : `${trialDays} days left`}
-          </span>
-        )}
-      </div>
+      <span
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+          styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-700'
+        }`}
+      >
+        {icons[status as keyof typeof icons]}
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
     );
   };
 
@@ -769,7 +649,6 @@ const TenantManagement: React.FC = () => {
                 >
                   <option value="all">All Statuses</option>
                   <option value="active">Active</option>
-                  <option value="trial">Trial</option>
                   <option value="inactive">Inactive</option>
                   <option value="suspended">Suspended</option>
                   <option value="cancelled">Cancelled</option>
@@ -992,38 +871,6 @@ const TenantManagement: React.FC = () => {
                                 Edit Tenant
                               </button>
                               <hr className="my-1" />
-                              {/* Trial Management Options */}
-                              <div className="px-3 py-1">
-                                <span className="text-xs font-medium text-gray-400 uppercase">Trial Management</span>
-                              </div>
-                              {tenant.status !== 'trial' && (
-                                <button
-                                  onClick={() => openTrialModal(tenant, 'start')}
-                                  className="flex items-center gap-2 w-full px-4 py-2 text-sm text-purple-600 hover:bg-purple-50"
-                                >
-                                  <HiPlay className="w-4 h-4" />
-                                  Start Trial Period
-                                </button>
-                              )}
-                              {tenant.status === 'trial' && (
-                                <>
-                                  <button
-                                    onClick={() => openTrialModal(tenant, 'extend')}
-                                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
-                                  >
-                                    <HiClock className="w-4 h-4" />
-                                    Extend Trial
-                                  </button>
-                                  <button
-                                    onClick={() => openTrialModal(tenant, 'end')}
-                                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-orange-600 hover:bg-orange-50"
-                                  >
-                                    <HiStop className="w-4 h-4" />
-                                    End Trial
-                                  </button>
-                                </>
-                              )}
-                              <hr className="my-1" />
                               {tenant.status === 'suspended' ? (
                                 <button
                                   onClick={() => handleStatusChange(tenant._id, 'active')}
@@ -1173,47 +1020,12 @@ const TenantManagement: React.FC = () => {
                       onChange={(e) => setNewTenant({ ...newTenant, plan: e.target.value })}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                     >
-                      <option value="trial">Trial Period</option>
                       <option value="free">Free (10 employees)</option>
                       <option value="starter">Starter</option>
                       <option value="professional">Professional</option>
                       <option value="enterprise">Enterprise</option>
                     </select>
                   </div>
-                  {newTenant.plan === 'trial' && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Trial Duration
-                        </label>
-                        <div className="grid grid-cols-4 gap-2">
-                          {[7, 14, 30, 60].map((days) => (
-                            <button
-                              key={days}
-                              type="button"
-                              onClick={() => setNewTenant({ ...newTenant, trialDays: days })}
-                              className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
-                                newTenant.trialDays === days
-                                  ? 'border-purple-500 bg-purple-50 text-purple-700'
-                                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                              }`}
-                            >
-                              {days} days
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                        <div className="flex items-center gap-2 text-yellow-800">
-                          <HiClock className="w-5 h-5" />
-                          <span className="text-sm font-medium">{newTenant.trialDays}-Day Trial Period</span>
-                        </div>
-                        <p className="text-sm text-yellow-700 mt-1">
-                          Full access to Professional features. Converts to Free plan after trial ends.
-                        </p>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Admin User Section */}
@@ -1354,7 +1166,6 @@ const TenantManagement: React.FC = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
                   >
                     <option value="active">Active</option>
-                    <option value="trial">Trial</option>
                     <option value="suspended">Suspended</option>
                     <option value="inactive">Inactive</option>
                   </select>
@@ -1466,173 +1277,6 @@ const TenantManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Trial Management Modal */}
-      {showTrialModal && selectedTenantForTrial && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="p-6 border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <HiSparkles className="w-6 h-6 text-purple-600" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {selectedTenantForTrial.status === 'trial' ? 'Manage Trial' : 'Start Trial'}
-                  </h2>
-                  <p className="text-sm text-gray-500">{selectedTenantForTrial.name}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {/* Current Status */}
-              {selectedTenantForTrial.status === 'trial' && selectedTenantForTrial.trialEndsAt && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="flex items-center gap-2 text-yellow-800">
-                    <HiClock className="w-5 h-5" />
-                    <span className="font-medium">Current Trial Status</span>
-                  </div>
-                  <p className="text-sm text-yellow-700 mt-1">
-                    Trial ends: {new Date(selectedTenantForTrial.trialEndsAt).toLocaleDateString()}
-                    {' '}({getTrialDaysRemaining(selectedTenantForTrial)} days remaining)
-                  </p>
-                  <p className="text-sm text-yellow-700">
-                    Plan: {selectedTenantForTrial.subscription?.plan || 'N/A'}
-                  </p>
-                </div>
-              )}
-
-              {/* Trial Duration */}
-              {selectedTenantForTrial.status !== 'trial' || selectedTenantForTrial.status === 'trial' ? (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Trial Duration (days)
-                    </label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {[7, 14, 30, 60].map((days) => (
-                        <button
-                          key={days}
-                          onClick={() => setTrialConfig({ ...trialConfig, days })}
-                          className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
-                            trialConfig.days === days
-                              ? 'border-purple-500 bg-purple-50 text-purple-700'
-                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {days} days
-                        </button>
-                      ))}
-                    </div>
-                    <div className="mt-2">
-                      <input
-                        type="number"
-                        min="1"
-                        max="365"
-                        value={trialConfig.days}
-                        onChange={(e) => setTrialConfig({ ...trialConfig, days: parseInt(e.target.value) || 14 })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
-                        placeholder="Custom days"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Trial Plan (only for starting new trial) */}
-                  {selectedTenantForTrial.status !== 'trial' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Trial Plan Features
-                      </label>
-                      <div className="space-y-2">
-                        {['starter', 'professional', 'enterprise'].map((plan) => (
-                          <button
-                            key={plan}
-                            onClick={() => setTrialConfig({ ...trialConfig, plan })}
-                            className={`w-full flex items-center justify-between p-3 rounded-lg border text-sm transition-colors ${
-                              trialConfig.plan === plan
-                                ? 'border-purple-500 bg-purple-50'
-                                : 'border-gray-200 hover:bg-gray-50'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-3 h-3 rounded-full ${
-                                plan === 'starter' ? 'bg-blue-500' :
-                                plan === 'professional' ? 'bg-purple-500' : 'bg-orange-500'
-                              }`} />
-                              <span className="font-medium capitalize">{plan}</span>
-                            </div>
-                            <span className="text-gray-500 text-xs">
-                              {plan === 'starter' ? '50 employees' :
-                               plan === 'professional' ? '200 employees' : 'Unlimited'}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : null}
-
-              {/* End Trial Options */}
-              {selectedTenantForTrial.status === 'trial' && (
-                <div className="border-t border-gray-100 pt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Or End Trial & Convert To
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {['free', 'starter', 'professional', 'enterprise'].map((plan) => (
-                      <button
-                        key={plan}
-                        onClick={() => handleEndTrial(plan)}
-                        disabled={isProcessingTrial}
-                        className="py-2 px-3 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 capitalize"
-                      >
-                        {plan}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3 p-6 border-t border-gray-100">
-              <button
-                onClick={() => {
-                  setShowTrialModal(false);
-                  setSelectedTenantForTrial(null);
-                }}
-                disabled={isProcessingTrial}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={selectedTenantForTrial.status === 'trial' ? handleExtendTrial : handleStartTrial}
-                disabled={isProcessingTrial}
-                className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isProcessingTrial ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    {selectedTenantForTrial.status === 'trial' ? (
-                      <>
-                        <HiClock className="w-4 h-4" />
-                        Extend by {trialConfig.days} Days
-                      </>
-                    ) : (
-                      <>
-                        <HiPlay className="w-4 h-4" />
-                        Start {trialConfig.days}-Day Trial
-                      </>
-                    )}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

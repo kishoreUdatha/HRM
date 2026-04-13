@@ -18,7 +18,6 @@ const subscriptionSchema = new mongoose.Schema({
   currentPeriodStart: Date,
   currentPeriodEnd: Date,
   cancelAtPeriodEnd: { type: Boolean, default: false },
-  trialEndsAt: Date,
   cancelledAt: Date,
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} }
 }, { timestamps: true });

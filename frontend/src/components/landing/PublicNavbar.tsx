@@ -137,7 +137,7 @@ const PublicNavbar: React.FC = () => {
             >
               <span className="relative z-10 flex items-center gap-2">
                 <HiSparkles className={`w-4 h-4 ${scrolled ? 'text-yellow-300' : 'text-yellow-500'}`} />
-                Start Free Trial
+                Get Started
               </span>
             </Link>
           </div>
@@ -199,7 +199,7 @@ const PublicNavbar: React.FC = () => {
                 className="block w-full text-center px-4 py-3 bg-gradient-to-r from-hrzi-blue via-hrzi-purple to-hrzi-magenta text-white rounded-xl font-medium"
                 onClick={() => setIsOpen(false)}
               >
-                Start Free Trial
+                Get Started
               </Link>
             </div>
           </div>

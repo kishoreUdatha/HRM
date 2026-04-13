@@ -55,6 +55,38 @@ export interface ITenant extends Document {
       defaultRadius: number;
       strictMode: boolean;
     };
+    // Default roster-based salary settings (applies to all employees unless overridden)
+    rosterSettings: {
+      enabled: boolean;  // If true, roster-based salary is default for new employees
+      defaultMaxRostersPerMonth: number;  // Default max shifts per month
+      defaultShiftHours: number;  // Default hours per shift
+      defaultCalculationType: 'hourly' | 'per_shift' | 'monthly';
+    };
+    // Default week off configuration (applies to all employees unless overridden)
+    defaultWeekOffConfig: {
+      weekOffDays: number[];  // Week off days [0=Sunday, 1=Monday, etc.]
+      maxWeekOffsPerWeek: number;  // Max week offs per week (e.g., 1 or 2)
+    };
+    // Payroll calculation settings (tenant-wide configuration)
+    payrollSettings: {
+      calculationMode: 'hourly' | 'daily';  // Primary mode for salary calculation
+      // Hourly mode settings
+      hourlyModeSettings: {
+        trackOvertimeAutomatically: boolean;  // Auto-detect overtime from attendance
+        overtimeMultiplier: number;  // e.g., 1.5x for overtime pay
+        requireOvertimeApproval: boolean;  // Require HR/Admin approval for overtime
+        holdPayrollForPendingOvertime: boolean;  // Put payroll on hold if overtime pending
+        calculateShortfall: boolean;  // Deduct for hours not worked
+      };
+      // Daily mode settings
+      dailyModeSettings: {
+        countHalfDays: boolean;  // Whether to track half days
+        halfDayThresholdHours: number;  // Hours worked to count as half day (e.g., 4)
+        fullDayThresholdHours: number;  // Hours worked to count as full day (e.g., 8)
+        deductForAbsence: boolean;  // Deduct salary for absent days
+        deductForHalfDay: boolean;  // Deduct half salary for half days
+      };
+    };
   };
   subscription: {
     plan: 'free' | 'starter' | 'professional' | 'enterprise';
@@ -74,8 +106,7 @@ export interface ITenant extends Document {
     email: string;
     phone?: string;
   };
-  status: 'active' | 'inactive' | 'suspended' | 'trial';
-  trialEndsAt?: Date;
+  status: 'active' | 'inactive' | 'suspended';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -171,6 +202,46 @@ const tenantSchema = new Schema<ITenant>(
         defaultRadius: { type: Number, default: 100 },
         strictMode: { type: Boolean, default: true },
       },
+      // Default roster-based salary settings
+      rosterSettings: {
+        enabled: { type: Boolean, default: false },  // Monthly salary by default
+        defaultMaxRostersPerMonth: { type: Number, default: 4 },  // 4 shifts per month
+        defaultShiftHours: { type: Number, default: 8 },  // 8 hours per shift
+        defaultCalculationType: {
+          type: String,
+          enum: ['hourly', 'per_shift', 'monthly'],
+          default: 'monthly'
+        },
+      },
+      // Default week off configuration for new employees
+      defaultWeekOffConfig: {
+        weekOffDays: { type: [Number], default: [0] },  // Default: Sunday off (0=Sunday)
+        maxWeekOffsPerWeek: { type: Number, default: 1 },  // Default: 1 week off per week
+      },
+      // Payroll calculation settings
+      payrollSettings: {
+        calculationMode: {
+          type: String,
+          enum: ['hourly', 'daily'],
+          default: 'daily',  // Default to simpler day-based calculation
+        },
+        // Hourly mode settings
+        hourlyModeSettings: {
+          trackOvertimeAutomatically: { type: Boolean, default: true },
+          overtimeMultiplier: { type: Number, default: 1.5 },
+          requireOvertimeApproval: { type: Boolean, default: true },
+          holdPayrollForPendingOvertime: { type: Boolean, default: true },
+          calculateShortfall: { type: Boolean, default: true },
+        },
+        // Daily mode settings
+        dailyModeSettings: {
+          countHalfDays: { type: Boolean, default: true },
+          halfDayThresholdHours: { type: Number, default: 4 },
+          fullDayThresholdHours: { type: Number, default: 8 },
+          deductForAbsence: { type: Boolean, default: true },
+          deductForHalfDay: { type: Boolean, default: true },
+        },
+      },
     },
     subscription: {
       plan: {
@@ -200,11 +271,8 @@ const tenantSchema = new Schema<ITenant>(
     },
     status: {
       type: String,
-      enum: ['active', 'inactive', 'suspended', 'trial'],
-      default: 'trial',
-    },
-    trialEndsAt: {
-      type: Date,
+      enum: ['active', 'inactive', 'suspended'],
+      default: 'active',
     },
   },
   {
@@ -221,23 +289,23 @@ tenantSchema.pre('save', function () {
       .replace(/(^-|-$)/g, '');
   }
 
-  // Set trial end date for new tenants
-  if (this.isNew && this.status === 'trial' && !this.trialEndsAt) {
-    this.trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days trial
-  }
-
   // Set subscription features based on plan
   if (this.isModified('subscription.plan')) {
     const planFeatures: Record<string, string[]> = {
-      trial: ['employees', 'attendance', 'basic_leaves'],  // Trial has same features as free
       free: ['employees', 'attendance', 'basic_leaves'],
       starter: ['employees', 'attendance', 'leaves', 'basic_payroll', 'reports'],
       professional: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access'],
-      enterprise: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access', 'custom_integrations', 'sso', 'audit_logs'],
+      enterprise: [
+        'employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access',
+        'custom_integrations', 'sso', 'audit_logs',
+        // Advanced taxation features - Enterprise only
+        'taxation', 'tax_declarations', 'advance_tax', 'tax_verification',
+        'pf_management', 'esi_management', 'statutory_compliance',
+        'auditor_access', 'ca_services', 'compliance_reports'
+      ],
     };
 
     const planLimits: Record<string, { maxEmployees: number; maxAdmins: number }> = {
-      trial: { maxEmployees: 5, maxAdmins: 1 },  // 14-day trial with limited access
       free: { maxEmployees: 10, maxAdmins: 1 },
       starter: { maxEmployees: 50, maxAdmins: 3 },
       professional: { maxEmployees: 200, maxAdmins: 10 },

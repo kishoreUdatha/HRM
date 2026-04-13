@@ -77,7 +77,7 @@ const FooterSection: React.FC = () => {
                 Ready to transform your HR?
               </h3>
               <p className="text-white/80 text-xl">
-                Start your 14-day free trial today. No credit card required.
+                Get started today and see the difference.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -86,7 +86,7 @@ const FooterSection: React.FC = () => {
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-purple-700 rounded-2xl font-bold text-lg hover:shadow-2xl hover:scale-105 transition-all"
               >
                 <HiLightningBolt className="w-5 h-5 text-yellow-500" />
-                Start Free Trial
+                Get Started
               </Link>
               <a
                 href="#contact"

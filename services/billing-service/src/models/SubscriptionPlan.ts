@@ -28,9 +28,6 @@ export interface ISubscriptionPlan extends Document {
   isVisible: boolean; // Show on pricing page
   sortOrder: number; // Display order on pricing page
 
-  // Trial specific
-  trialDays?: number; // For trial plans
-
   // Metadata
   metadata?: Record<string, any>;
 
@@ -107,9 +104,6 @@ const subscriptionPlanSchema = new Schema<ISubscriptionPlan>(
     sortOrder: {
       type: Number,
       default: 0,
-    },
-    trialDays: {
-      type: Number,
     },
     metadata: {
       type: Schema.Types.Mixed,

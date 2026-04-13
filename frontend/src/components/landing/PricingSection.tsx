@@ -32,7 +32,6 @@ interface ApiPlan {
     maxApiCalls: number;
   };
   features: string[];
-  trialDays?: number;
 }
 
 // Gradient styles for each plan
@@ -40,13 +39,13 @@ const planStyles: Record<string, { gradient: string; bgGradient: string; popular
   starter: {
     gradient: 'from-cyan-400 to-blue-600',
     bgGradient: 'from-cyan-500 to-blue-600',
-    cta: 'Start Free Trial',
+    cta: 'Get Started',
   },
   professional: {
     gradient: 'from-purple-400 to-pink-600',
     bgGradient: 'from-purple-500 to-pink-600',
     popular: true,
-    cta: 'Start Free Trial',
+    cta: 'Get Started',
   },
   enterprise: {
     gradient: 'from-orange-400 to-red-500',
@@ -109,7 +108,7 @@ const fallbackPlans: PricingPlan[] = [
       { name: 'Basic Reports', included: true },
       { name: 'Email Support', included: true },
     ],
-    cta: 'Start Free Trial',
+    cta: 'Get Started',
   },
   {
     planCode: 'professional',
@@ -127,7 +126,7 @@ const fallbackPlans: PricingPlan[] = [
       { name: 'Performance Reviews', included: true },
       { name: 'Priority Support', included: true },
     ],
-    cta: 'Start Free Trial',
+    cta: 'Get Started',
   },
   {
     planCode: 'enterprise',
@@ -228,7 +227,7 @@ const PricingSection: React.FC = () => {
             </span>
           </h2>
           <p className="text-xl text-gray-600 leading-relaxed">
-            Transparent pricing. No hidden fees. 14-day free trial on all plans.
+            Transparent pricing. No hidden fees. Start growing your business today.
           </p>
         </div>
 

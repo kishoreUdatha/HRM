@@ -133,7 +133,7 @@ const Register: React.FC = () => {
               </div>
             </div>
             <h1 className="text-3xl font-bold text-secondary-900">Create Your Organization</h1>
-            <p className="text-secondary-500 mt-2">Start your 14-day free trial with <span className="bg-gradient-to-r from-hrzi-blue to-hrzi-purple bg-clip-text text-transparent font-semibold">HRZIO</span></p>
+            <p className="text-secondary-500 mt-2">Get started with <span className="bg-gradient-to-r from-hrzi-blue to-hrzi-purple bg-clip-text text-transparent font-semibold">HRZIO</span></p>
           </div>
 
           {/* Form */}

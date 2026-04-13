@@ -11,7 +11,6 @@ export interface ISubscription extends Document {
   currency: string;
   currentPeriodStart?: Date;
   currentPeriodEnd?: Date;
-  trialEndsAt?: Date;
   cancelAtPeriodEnd: boolean;
   cancelledAt?: Date;
   metadata?: Record<string, any>;
@@ -61,7 +60,6 @@ const SubscriptionSchema = new Schema<ISubscription>(
     },
     currentPeriodStart: Date,
     currentPeriodEnd: Date,
-    trialEndsAt: Date,
     cancelAtPeriodEnd: {
       type: Boolean,
       default: false,

@@ -11,7 +11,7 @@ export interface ITenant {
   logo?: string;
   settings: TenantSettings;
   subscription: Subscription;
-  status: 'active' | 'inactive' | 'suspended' | 'trial';
+  status: 'active' | 'inactive' | 'suspended';
   createdAt: Date;
   updatedAt: Date;
 }

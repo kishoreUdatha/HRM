@@ -17,9 +17,6 @@ import {
   updateTenantStatus,
   getTenantStats,
   deleteTenant,
-  extendTrial,
-  startTrial,
-  endTrial,
   getAdminTenantList,
   createTenantWithAdmin,
   updateTenantByAdmin,
@@ -35,6 +32,10 @@ import {
   getNotificationSettings,
   updateNotificationSettings,
   getNotificationSettingsInternal,
+  getPayrollSettings,
+  updatePayrollSettings,
+  getDefaultWeekOffConfig,
+  updateDefaultWeekOffConfig,
 } from '../controllers/tenantController';
 
 // Ensure uploads directory exists
@@ -176,6 +177,14 @@ router.delete('/current/geofencing/locations/:locationId', deleteGeofenceLocatio
 router.get('/current/notification-settings', getNotificationSettings);
 router.put('/current/notification-settings', updateNotificationSettings);
 
+// Payroll settings routes
+router.get('/current/payroll-settings', getPayrollSettings);
+router.put('/current/payroll-settings', updatePayrollSettings);
+
+// Default week off configuration routes
+router.get('/current/week-off-config', getDefaultWeekOffConfig);
+router.put('/current/week-off-config', updateDefaultWeekOffConfig);
+
 // Internal API: Get notification settings by tenant ID (called by other services)
 router.get('/internal/:tenantId/notification-settings', getNotificationSettingsInternal);
 
@@ -185,9 +194,6 @@ router.get('/admin/stats', requireSuperAdmin, getTenantStats);
 router.post('/admin/create-with-admin', requireSuperAdmin, createTenantWithAdmin);
 router.put('/admin/:id/update', requireSuperAdmin, updateTenantByAdmin);
 router.put('/admin/:id/status', requireSuperAdmin, updateTenantStatus);
-router.post('/admin/:id/start-trial', requireSuperAdmin, startTrial);
-router.put('/admin/:id/extend-trial', requireSuperAdmin, extendTrial);
-router.post('/admin/:id/end-trial', requireSuperAdmin, endTrial);
 router.delete('/admin/:id', requireSuperAdmin, deleteTenant);
 
 // Platform Admin Routes (super_admin only)

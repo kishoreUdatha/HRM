@@ -37,14 +37,14 @@ export const createTenant = async (
       settings,
       subscription,
       billing,
-      status: status || 'trial',
+      status: status || 'active',
     });
 
     // If admin credentials provided, create admin user via auth service
     let adminUser = null;
     let tokens = null;
     if (adminEmail && adminPassword && adminFirstName && adminLastName) {
-      const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://localhost:3001';
+      const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
       try {
         const fetch = (await import('node-fetch')).default;
         const authResponse = await fetch(`${authServiceUrl}/register`, {
@@ -313,12 +313,6 @@ export const updateSubscription = async (
     const durationDays = billingCycle === 'yearly' ? 365 : 30;
     tenant.subscription.endDate = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
 
-    // Clear trial status
-    if (tenant.status === 'trial') {
-      tenant.status = 'active';
-      tenant.trialEndsAt = undefined;
-    }
-
     await tenant.save();
 
     res.json({
@@ -364,7 +358,7 @@ export const updateTenantStatus = async (
     const { id } = req.params;
     const { status, reason } = req.body;
 
-    if (!['active', 'inactive', 'suspended', 'trial'].includes(status)) {
+    if (!['active', 'inactive', 'suspended'].includes(status)) {
       res.status(400).json({
         success: false,
         message: 'Invalid status',
@@ -410,7 +404,6 @@ export const getTenantStats = async (
       byStatus,
       byPlan,
       recentTenants,
-      trialExpiringSoon,
     ] = await Promise.all([
       Tenant.countDocuments(),
       Tenant.aggregate([
@@ -424,10 +417,6 @@ export const getTenantStats = async (
         .select('name slug status subscription.plan createdAt')
         .limit(10)
         .lean(),
-      Tenant.countDocuments({
-        status: 'trial',
-        trialEndsAt: { $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
-      }),
     ]);
 
     res.json({
@@ -437,7 +426,6 @@ export const getTenantStats = async (
         byStatus: Object.fromEntries(byStatus.map((s: { _id: string; count: number }) => [s._id, s.count])),
         byPlan: Object.fromEntries(byPlan.map((p: { _id: string; count: number }) => [p._id, p.count])),
         recentTenants,
-        trialExpiringSoon,
       },
     });
   } catch (error) {
@@ -509,167 +497,6 @@ export const updateTenantByAdmin = async (
       success: true,
       data: tenant,
       message: 'Organization updated successfully',
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Extend trial period (super admin)
-export const extendTrial = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { days = 14 } = req.body;
-
-    const tenant = await Tenant.findById(id);
-    if (!tenant) {
-      res.status(404).json({
-        success: false,
-        message: 'Organization not found',
-      });
-      return;
-    }
-
-    if (tenant.status !== 'trial') {
-      res.status(400).json({
-        success: false,
-        message: 'Organization is not on trial',
-      });
-      return;
-    }
-
-    // Extend from current trial end date or from now if already expired
-    const currentTrialEnd = tenant.trialEndsAt ? new Date(tenant.trialEndsAt) : new Date();
-    const baseDate = currentTrialEnd > new Date() ? currentTrialEnd : new Date();
-    tenant.trialEndsAt = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000);
-    await tenant.save();
-
-    res.json({
-      success: true,
-      data: tenant,
-      message: `Trial extended by ${days} days`,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Start trial period for a tenant (super admin)
-export const startTrial = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { days = 14, plan = 'professional' } = req.body;
-
-    const tenant = await Tenant.findById(id);
-    if (!tenant) {
-      res.status(404).json({
-        success: false,
-        message: 'Organization not found',
-      });
-      return;
-    }
-
-    // Set trial status and end date
-    tenant.status = 'trial';
-    tenant.trialEndsAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-
-    // Upgrade to trial plan features
-    const trialPlanLimits: Record<string, { maxEmployees: number; maxAdmins: number }> = {
-      starter: { maxEmployees: 50, maxAdmins: 3 },
-      professional: { maxEmployees: 200, maxAdmins: 10 },
-      enterprise: { maxEmployees: 10000, maxAdmins: 100 },
-    };
-
-    const trialPlanFeatures: Record<string, string[]> = {
-      starter: ['employees', 'attendance', 'leaves', 'basic_payroll', 'reports'],
-      professional: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access'],
-      enterprise: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access', 'custom_integrations', 'sso', 'audit_logs'],
-    };
-
-    const selectedPlan = trialPlanLimits[plan] ? plan : 'professional';
-
-    tenant.subscription.plan = selectedPlan as 'free' | 'starter' | 'professional' | 'enterprise';
-    tenant.subscription.maxEmployees = trialPlanLimits[selectedPlan].maxEmployees;
-    tenant.subscription.maxAdmins = trialPlanLimits[selectedPlan].maxAdmins;
-    tenant.subscription.features = trialPlanFeatures[selectedPlan];
-    tenant.subscription.startDate = new Date();
-    tenant.subscription.endDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-
-    await tenant.save();
-
-    res.json({
-      success: true,
-      data: tenant,
-      message: `${days}-day trial started with ${selectedPlan} plan features`,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// End trial and convert to free plan (super admin)
-export const endTrial = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { convertToPlan = 'free' } = req.body;
-
-    const tenant = await Tenant.findById(id);
-    if (!tenant) {
-      res.status(404).json({
-        success: false,
-        message: 'Organization not found',
-      });
-      return;
-    }
-
-    if (tenant.status !== 'trial') {
-      res.status(400).json({
-        success: false,
-        message: 'Organization is not on trial',
-      });
-      return;
-    }
-
-    // Convert to specified plan
-    const planLimits: Record<string, { maxEmployees: number; maxAdmins: number }> = {
-      free: { maxEmployees: 10, maxAdmins: 1 },
-      starter: { maxEmployees: 50, maxAdmins: 3 },
-      professional: { maxEmployees: 200, maxAdmins: 10 },
-      enterprise: { maxEmployees: 10000, maxAdmins: 100 },
-    };
-
-    const planFeatures: Record<string, string[]> = {
-      free: ['employees', 'attendance', 'basic_leaves'],
-      starter: ['employees', 'attendance', 'leaves', 'basic_payroll', 'reports'],
-      professional: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access'],
-      enterprise: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access', 'custom_integrations', 'sso', 'audit_logs'],
-    };
-
-    tenant.status = 'active';
-    tenant.trialEndsAt = undefined;
-    tenant.subscription.plan = convertToPlan as 'free' | 'starter' | 'professional' | 'enterprise';
-    tenant.subscription.maxEmployees = planLimits[convertToPlan]?.maxEmployees || 10;
-    tenant.subscription.maxAdmins = planLimits[convertToPlan]?.maxAdmins || 1;
-    tenant.subscription.features = planFeatures[convertToPlan] || planFeatures.free;
-
-    await tenant.save();
-
-    res.json({
-      success: true,
-      data: tenant,
-      message: `Trial ended. Converted to ${convertToPlan} plan`,
     });
   } catch (error) {
     next(error);
@@ -766,8 +593,7 @@ export const createTenantWithAdmin = async (
     const {
       name,
       slug,
-      plan = 'trial',
-      trialDays = 14,
+      plan = 'starter',
       adminEmail,
       adminPassword,
       adminFirstName,
@@ -813,10 +639,8 @@ export const createTenantWithAdmin = async (
     }
 
     // Determine plan settings
-    const isPaidPlan = ['starter', 'professional', 'enterprise'].includes(plan);
     const planLimits: Record<string, { maxEmployees: number; maxAdmins: number }> = {
       free: { maxEmployees: 10, maxAdmins: 1 },
-      trial: { maxEmployees: 200, maxAdmins: 10 },
       starter: { maxEmployees: 50, maxAdmins: 3 },
       professional: { maxEmployees: 200, maxAdmins: 10 },
       enterprise: { maxEmployees: 10000, maxAdmins: 100 },
@@ -824,7 +648,6 @@ export const createTenantWithAdmin = async (
 
     const planFeatures: Record<string, string[]> = {
       free: ['employees', 'attendance', 'basic_leaves'],
-      trial: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access'],
       starter: ['employees', 'attendance', 'leaves', 'basic_payroll', 'reports'],
       professional: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access'],
       enterprise: ['employees', 'attendance', 'leaves', 'payroll', 'recruitment', 'reports', 'api_access', 'custom_integrations', 'sso', 'audit_logs'],
@@ -834,9 +657,9 @@ export const createTenantWithAdmin = async (
     const tenantData: Record<string, unknown> = {
       name,
       slug: tenantSlug,
-      status: plan === 'trial' ? 'trial' : 'active',
+      status: 'active',
       subscription: {
-        plan: plan === 'trial' ? 'professional' : plan,
+        plan: plan,
         maxEmployees: planLimits[plan]?.maxEmployees || 10,
         maxAdmins: planLimits[plan]?.maxAdmins || 1,
         features: planFeatures[plan] || planFeatures.free,
@@ -846,11 +669,6 @@ export const createTenantWithAdmin = async (
         currency: 'INR',
       },
     };
-
-    // Set trial end date if trial
-    if (plan === 'trial') {
-      tenantData.trialEndsAt = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
-    }
 
     const tenant = await Tenant.create(tenantData);
 
@@ -1531,6 +1349,317 @@ export const getNotificationSettingsInternal = async (
     res.json({
       success: true,
       data: notificationSettings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get payroll settings (for tenant admin)
+export const getPayrollSettings = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    const tenant = await Tenant.findById(tenantId).select('settings.payrollSettings');
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    // Return payroll settings with defaults
+    const payrollSettings = tenant.settings?.payrollSettings || {};
+    const hourlyModeSettings = (payrollSettings as any).hourlyModeSettings || {};
+    const dailyModeSettings = (payrollSettings as any).dailyModeSettings || {};
+
+    const settings = {
+      calculationMode: (payrollSettings as any).calculationMode ?? 'daily',
+      hourlyModeSettings: {
+        trackOvertimeAutomatically: hourlyModeSettings.trackOvertimeAutomatically ?? true,
+        overtimeMultiplier: hourlyModeSettings.overtimeMultiplier ?? 1.5,
+        requireOvertimeApproval: hourlyModeSettings.requireOvertimeApproval ?? true,
+        holdPayrollForPendingOvertime: hourlyModeSettings.holdPayrollForPendingOvertime ?? true,
+        calculateShortfall: hourlyModeSettings.calculateShortfall ?? true,
+      },
+      dailyModeSettings: {
+        countHalfDays: dailyModeSettings.countHalfDays ?? true,
+        halfDayThresholdHours: dailyModeSettings.halfDayThresholdHours ?? 4,
+        fullDayThresholdHours: dailyModeSettings.fullDayThresholdHours ?? 8,
+        deductForAbsence: dailyModeSettings.deductForAbsence ?? true,
+        deductForHalfDay: dailyModeSettings.deductForHalfDay ?? true,
+      },
+    };
+
+    res.json({
+      success: true,
+      data: settings,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update payroll settings (for tenant admin)
+export const updatePayrollSettings = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { calculationMode, hourlyModeSettings, dailyModeSettings } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    // Validate calculation mode
+    if (calculationMode && !['hourly', 'daily'].includes(calculationMode)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid calculation mode. Must be "hourly" or "daily"',
+      });
+      return;
+    }
+
+    const updateData: Record<string, unknown> = {};
+
+    // Update calculation mode
+    if (calculationMode) {
+      updateData['settings.payrollSettings.calculationMode'] = calculationMode;
+    }
+
+    // Update hourly mode settings
+    if (hourlyModeSettings) {
+      if (typeof hourlyModeSettings.trackOvertimeAutomatically === 'boolean') {
+        updateData['settings.payrollSettings.hourlyModeSettings.trackOvertimeAutomatically'] = hourlyModeSettings.trackOvertimeAutomatically;
+      }
+      if (typeof hourlyModeSettings.overtimeMultiplier === 'number') {
+        updateData['settings.payrollSettings.hourlyModeSettings.overtimeMultiplier'] = hourlyModeSettings.overtimeMultiplier;
+      }
+      if (typeof hourlyModeSettings.requireOvertimeApproval === 'boolean') {
+        updateData['settings.payrollSettings.hourlyModeSettings.requireOvertimeApproval'] = hourlyModeSettings.requireOvertimeApproval;
+      }
+      if (typeof hourlyModeSettings.holdPayrollForPendingOvertime === 'boolean') {
+        updateData['settings.payrollSettings.hourlyModeSettings.holdPayrollForPendingOvertime'] = hourlyModeSettings.holdPayrollForPendingOvertime;
+      }
+      if (typeof hourlyModeSettings.calculateShortfall === 'boolean') {
+        updateData['settings.payrollSettings.hourlyModeSettings.calculateShortfall'] = hourlyModeSettings.calculateShortfall;
+      }
+    }
+
+    // Update daily mode settings
+    if (dailyModeSettings) {
+      if (typeof dailyModeSettings.countHalfDays === 'boolean') {
+        updateData['settings.payrollSettings.dailyModeSettings.countHalfDays'] = dailyModeSettings.countHalfDays;
+      }
+      if (typeof dailyModeSettings.halfDayThresholdHours === 'number') {
+        updateData['settings.payrollSettings.dailyModeSettings.halfDayThresholdHours'] = dailyModeSettings.halfDayThresholdHours;
+      }
+      if (typeof dailyModeSettings.fullDayThresholdHours === 'number') {
+        updateData['settings.payrollSettings.dailyModeSettings.fullDayThresholdHours'] = dailyModeSettings.fullDayThresholdHours;
+      }
+      if (typeof dailyModeSettings.deductForAbsence === 'boolean') {
+        updateData['settings.payrollSettings.dailyModeSettings.deductForAbsence'] = dailyModeSettings.deductForAbsence;
+      }
+      if (typeof dailyModeSettings.deductForHalfDay === 'boolean') {
+        updateData['settings.payrollSettings.dailyModeSettings.deductForHalfDay'] = dailyModeSettings.deductForHalfDay;
+      }
+    }
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      tenantId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    // Return updated settings
+    const payrollSettings = tenant.settings?.payrollSettings || {};
+    const updatedHourlyModeSettings = (payrollSettings as any).hourlyModeSettings || {};
+    const updatedDailyModeSettings = (payrollSettings as any).dailyModeSettings || {};
+
+    const settings = {
+      calculationMode: (payrollSettings as any).calculationMode ?? 'daily',
+      hourlyModeSettings: {
+        trackOvertimeAutomatically: updatedHourlyModeSettings.trackOvertimeAutomatically ?? true,
+        overtimeMultiplier: updatedHourlyModeSettings.overtimeMultiplier ?? 1.5,
+        requireOvertimeApproval: updatedHourlyModeSettings.requireOvertimeApproval ?? true,
+        holdPayrollForPendingOvertime: updatedHourlyModeSettings.holdPayrollForPendingOvertime ?? true,
+        calculateShortfall: updatedHourlyModeSettings.calculateShortfall ?? true,
+      },
+      dailyModeSettings: {
+        countHalfDays: updatedDailyModeSettings.countHalfDays ?? true,
+        halfDayThresholdHours: updatedDailyModeSettings.halfDayThresholdHours ?? 4,
+        fullDayThresholdHours: updatedDailyModeSettings.fullDayThresholdHours ?? 8,
+        deductForAbsence: updatedDailyModeSettings.deductForAbsence ?? true,
+        deductForHalfDay: updatedDailyModeSettings.deductForHalfDay ?? true,
+      },
+    };
+
+    res.json({
+      success: true,
+      data: settings,
+      message: 'Payroll settings updated successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get default week off configuration (for tenant admin)
+export const getDefaultWeekOffConfig = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    const tenant = await Tenant.findById(tenantId).select('settings.defaultWeekOffConfig');
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    // Return week off config with defaults
+    const defaultWeekOffConfig = tenant.settings?.defaultWeekOffConfig || {};
+
+    const config = {
+      weekOffDays: (defaultWeekOffConfig as any).weekOffDays ?? [0], // Default: Sunday off
+      maxWeekOffsPerWeek: (defaultWeekOffConfig as any).maxWeekOffsPerWeek ?? 1,
+    };
+
+    res.json({
+      success: true,
+      data: config,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update default week off configuration (for tenant admin)
+export const updateDefaultWeekOffConfig = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { weekOffDays, maxWeekOffsPerWeek } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({
+        success: false,
+        message: 'Tenant context not found',
+      });
+      return;
+    }
+
+    // Validate weekOffDays
+    if (weekOffDays !== undefined) {
+      if (!Array.isArray(weekOffDays)) {
+        res.status(400).json({
+          success: false,
+          message: 'weekOffDays must be an array',
+        });
+        return;
+      }
+      // Validate each day is 0-6
+      for (const day of weekOffDays) {
+        if (typeof day !== 'number' || day < 0 || day > 6) {
+          res.status(400).json({
+            success: false,
+            message: 'weekOffDays must contain numbers between 0 (Sunday) and 6 (Saturday)',
+          });
+          return;
+        }
+      }
+    }
+
+    // Validate maxWeekOffsPerWeek
+    if (maxWeekOffsPerWeek !== undefined) {
+      if (typeof maxWeekOffsPerWeek !== 'number' || maxWeekOffsPerWeek < 0 || maxWeekOffsPerWeek > 7) {
+        res.status(400).json({
+          success: false,
+          message: 'maxWeekOffsPerWeek must be a number between 0 and 7',
+        });
+        return;
+      }
+    }
+
+    const updateData: Record<string, unknown> = {};
+
+    if (weekOffDays !== undefined) {
+      updateData['settings.defaultWeekOffConfig.weekOffDays'] = weekOffDays;
+    }
+    if (maxWeekOffsPerWeek !== undefined) {
+      updateData['settings.defaultWeekOffConfig.maxWeekOffsPerWeek'] = maxWeekOffsPerWeek;
+    }
+
+    const tenant = await Tenant.findByIdAndUpdate(
+      tenantId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!tenant) {
+      res.status(404).json({
+        success: false,
+        message: 'Organization not found',
+      });
+      return;
+    }
+
+    // Return updated config
+    const defaultWeekOffConfig = tenant.settings?.defaultWeekOffConfig || {};
+
+    const config = {
+      weekOffDays: (defaultWeekOffConfig as any).weekOffDays ?? [0],
+      maxWeekOffsPerWeek: (defaultWeekOffConfig as any).maxWeekOffsPerWeek ?? 1,
+    };
+
+    res.json({
+      success: true,
+      data: config,
+      message: 'Default week off configuration updated successfully',
     });
   } catch (error) {
     next(error);
