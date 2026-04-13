@@ -48,7 +48,6 @@ export const getPublicPlans = async (req: Request, res: Response): Promise<void>
       },
       limits: plan.limits,
       features: plan.features,
-      trialDays: plan.trialDays,
     }));
 
     res.json({
@@ -109,7 +108,6 @@ export const createPlan = async (req: Request, res: Response): Promise<void> => 
       isActive,
       isVisible,
       sortOrder,
-      trialDays,
       metadata,
     } = req.body;
 
@@ -133,7 +131,6 @@ export const createPlan = async (req: Request, res: Response): Promise<void> => 
       isActive,
       isVisible,
       sortOrder,
-      trialDays,
       metadata,
     });
 
