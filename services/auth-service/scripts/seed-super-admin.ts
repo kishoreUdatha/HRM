@@ -33,12 +33,12 @@ async function seedSuperAdmin() {
     }
 
     // Create super admin
-    const hashedPassword = await bcrypt.hash('Admin@123', 12);
+    const hashedPassword = await bcrypt.hash('SuperAdmin@123', 12);
 
     const superAdmin = await User.create({
-      email: 'admin@hrm.com',
+      email: 'admin@hrm-saas.com',
       password: hashedPassword,
-      firstName: 'Super',
+      firstName: 'Platform',
       lastName: 'Admin',
       role: 'super_admin',
       permissions: ['*'],
@@ -46,8 +46,8 @@ async function seedSuperAdmin() {
     });
 
     console.log('Super admin created successfully:');
-    console.log('  Email: admin@hrm.com');
-    console.log('  Password: Admin@123');
+    console.log('  Email: admin@hrm-saas.com');
+    console.log('  Password: SuperAdmin@123');
     console.log('  ID:', superAdmin._id);
 
     await mongoose.disconnect();

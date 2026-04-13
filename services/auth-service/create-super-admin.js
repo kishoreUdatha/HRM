@@ -74,20 +74,20 @@ async function createSuperAdmin() {
     const userCollection = authDb.collection('users');
 
     // Check if super admin exists
-    const existingAdmin = await userCollection.findOne({ email: 'admin@hrm.com' });
+    const existingAdmin = await userCollection.findOne({ email: 'admin@hrm-saas.com' });
 
     if (existingAdmin) {
       console.log('Super admin already exists');
     } else {
       // Hash password
       const salt = await bcrypt.genSalt(12);
-      const hashedPassword = await bcrypt.hash('admin123', salt);
+      const hashedPassword = await bcrypt.hash('SuperAdmin@123', salt);
 
       await userCollection.insertOne({
         tenantId: tenant._id,
-        email: 'admin@hrm.com',
+        email: 'admin@hrm-saas.com',
         password: hashedPassword,
-        firstName: 'Super',
+        firstName: 'Platform',
         lastName: 'Admin',
         role: 'super_admin',
         permissions: ['*'],
@@ -102,10 +102,10 @@ async function createSuperAdmin() {
     console.log('\n========================================');
     console.log('Super Admin Credentials:');
     console.log('========================================');
-    console.log('Email:    admin@hrm.com');
-    console.log('Password: admin123');
+    console.log('Email:    admin@hrm-saas.com');
+    console.log('Password: SuperAdmin@123');
     console.log('========================================');
-    console.log('\nLogin at: http://localhost:5175/login');
+    console.log('\nLogin at: http://localhost:5173/super-admin/login');
 
   } catch (error) {
     console.error('Error:', error);

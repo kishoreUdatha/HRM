@@ -25,7 +25,7 @@ async function resetSuperAdmin() {
     console.log('Connected to MongoDB');
 
     // Find and update super admin
-    const hashedPassword = await bcrypt.hash('Admin@123', 12);
+    const hashedPassword = await bcrypt.hash('SuperAdmin@123', 12);
 
     const superAdmin = await User.findOneAndUpdate(
       { role: 'super_admin' },
@@ -39,7 +39,7 @@ async function resetSuperAdmin() {
     if (superAdmin) {
       console.log('Super admin password reset successfully:');
       console.log('  Email:', superAdmin.email);
-      console.log('  Password: Admin@123');
+      console.log('  Password: SuperAdmin@123');
     } else {
       console.log('No super admin found');
     }

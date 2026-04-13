@@ -162,6 +162,11 @@ foreach ($svc in $backendServices.GetEnumerator()) {
         $envVars += " EMPLOYEE_SERVICE_URL=http://hrm-employee-service.internal.$ENV_DEFAULT_DOMAIN"
     }
 
+    # Add AUTH_SERVICE_URL for tenant-service (needed for tenant registration with admin user)
+    if ($svc.Key -eq "tenant-service") {
+        $envVars += " AUTH_SERVICE_URL=http://hrm-auth-service.internal.$ENV_DEFAULT_DOMAIN"
+    }
+
     & $AZ containerapp create `
         --name "hrm-$($svc.Key)" `
         --resource-group $RESOURCE_GROUP `
@@ -205,4 +210,4 @@ Write-Host "  Deployment Complete!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "`nFrontend URL: https://$FRONTEND_URL" -ForegroundColor Yellow
 Write-Host "API Gateway URL: https://$API_GATEWAY_URL" -ForegroundColor Yellow
-Write-Host "`nLogin with: admin@hrm.com / Admin@123" -ForegroundColor White
+Write-Host "`nLogin with: admin@hrm-saas.com / SuperAdmin@123" -ForegroundColor White

@@ -30,9 +30,9 @@ async function updateSuperAdmin() {
     await User.deleteMany({ role: 'super_admin' });
 
     const superAdmin = await User.create({
-      email: 'superadmin@hrm.com',
+      email: 'admin@hrm-saas.com',
       password: hashedPassword,
-      firstName: 'Super',
+      firstName: 'Platform',
       lastName: 'Admin',
       role: 'super_admin',
       permissions: ['*'],
@@ -40,7 +40,7 @@ async function updateSuperAdmin() {
     });
 
     console.log('Super admin updated successfully:');
-    console.log('  Email: superadmin@hrm.com');
+    console.log('  Email: admin@hrm-saas.com');
     console.log('  Password: SuperAdmin@123');
     console.log('  ID:', superAdmin._id);
 

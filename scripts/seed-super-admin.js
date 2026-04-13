@@ -23,10 +23,10 @@ const AUTH_DATABASE = 'hrm_auth';
 
 // Super Admin credentials
 const SUPER_ADMIN = {
-  email: 'superadmin@hrm-platform.com',
+  email: 'admin@hrm-saas.com',
   password: 'SuperAdmin@123',
   firstName: 'Platform',
-  lastName: 'Administrator',
+  lastName: 'Admin',
 };
 
 async function hashPassword(password) {
