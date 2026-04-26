@@ -18,7 +18,7 @@ export interface IUser extends Document {
   pin?: string;  // 4-digit PIN for mobile login
   firstName: string;
   lastName: string;
-  role: 'super_admin' | 'tenant_admin' | 'hr' | 'manager' | 'employee';
+  role: 'super_admin' | 'tenant_admin' | 'hr' | 'manager' | 'employee' | 'auditor' | 'ca';
   permissions: string[];
   avatar?: string;
   employeeId?: mongoose.Types.ObjectId;
@@ -41,8 +41,8 @@ const userSchema = new Schema<IUser>(
     tenantId: {
       type: Schema.Types.ObjectId,
       required: [function(this: IUser) {
-        // tenantId is not required for super_admin
-        return this.role !== 'super_admin';
+        // tenantId is not required for super_admin, auditor, or ca (they can work across tenants)
+        return !['super_admin', 'auditor', 'ca'].includes(this.role);
       }, 'Tenant ID is required'],
       index: true,
     },
@@ -82,7 +82,7 @@ const userSchema = new Schema<IUser>(
     },
     role: {
       type: String,
-      enum: ['super_admin', 'tenant_admin', 'hr', 'manager', 'employee'],
+      enum: ['super_admin', 'tenant_admin', 'hr', 'manager', 'employee', 'auditor', 'ca'],
       default: 'employee',
     },
     permissions: [{
@@ -223,6 +223,30 @@ userSchema.pre('save', function () {
         'profile:read', 'profile:write',
         'attendance:read',
         'leaves:read', 'leaves:write',
+      ],
+      // Auditor role - Read access to compliance and taxation data
+      auditor: [
+        'employees:read',
+        'payroll:read',
+        'tax_declarations:read', 'tax_declarations:verify',
+        'pf_compliance:read', 'pf_compliance:verify',
+        'esi_compliance:read', 'esi_compliance:verify',
+        'statutory_compliance:read', 'statutory_compliance:verify',
+        'compliance_reports:read', 'compliance_reports:export',
+        'audit_logs:read',
+      ],
+      // CA (Chartered Accountant) role - Full taxation management
+      ca: [
+        'employees:read',
+        'payroll:read', 'payroll:verify',
+        'tax_declarations:read', 'tax_declarations:write', 'tax_declarations:verify', 'tax_declarations:approve',
+        'advance_tax:read', 'advance_tax:write', 'advance_tax:verify',
+        'pf_compliance:read', 'pf_compliance:write', 'pf_compliance:verify', 'pf_compliance:approve',
+        'esi_compliance:read', 'esi_compliance:write', 'esi_compliance:verify', 'esi_compliance:approve',
+        'statutory_compliance:read', 'statutory_compliance:write', 'statutory_compliance:verify', 'statutory_compliance:approve',
+        'compliance_reports:read', 'compliance_reports:write', 'compliance_reports:export',
+        'form16:read', 'form16:generate', 'form16:verify',
+        'audit_logs:read',
       ],
     };
 

@@ -73,6 +73,134 @@ export interface IOtherIncome {
   taxPaid?: number;
 }
 
+// Section 80E - Education Loan Interest (No limit)
+export interface ISection80E {
+  loanAccountNumber: string;
+  lenderName: string;
+  lenderType: 'bank' | 'financial_institution' | 'approved_charitable_institution';
+  loanPurpose: 'higher_education_self' | 'higher_education_spouse' | 'higher_education_children' | 'higher_education_student_guardian';
+  courseName: string;
+  institutionName: string;
+  interestPaidDuringYear: number;
+  loanStartDate: Date;
+  yearOfRepayment: number;  // 1-8 years allowed
+  proofUrl?: string;
+  status: 'pending' | 'verified' | 'rejected';
+  verifiedAmount?: number;
+}
+
+// Section 80G - Donations
+export interface ISection80GDonation {
+  doneeName: string;
+  doneeType: '100_no_limit' | '100_with_limit' | '50_with_limit' | '50_no_limit';
+  doneeAddress: string;
+  doneePAN: string;
+  doneeRegistrationNumber?: string;
+  donationAmount: number;
+  donationDate: Date;
+  modeOfPayment: 'cash' | 'cheque' | 'bank_transfer' | 'upi';
+  receiptNumber: string;
+  receiptDate: Date;
+  qualifyingPercentage: 100 | 50;
+  qualifyingAmount: number;
+  proofUrl?: string;
+  status: 'pending' | 'verified' | 'rejected';
+  verifiedAmount?: number;
+}
+
+export interface ISection80G {
+  donations: ISection80GDonation[];
+  totalDeclared: number;
+  totalVerified: number;
+  totalQualifying: number;
+  limitedToPercentageOfIncome: boolean;
+  qualifyingLimitPercentage: number;  // Usually 10% of adjusted gross total income
+}
+
+// Section 80TTA / 80TTB - Interest on Savings
+export interface ISection80TTA_TTB {
+  isSeniorCitizen: boolean;  // Determines 80TTA (10K) vs 80TTB (50K)
+  savingsBankAccounts: {
+    bankName: string;
+    accountNumber: string;
+    interestEarned: number;
+  }[];
+  fixedDepositInterest?: number;  // Only for 80TTB
+  recurringDepositInterest?: number;  // Only for 80TTB
+  postOfficeInterest?: number;  // Only for 80TTB
+  totalInterest: number;
+  maxLimit: number;  // 10000 for 80TTA, 50000 for 80TTB
+  claimedAmount: number;
+  proofUrl?: string;
+  status: 'pending' | 'verified' | 'rejected';
+  verifiedAmount?: number;
+}
+
+// Section 80EE - First-time Home Buyers
+export interface ISection80EE {
+  loanAccountNumber: string;
+  lenderName: string;
+  lenderPAN: string;
+  loanSanctionDate: Date;
+  loanAmount: number;
+  propertyValue: number;
+  propertyAddress: string;
+  interestPaidDuringYear: number;
+  isFirstTimeHomeBuyer: boolean;
+  isOnlyHouseOwned: boolean;
+  maxLimit: number;  // 50000
+  proofUrl?: string;
+  status: 'pending' | 'verified' | 'rejected';
+  verifiedAmount?: number;
+}
+
+// Section 80EEA - Affordable Housing
+export interface ISection80EEA {
+  loanAccountNumber: string;
+  lenderName: string;
+  lenderPAN: string;
+  loanSanctionDate: Date;
+  propertyStampDutyValue: number;
+  propertyAddress: string;
+  carpetArea?: number;  // In sq meters
+  interestPaidDuringYear: number;
+  isFirstTimeHomeBuyer: boolean;
+  maxLimit: number;  // 150000
+  proofUrl?: string;
+  status: 'pending' | 'verified' | 'rejected';
+  verifiedAmount?: number;
+}
+
+// Enhanced Section 24 - Home Loan Interest
+export interface ISection24Loan {
+  propertyType: 'self_occupied' | 'let_out';
+  propertyAddress: string;
+  loanAccountNumber: string;
+  lenderName: string;
+  lenderPAN: string;
+  loanType: 'construction' | 'purchase' | 'repair_renovation';
+  loanSanctionDate: Date;
+  loanAmount: number;
+  interestPaidAnnual: number;
+  principalPaidAnnual?: number;
+  constructionCompletedDate?: Date;
+  possessionDate?: Date;
+  preConstructionInterest?: number;
+  preConstructionInterestClaimYear?: number;  // 1-5 years
+  proofUrl?: string;
+  status: 'pending' | 'verified' | 'rejected';
+  verifiedAmount?: number;
+}
+
+export interface ISection24 {
+  loans: ISection24Loan[];
+  totalInterestSelfOccupied: number;
+  totalInterestLetOut: number;
+  maxLimitSelfOccupied: number;  // 200000
+  totalDeclared: number;
+  totalVerified: number;
+}
+
 export interface ITaxDeclaration extends Document {
   tenantId: string;
   employeeId: string;
@@ -104,9 +232,17 @@ export interface ITaxDeclaration extends Document {
 
   otherDeductions: IOtherDeduction[];
 
+  // New sections
+  section80E?: ISection80E;
+  section80G?: ISection80G;
+  section80TTA_TTB?: ISection80TTA_TTB;
+  section80EE?: ISection80EE;
+  section80EEA?: ISection80EEA;
+  section24?: ISection24;
+
   hraExemption?: IHRAExemption;
 
-  homeLoanInterest?: IHomeLoanInterest;
+  homeLoanInterest?: IHomeLoanInterest;  // Legacy - use section24 instead
 
   ltaExemption?: {
     claimAmount: number;
@@ -132,6 +268,12 @@ export interface ITaxDeclaration extends Document {
     section80CDeductions: number;
     section80DDeductions: number;
     section80CCDDeductions: number;
+    section80EDeductions: number;  // Education loan interest
+    section80GDeductions: number;  // Donations
+    section80TTADeductions: number;  // Savings interest
+    section80EEDeductions: number;  // First-time home buyer
+    section80EEADeductions: number;  // Affordable housing
+    section24Deductions: number;  // Home loan interest
     otherSectionDeductions: number;
     totalDeductions: number;
     taxableIncome: number;
@@ -183,6 +325,116 @@ const OtherDeductionSchema = new Schema({
   status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' }
 }, { _id: false });
 
+// Section 80E - Education Loan Interest Schema
+const Section80ESchema = new Schema({
+  loanAccountNumber: { type: String, required: true },
+  lenderName: { type: String, required: true },
+  lenderType: { type: String, enum: ['bank', 'financial_institution', 'approved_charitable_institution'], required: true },
+  loanPurpose: { type: String, enum: ['higher_education_self', 'higher_education_spouse', 'higher_education_children', 'higher_education_student_guardian'], required: true },
+  courseName: String,
+  institutionName: String,
+  interestPaidDuringYear: { type: Number, required: true },
+  loanStartDate: Date,
+  yearOfRepayment: { type: Number, min: 1, max: 8 },
+  proofUrl: String,
+  status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+  verifiedAmount: Number
+}, { _id: false });
+
+// Section 80G - Donations Schema
+const Section80GDonationSchema = new Schema({
+  doneeName: { type: String, required: true },
+  doneeType: { type: String, enum: ['100_no_limit', '100_with_limit', '50_with_limit', '50_no_limit'], required: true },
+  doneeAddress: String,
+  doneePAN: String,
+  doneeRegistrationNumber: String,
+  donationAmount: { type: Number, required: true },
+  donationDate: Date,
+  modeOfPayment: { type: String, enum: ['cash', 'cheque', 'bank_transfer', 'upi'] },
+  receiptNumber: String,
+  receiptDate: Date,
+  qualifyingPercentage: { type: Number, enum: [100, 50] },
+  qualifyingAmount: Number,
+  proofUrl: String,
+  status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+  verifiedAmount: Number
+}, { _id: false });
+
+// Section 80TTA/80TTB - Savings Interest Schema
+const Section80TTA_TTBSchema = new Schema({
+  isSeniorCitizen: { type: Boolean, default: false },
+  savingsBankAccounts: [{
+    bankName: String,
+    accountNumber: String,
+    interestEarned: Number
+  }],
+  fixedDepositInterest: Number,
+  recurringDepositInterest: Number,
+  postOfficeInterest: Number,
+  totalInterest: { type: Number, default: 0 },
+  maxLimit: { type: Number, default: 10000 },
+  claimedAmount: { type: Number, default: 0 },
+  proofUrl: String,
+  status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+  verifiedAmount: Number
+}, { _id: false });
+
+// Section 80EE - First-time Home Buyers Schema
+const Section80EESchema = new Schema({
+  loanAccountNumber: { type: String, required: true },
+  lenderName: { type: String, required: true },
+  lenderPAN: String,
+  loanSanctionDate: Date,
+  loanAmount: Number,
+  propertyValue: Number,
+  propertyAddress: String,
+  interestPaidDuringYear: { type: Number, required: true },
+  isFirstTimeHomeBuyer: { type: Boolean, default: true },
+  isOnlyHouseOwned: { type: Boolean, default: true },
+  maxLimit: { type: Number, default: 50000 },
+  proofUrl: String,
+  status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+  verifiedAmount: Number
+}, { _id: false });
+
+// Section 80EEA - Affordable Housing Schema
+const Section80EEASchema = new Schema({
+  loanAccountNumber: { type: String, required: true },
+  lenderName: { type: String, required: true },
+  lenderPAN: String,
+  loanSanctionDate: Date,
+  propertyStampDutyValue: Number,
+  propertyAddress: String,
+  carpetArea: Number,
+  interestPaidDuringYear: { type: Number, required: true },
+  isFirstTimeHomeBuyer: { type: Boolean, default: true },
+  maxLimit: { type: Number, default: 150000 },
+  proofUrl: String,
+  status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+  verifiedAmount: Number
+}, { _id: false });
+
+// Section 24 - Home Loan Interest Schema
+const Section24LoanSchema = new Schema({
+  propertyType: { type: String, enum: ['self_occupied', 'let_out'], required: true },
+  propertyAddress: String,
+  loanAccountNumber: { type: String, required: true },
+  lenderName: { type: String, required: true },
+  lenderPAN: String,
+  loanType: { type: String, enum: ['construction', 'purchase', 'repair_renovation'] },
+  loanSanctionDate: Date,
+  loanAmount: Number,
+  interestPaidAnnual: { type: Number, required: true },
+  principalPaidAnnual: Number,
+  constructionCompletedDate: Date,
+  possessionDate: Date,
+  preConstructionInterest: Number,
+  preConstructionInterestClaimYear: { type: Number, min: 1, max: 5 },
+  proofUrl: String,
+  status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+  verifiedAmount: Number
+}, { _id: false });
+
 const TaxDeclarationSchema = new Schema({
   tenantId: { type: String, required: true, index: true },
   employeeId: { type: String, required: true, index: true },
@@ -213,6 +465,33 @@ const TaxDeclarationSchema = new Schema({
   },
 
   otherDeductions: [OtherDeductionSchema],
+
+  // New sections
+  section80E: Section80ESchema,
+
+  section80G: {
+    donations: [Section80GDonationSchema],
+    totalDeclared: { type: Number, default: 0 },
+    totalVerified: { type: Number, default: 0 },
+    totalQualifying: { type: Number, default: 0 },
+    limitedToPercentageOfIncome: { type: Boolean, default: true },
+    qualifyingLimitPercentage: { type: Number, default: 10 }
+  },
+
+  section80TTA_TTB: Section80TTA_TTBSchema,
+
+  section80EE: Section80EESchema,
+
+  section80EEA: Section80EEASchema,
+
+  section24: {
+    loans: [Section24LoanSchema],
+    totalInterestSelfOccupied: { type: Number, default: 0 },
+    totalInterestLetOut: { type: Number, default: 0 },
+    maxLimitSelfOccupied: { type: Number, default: 200000 },
+    totalDeclared: { type: Number, default: 0 },
+    totalVerified: { type: Number, default: 0 }
+  },
 
   hraExemption: {
     rentPaidMonthly: Number,
@@ -276,6 +555,12 @@ const TaxDeclarationSchema = new Schema({
     section80CDeductions: { type: Number, default: 0 },
     section80DDeductions: { type: Number, default: 0 },
     section80CCDDeductions: { type: Number, default: 0 },
+    section80EDeductions: { type: Number, default: 0 },
+    section80GDeductions: { type: Number, default: 0 },
+    section80TTADeductions: { type: Number, default: 0 },
+    section80EEDeductions: { type: Number, default: 0 },
+    section80EEADeductions: { type: Number, default: 0 },
+    section24Deductions: { type: Number, default: 0 },
     otherSectionDeductions: { type: Number, default: 0 },
     totalDeductions: { type: Number, default: 0 },
     taxableIncome: { type: Number, default: 0 },

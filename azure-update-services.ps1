@@ -40,7 +40,7 @@ $services = @{
     "hrm-tenant-service" = @{
         Port = 3002
         Database = "hrm_tenant"
-        ExtraEnvVars = ""
+        ExtraEnvVars = "AUTH_SERVICE_URL=https://hrm-auth-service.internal.$ENV_DEFAULT_DOMAIN"
         MinReplicas = 1
     }
     "hrm-employee-service" = @{

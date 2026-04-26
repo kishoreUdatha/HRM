@@ -81,7 +81,7 @@ const shiftSchema = new Schema<IShift>(
     },
     weeklyOffDays: {
       type: [Number],
-      default: [0, 6],  // Sunday and Saturday
+      default: [],  // All 7 days are working days by default, tenant can customize
       validate: {
         validator: (days: number[]) => days.every(d => d >= 0 && d <= 6),
         message: 'Weekly off days must be between 0 (Sunday) and 6 (Saturday)',

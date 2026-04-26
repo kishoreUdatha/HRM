@@ -355,16 +355,18 @@ export const seedDefaultShifts = async (req: Request, res: Response): Promise<vo
       return;
     }
 
+    // All shifts have 7 working days by default (empty weeklyOffDays)
+    // Tenant admin can configure week offs per employee via weekOffConfig
     const defaultShifts = [
       {
         tenantId,
         name: 'General Shift',
         code: 'GEN',
-        description: 'Standard 9 AM to 6 PM shift',
+        description: 'Standard 9 AM to 6 PM shift - All 7 days working',
         startTime: '09:00',
         endTime: '18:00',
         breakDuration: 60,
-        weeklyOffDays: [0, 6],
+        weeklyOffDays: [],  // All 7 days working, week offs configured per employee
         color: '#3B82F6',
         isDefault: true,
         isActive: true,
@@ -373,11 +375,11 @@ export const seedDefaultShifts = async (req: Request, res: Response): Promise<vo
         tenantId,
         name: 'Morning Shift',
         code: 'MRN',
-        description: '6 AM to 2 PM shift',
+        description: '6 AM to 2 PM shift - All 7 days working',
         startTime: '06:00',
         endTime: '14:00',
         breakDuration: 30,
-        weeklyOffDays: [0],
+        weeklyOffDays: [],  // All 7 days working
         color: '#10B981',
         isActive: true,
       },
@@ -385,11 +387,11 @@ export const seedDefaultShifts = async (req: Request, res: Response): Promise<vo
         tenantId,
         name: 'Evening Shift',
         code: 'EVE',
-        description: '2 PM to 10 PM shift',
+        description: '2 PM to 10 PM shift - All 7 days working',
         startTime: '14:00',
         endTime: '22:00',
         breakDuration: 30,
-        weeklyOffDays: [0],
+        weeklyOffDays: [],  // All 7 days working
         color: '#F59E0B',
         isActive: true,
       },
@@ -397,11 +399,11 @@ export const seedDefaultShifts = async (req: Request, res: Response): Promise<vo
         tenantId,
         name: 'Night Shift',
         code: 'NGT',
-        description: '10 PM to 6 AM shift',
+        description: '10 PM to 6 AM shift - All 7 days working',
         startTime: '22:00',
         endTime: '06:00',
         breakDuration: 30,
-        weeklyOffDays: [0],
+        weeklyOffDays: [],  // All 7 days working
         color: '#6366F1',
         isActive: true,
       },
@@ -409,11 +411,11 @@ export const seedDefaultShifts = async (req: Request, res: Response): Promise<vo
         tenantId,
         name: 'Flexible Hours',
         code: 'FLX',
-        description: 'Flexible working hours',
+        description: 'Flexible 8 AM to 8 PM - All 7 days working',
         startTime: '08:00',
         endTime: '20:00',
         breakDuration: 60,
-        weeklyOffDays: [0, 6],
+        weeklyOffDays: [],  // All 7 days working
         color: '#EC4899',
         isActive: true,
       },

@@ -117,6 +117,13 @@ export interface Employee {
   bankDetails?: BankDetails;
   selfyPunch?: boolean;
   pin?: string;
+  weekOffConfig?: WeekOffConfig;
+}
+
+export interface WeekOffConfig {
+  maxWeekOffsPerWeek: number;
+  weekOffDays: number[];
+  useShiftWeekOffs: boolean;
 }
 
 export interface Address {

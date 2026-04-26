@@ -45,26 +45,13 @@ const PublicNavbar: React.FC = () => {
         <div className="flex justify-between items-center h-20">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3">
-            <div className="relative">
-              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ${
-                scrolled
-                  ? 'bg-gradient-to-br from-hrzi-cyan via-hrzi-blue to-hrzi-purple shadow-purple-500/30'
-                  : 'bg-white/20 backdrop-blur-sm shadow-white/20'
-              }`}>
-                <span className="text-white font-bold text-xl">H</span>
-              </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-hrzi-magenta rounded-full animate-pulse"></div>
-            </div>
-            <div className="flex flex-col">
-              <span className={`text-2xl font-bold ${
-                scrolled
-                  ? 'bg-gradient-to-r from-hrzi-blue via-hrzi-purple to-hrzi-magenta bg-clip-text text-transparent'
-                  : 'text-white'
-              }`}>
-                HRZIO
-              </span>
-              <span className={`text-[10px] -mt-1 tracking-wider ${scrolled ? 'text-secondary-400' : 'text-white/70'}`}>SMART HR PLATFORM</span>
-            </div>
+            <img
+              src="/hrzio-logo.png"
+              alt="HRZio Logo"
+              className={`h-12 w-auto object-contain transition-all duration-300 ${
+                scrolled ? '' : 'brightness-0 invert'
+              }`}
+            />
           </Link>
 
           {/* Desktop Navigation */}

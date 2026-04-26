@@ -15,7 +15,14 @@ import {
   cancelPaystub,
   getMonthlyPaystubStats
 } from '../services/paystubService';
-import { calculateIncomeTax, calculateStatutoryDeductions, defaultTaxConfigs } from '../services/taxService';
+import {
+  calculateIncomeTax,
+  calculateStatutoryDeductions,
+  defaultTaxConfigs,
+  NEW_REGIME_SLABS_2025_26,
+  OLD_REGIME_SLABS_2025_26,
+  TAX_CONSTANTS_2025_26
+} from '../services/taxService';
 
 // ================= Tax Declaration =================
 
@@ -30,11 +37,17 @@ export const createTaxDeclaration = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Tax declaration already exists for this financial year' });
     }
 
+    // Determine standard deduction based on regime (FY 2025-26)
+    const isNewRegime = (regime || 'new') === 'new';
+    const standardDeduction = isNewRegime
+      ? TAX_CONSTANTS_2025_26.newRegime.standardDeduction  // ₹75,000
+      : TAX_CONSTANTS_2025_26.oldRegime.standardDeduction; // ₹50,000
+
     const declaration = new TaxDeclaration({
       tenantId,
       employeeId,
       financialYear,
-      regime: regime || 'new',
+      regime: regime || 'new',  // New regime is default from FY 2023-24
       status: 'draft',
       section80C: { deductions: [], totalDeclared: 0, totalVerified: 0, maxLimit: 150000 },
       section80D: { deductions: [], totalDeclared: 0, totalVerified: 0, maxLimit: 100000 },
@@ -43,12 +56,18 @@ export const createTaxDeclaration = async (req: Request, res: Response) => {
       otherIncome: [],
       taxComputation: {
         grossSalary: 0,
-        exemptions: { hra: 0, lta: 0, standardDeduction: 50000, otherExemptions: 0 },
+        exemptions: { hra: 0, lta: 0, standardDeduction, otherExemptions: 0 },
         totalExemptions: 0,
         netTaxableIncome: 0,
         section80CDeductions: 0,
         section80DDeductions: 0,
         section80CCDDeductions: 0,
+        section80EDeductions: 0,
+        section80GDeductions: 0,
+        section80TTADeductions: 0,
+        section80EEDeductions: 0,
+        section80EEADeductions: 0,
+        section24Deductions: 0,
         otherSectionDeductions: 0,
         totalDeductions: 0,
         taxableIncome: 0,
@@ -179,25 +198,38 @@ export const computeTax = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Tax declaration not found' });
     }
 
-    // Get tax configuration
-    const taxConfig = defaultTaxConfigs.IN;
+    const isNewRegime = declaration.regime === 'new';
 
-    // Calculate exemptions
+    // Get regime-specific constants (FY 2025-26)
+    const regimeConstants = isNewRegime
+      ? TAX_CONSTANTS_2025_26.newRegime
+      : TAX_CONSTANTS_2025_26.oldRegime;
+
+    // Get regime-specific tax slabs
+    const taxSlabs = isNewRegime ? NEW_REGIME_SLABS_2025_26 : OLD_REGIME_SLABS_2025_26;
+
+    // Calculate exemptions based on regime
+    // New Regime: Only standard deduction (₹75,000) allowed, NO HRA/LTA exemptions
+    // Old Regime: Standard deduction (₹50,000) + HRA + LTA + other exemptions
     const exemptions = {
-      hra: hraExemption || 0,
-      lta: ltaExemption || 0,
-      standardDeduction: declaration.regime === 'new' ? 50000 : 50000,
+      // HRA exemption NOT allowed in new regime
+      hra: isNewRegime ? 0 : (hraExemption || 0),
+      // LTA exemption NOT allowed in new regime
+      lta: isNewRegime ? 0 : (ltaExemption || 0),
+      // Standard deduction: ₹75,000 (new) or ₹50,000 (old)
+      standardDeduction: regimeConstants.standardDeduction,
       otherExemptions: 0
     };
     const totalExemptions = Object.values(exemptions).reduce((a, b) => a + b, 0);
 
-    // Calculate deductions (only applicable in old regime)
+    // Calculate deductions (Section 80C/80D/80CCD only applicable in old regime)
     let section80CDeductions = 0;
     let section80DDeductions = 0;
     let section80CCDDeductions = 0;
     let otherSectionDeductions = 0;
 
-    if (declaration.regime === 'old') {
+    if (!isNewRegime) {
+      // Old regime: All section deductions allowed
       section80CDeductions = Math.min(150000, declaration.section80C.totalVerified || declaration.section80C.totalDeclared);
       section80DDeductions = Math.min(100000, declaration.section80D.totalVerified || declaration.section80D.totalDeclared);
       section80CCDDeductions = Math.min(50000, declaration.section80CCD.totalDeclared);
@@ -205,35 +237,46 @@ export const computeTax = async (req: Request, res: Response) => {
         .filter(d => d.status !== 'rejected')
         .reduce((sum, d) => sum + Math.min(d.maxLimit || Infinity, d.verifiedAmount || d.declaredAmount), 0);
     }
+    // New regime: No section deductions allowed (section80C/80D/80CCD all remain 0)
 
     const totalDeductions = section80CDeductions + section80DDeductions + section80CCDDeductions + otherSectionDeductions;
 
     // Calculate taxable income
+    // Net Taxable Income = Gross Salary - Exemptions
     const netTaxableIncome = grossSalary - totalExemptions;
+    // Taxable Income = Net Taxable Income - Section Deductions (only for old regime)
     const taxableIncome = Math.max(0, netTaxableIncome - totalDeductions);
 
-    // Calculate tax based on regime
-    const taxSlabs = declaration.regime === 'new' ? taxConfig.taxSlabs : taxConfig.taxSlabs;
+    // Calculate tax using regime-specific slabs
     const { tax: incomeTax } = calculateIncomeTax(taxableIncome, taxSlabs, 0);
 
-    // Rebate under 87A (if taxable income <= 7 lakhs in new regime)
+    // Rebate under Section 87A (FY 2025-26)
+    // New Regime: ₹60,000 rebate if taxable income ≤ ₹12 lakh
+    // Old Regime: ₹12,500 rebate if taxable income ≤ ₹5 lakh
     let taxAfterRebate = incomeTax;
-    if (declaration.regime === 'new' && taxableIncome <= 700000) {
-      taxAfterRebate = Math.max(0, incomeTax - 25000);
+    let rebateApplied = 0;
+    if (taxableIncome <= regimeConstants.rebate87A.incomeLimit) {
+      rebateApplied = Math.min(incomeTax, regimeConstants.rebate87A.maxRebate);
+      taxAfterRebate = Math.max(0, incomeTax - rebateApplied);
     }
 
-    // Surcharge
+    // Surcharge (capped at 25% for new regime, 37% for old regime)
     let surcharge = 0;
     if (taxableIncome > 5000000) {
-      const surchargeSlabs = taxConfig.surcharge.slabs;
+      const surchargeSlabs = [
+        { minIncome: 5000000, maxIncome: 10000000, rate: 10 },
+        { minIncome: 10000001, maxIncome: 20000000, rate: 15 },
+        { minIncome: 20000001, maxIncome: 50000000, rate: 25 },
+        { minIncome: 50000001, maxIncome: Infinity, rate: regimeConstants.maxSurchargeRate }
+      ];
       const applicableSlab = surchargeSlabs.find(s => taxableIncome >= s.minIncome && taxableIncome <= s.maxIncome);
       if (applicableSlab) {
         surcharge = taxAfterRebate * (applicableSlab.rate / 100);
       }
     }
 
-    // Cess
-    const cess = (taxAfterRebate + surcharge) * (taxConfig.cess.rate / 100);
+    // Health & Education Cess (4%)
+    const cess = (taxAfterRebate + surcharge) * (TAX_CONSTANTS_2025_26.cess / 100);
     const totalTax = Math.round(taxAfterRebate + surcharge + cess);
 
     // Get tax already paid from paystubs
@@ -257,6 +300,12 @@ export const computeTax = async (req: Request, res: Response) => {
       section80CDeductions,
       section80DDeductions,
       section80CCDDeductions,
+      section80EDeductions: 0,  // TODO: Calculate from declaration
+      section80GDeductions: 0,  // TODO: Calculate from declaration
+      section80TTADeductions: 0,  // TODO: Calculate from declaration
+      section80EEDeductions: 0,  // TODO: Calculate from declaration
+      section80EEADeductions: 0,  // TODO: Calculate from declaration
+      section24Deductions: 0,  // TODO: Calculate from declaration
       otherSectionDeductions,
       totalDeductions,
       taxableIncome,
@@ -513,51 +562,124 @@ export const calculateHRAExemption = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Compare Old vs New Tax Regime (FY 2025-26)
+ *
+ * New Regime (Default):
+ * - Standard Deduction: ₹75,000
+ * - Rebate 87A: ₹60,000 (income ≤ ₹12 lakh = tax-free)
+ * - Slabs: 0-4L:0%, 4-8L:5%, 8-12L:10%, 12-16L:15%, 16-20L:20%, 20-24L:25%, >24L:30%
+ * - No 80C/80D/HRA/LTA deductions
+ *
+ * Old Regime:
+ * - Standard Deduction: ₹50,000
+ * - Rebate 87A: ₹12,500 (income ≤ ₹5 lakh)
+ * - Slabs: 0-2.5L:0%, 2.5-5L:5%, 5-10L:20%, >10L:30%
+ * - Allows 80C/80D/HRA/LTA deductions
+ */
 export const compareRegimes = async (req: Request, res: Response) => {
   try {
     const { grossSalary, exemptions, deductions } = req.body;
 
-    const taxConfig = defaultTaxConfigs.IN;
+    // FY 2025-26 Constants
+    const OLD_STANDARD_DEDUCTION = TAX_CONSTANTS_2025_26.oldRegime.standardDeduction;  // ₹50,000
+    const NEW_STANDARD_DEDUCTION = TAX_CONSTANTS_2025_26.newRegime.standardDeduction;  // ₹75,000
 
-    // Old regime calculation
-    const oldRegimeDeductions = deductions.section80C + deductions.section80D + deductions.section80CCD + (deductions.other || 0);
-    const oldRegimeTaxableIncome = Math.max(0, grossSalary - exemptions.total - oldRegimeDeductions);
-    const oldRegimeTax = calculateIncomeTax(oldRegimeTaxableIncome, taxConfig.taxSlabs, 0);
+    const OLD_REBATE_LIMIT = TAX_CONSTANTS_2025_26.oldRegime.rebate87A.incomeLimit;    // ₹5,00,000
+    const OLD_REBATE_AMOUNT = TAX_CONSTANTS_2025_26.oldRegime.rebate87A.maxRebate;     // ₹12,500
 
-    // New regime calculation (no deductions except standard)
-    const newRegimeTaxableIncome = Math.max(0, grossSalary - 50000);
-    const newRegimeTax = calculateIncomeTax(newRegimeTaxableIncome, taxConfig.taxSlabs, 0);
+    const NEW_REBATE_LIMIT = TAX_CONSTANTS_2025_26.newRegime.rebate87A.incomeLimit;    // ₹12,00,000
+    const NEW_REBATE_AMOUNT = TAX_CONSTANTS_2025_26.newRegime.rebate87A.maxRebate;     // ₹60,000
 
-    // Apply rebate for new regime
-    let newRegimeFinalTax = newRegimeTax.tax;
-    if (newRegimeTaxableIncome <= 700000) {
-      newRegimeFinalTax = Math.max(0, newRegimeFinalTax - 25000);
+    // ============================================
+    // OLD REGIME CALCULATION
+    // ============================================
+    // Old regime allows: Standard Deduction (₹50K) + HRA + LTA + Section 80C/80D/80CCD + Other
+
+    const oldRegimeExemptions = OLD_STANDARD_DEDUCTION +
+      (exemptions?.hra || 0) +
+      (exemptions?.lta || 0) +
+      (exemptions?.other || 0);
+
+    // Section deductions: 80C (max ₹1.5L) + 80D (max ₹1L) + 80CCD (max ₹50K) + Other
+    const oldRegimeSectionDeductions =
+      Math.min(150000, deductions?.section80C || 0) +
+      Math.min(100000, deductions?.section80D || 0) +
+      Math.min(50000, deductions?.section80CCD || 0) +
+      (deductions?.other || 0);
+
+    const oldRegimeTaxableIncome = Math.max(0, grossSalary - oldRegimeExemptions - oldRegimeSectionDeductions);
+    const oldRegimeTax = calculateIncomeTax(oldRegimeTaxableIncome, OLD_REGIME_SLABS_2025_26, 0);
+
+    // Apply Old Regime Rebate 87A (if taxable income ≤ ₹5L)
+    let oldRegimeFinalTax = oldRegimeTax.tax;
+    let oldRebateApplied = 0;
+    if (oldRegimeTaxableIncome <= OLD_REBATE_LIMIT) {
+      oldRebateApplied = Math.min(oldRegimeTax.tax, OLD_REBATE_AMOUNT);
+      oldRegimeFinalTax = Math.max(0, oldRegimeTax.tax - oldRebateApplied);
     }
 
-    // Add cess
-    const oldCess = oldRegimeTax.tax * 0.04;
-    const newCess = newRegimeFinalTax * 0.04;
+    // ============================================
+    // NEW REGIME CALCULATION
+    // ============================================
+    // New regime: ONLY Standard Deduction (₹75K) allowed
+    // NO HRA/LTA exemptions, NO Section 80C/80D/80CCD deductions
 
-    const oldTotalTax = Math.round(oldRegimeTax.tax + oldCess);
+    const newRegimeTaxableIncome = Math.max(0, grossSalary - NEW_STANDARD_DEDUCTION);
+    const newRegimeTax = calculateIncomeTax(newRegimeTaxableIncome, NEW_REGIME_SLABS_2025_26, 0);
+
+    // Apply New Regime Rebate 87A (if taxable income ≤ ₹12L)
+    let newRegimeFinalTax = newRegimeTax.tax;
+    let newRebateApplied = 0;
+    if (newRegimeTaxableIncome <= NEW_REBATE_LIMIT) {
+      newRebateApplied = Math.min(newRegimeTax.tax, NEW_REBATE_AMOUNT);
+      newRegimeFinalTax = Math.max(0, newRegimeTax.tax - newRebateApplied);
+    }
+
+    // ============================================
+    // ADD HEALTH & EDUCATION CESS (4%)
+    // ============================================
+    const oldCess = oldRegimeFinalTax * (TAX_CONSTANTS_2025_26.cess / 100);
+    const newCess = newRegimeFinalTax * (TAX_CONSTANTS_2025_26.cess / 100);
+
+    const oldTotalTax = Math.round(oldRegimeFinalTax + oldCess);
     const newTotalTax = Math.round(newRegimeFinalTax + newCess);
 
     res.json({
       success: true,
       data: {
+        financialYear: '2025-2026',
         oldRegime: {
+          standardDeduction: OLD_STANDARD_DEDUCTION,
+          exemptions: oldRegimeExemptions,
+          sectionDeductions: oldRegimeSectionDeductions,
           taxableIncome: oldRegimeTaxableIncome,
-          incomeTax: oldRegimeTax.tax,
+          grossTax: Math.round(oldRegimeTax.tax),
+          rebate87A: oldRebateApplied,
+          taxAfterRebate: Math.round(oldRegimeFinalTax),
           cess: Math.round(oldCess),
           totalTax: oldTotalTax
         },
         newRegime: {
+          standardDeduction: NEW_STANDARD_DEDUCTION,
+          exemptions: NEW_STANDARD_DEDUCTION,
+          sectionDeductions: 0,
           taxableIncome: newRegimeTaxableIncome,
-          incomeTax: newRegimeFinalTax,
+          grossTax: Math.round(newRegimeTax.tax),
+          rebate87A: newRebateApplied,
+          taxAfterRebate: Math.round(newRegimeFinalTax),
           cess: Math.round(newCess),
           totalTax: newTotalTax
         },
-        recommendation: oldTotalTax < newTotalTax ? 'old' : 'new',
-        savings: Math.abs(oldTotalTax - newTotalTax)
+        comparison: {
+          recommendation: oldTotalTax < newTotalTax ? 'old' : 'new',
+          savings: Math.abs(oldTotalTax - newTotalTax),
+          oldRegimeBenefit: oldRegimeExemptions + oldRegimeSectionDeductions - NEW_STANDARD_DEDUCTION,
+          newRegimeBenefit: newRebateApplied,
+          effectiveTaxRateOld: grossSalary > 0 ? ((oldTotalTax / grossSalary) * 100).toFixed(2) + '%' : '0%',
+          effectiveTaxRateNew: grossSalary > 0 ? ((newTotalTax / grossSalary) * 100).toFixed(2) + '%' : '0%'
+        },
+        note: 'New regime is default from FY 2023-24. Income up to ₹12.75 lakh (₹12L + ₹75K standard deduction) is tax-free under new regime.'
       }
     });
   } catch (error) {

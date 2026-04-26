@@ -1,5 +1,71 @@
 import TaxConfiguration, { ITaxConfiguration, ITaxSlab, IStatutoryDeduction } from '../models/TaxConfiguration';
 
+/**
+ * India Tax Slabs FY 2025-26 (AY 2026-27) - Union Budget 2025
+ *
+ * NEW REGIME (Default):
+ * - Up to ₹4 lakh: Nil
+ * - ₹4-8 lakh: 5%
+ * - ₹8-12 lakh: 10%
+ * - ₹12-16 lakh: 15%
+ * - ₹16-20 lakh: 20%
+ * - ₹20-24 lakh: 25%
+ * - Above ₹24 lakh: 30%
+ * - Standard Deduction: ₹75,000
+ * - Rebate 87A: ₹60,000 (income up to ₹12 lakh = tax-free)
+ * - Max Surcharge: 25%
+ *
+ * OLD REGIME:
+ * - Up to ₹2.5 lakh: Nil
+ * - ₹2.5-5 lakh: 5%
+ * - ₹5-10 lakh: 20%
+ * - Above ₹10 lakh: 30%
+ * - Standard Deduction: ₹50,000
+ * - Rebate 87A: ₹12,500 (income up to ₹5 lakh)
+ * - Allows 80C/80D deductions
+ * - Max Surcharge: 37%
+ */
+
+// New Regime Tax Slabs FY 2025-26
+export const NEW_REGIME_SLABS_2025_26: ITaxSlab[] = [
+  { minIncome: 0, maxIncome: 400000, rate: 0, fixedAmount: 0 },
+  { minIncome: 400001, maxIncome: 800000, rate: 5, fixedAmount: 0 },
+  { minIncome: 800001, maxIncome: 1200000, rate: 10, fixedAmount: 20000 },
+  { minIncome: 1200001, maxIncome: 1600000, rate: 15, fixedAmount: 60000 },
+  { minIncome: 1600001, maxIncome: 2000000, rate: 20, fixedAmount: 120000 },
+  { minIncome: 2000001, maxIncome: 2400000, rate: 25, fixedAmount: 200000 },
+  { minIncome: 2400001, maxIncome: Infinity, rate: 30, fixedAmount: 300000 }
+];
+
+// Old Regime Tax Slabs FY 2025-26
+export const OLD_REGIME_SLABS_2025_26: ITaxSlab[] = [
+  { minIncome: 0, maxIncome: 250000, rate: 0, fixedAmount: 0 },
+  { minIncome: 250001, maxIncome: 500000, rate: 5, fixedAmount: 0 },
+  { minIncome: 500001, maxIncome: 1000000, rate: 20, fixedAmount: 12500 },
+  { minIncome: 1000001, maxIncome: Infinity, rate: 30, fixedAmount: 112500 }
+];
+
+// Tax Constants FY 2025-26
+export const TAX_CONSTANTS_2025_26 = {
+  newRegime: {
+    standardDeduction: 75000,
+    rebate87A: {
+      incomeLimit: 1200000,  // ₹12 lakh
+      maxRebate: 60000       // ₹60,000
+    },
+    maxSurchargeRate: 25
+  },
+  oldRegime: {
+    standardDeduction: 50000,
+    rebate87A: {
+      incomeLimit: 500000,   // ₹5 lakh
+      maxRebate: 12500       // ₹12,500
+    },
+    maxSurchargeRate: 37
+  },
+  cess: 4  // Health & Education Cess
+};
+
 // Default tax configurations for different countries
 export const defaultTaxConfigs = {
   IN: {
@@ -8,22 +74,25 @@ export const defaultTaxConfigs = {
     financialYearStart: { month: 4, day: 1 },
     financialYearEnd: { month: 3, day: 31 },
     currency: { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-    taxSlabs: [
-      { minIncome: 0, maxIncome: 300000, rate: 0, fixedAmount: 0 },
-      { minIncome: 300001, maxIncome: 600000, rate: 5, fixedAmount: 0 },
-      { minIncome: 600001, maxIncome: 900000, rate: 10, fixedAmount: 15000 },
-      { minIncome: 900001, maxIncome: 1200000, rate: 15, fixedAmount: 45000 },
-      { minIncome: 1200001, maxIncome: 1500000, rate: 20, fixedAmount: 90000 },
-      { minIncome: 1500001, maxIncome: Infinity, rate: 30, fixedAmount: 150000 }
-    ],
-    standardDeduction: 50000,
+    // Default to new regime slabs (FY 2025-26)
+    taxSlabs: NEW_REGIME_SLABS_2025_26,
+    // New regime standard deduction
+    standardDeduction: 75000,
     statutoryDeductions: [
       { code: 'PF', name: 'Provident Fund', type: 'percentage', employeeContribution: 12, employerContribution: 12, maxLimit: 21000, applicableOn: 'basic', isOptional: false },
       { code: 'ESI', name: 'Employee State Insurance', type: 'percentage', employeeContribution: 0.75, employerContribution: 3.25, maxLimit: 21000, applicableOn: 'gross', isOptional: false, slabs: [{ minSalary: 0, maxSalary: 21000, rate: 0.75 }] },
       { code: 'PT', name: 'Professional Tax', type: 'slab', employeeContribution: 200, employerContribution: 0, maxLimit: 2500, applicableOn: 'gross', isOptional: false, slabs: [{ minSalary: 0, maxSalary: 10000, rate: 0 }, { minSalary: 10001, maxSalary: 15000, rate: 150 }, { minSalary: 15001, maxSalary: Infinity, rate: 200 }] },
       { code: 'LWF', name: 'Labour Welfare Fund', type: 'fixed', employeeContribution: 2, employerContribution: 5, applicableOn: 'gross', isOptional: false }
     ],
-    surcharge: { slabs: [{ minIncome: 5000000, maxIncome: 10000000, rate: 10 }, { minIncome: 10000001, maxIncome: 20000000, rate: 15 }, { minIncome: 20000001, maxIncome: 50000000, rate: 25 }, { minIncome: 50000001, maxIncome: Infinity, rate: 37 }] },
+    // Surcharge slabs (new regime caps at 25%)
+    surcharge: {
+      slabs: [
+        { minIncome: 5000000, maxIncome: 10000000, rate: 10 },
+        { minIncome: 10000001, maxIncome: 20000000, rate: 15 },
+        { minIncome: 20000001, maxIncome: 50000000, rate: 25 },
+        { minIncome: 50000001, maxIncome: Infinity, rate: 25 }  // Capped at 25% for new regime
+      ]
+    },
     cess: { rate: 4, name: 'Health & Education Cess' }
   },
   US: {

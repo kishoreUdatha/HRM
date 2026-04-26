@@ -6,6 +6,11 @@ import * as advancedPayrollController from '../controllers/advancedPayrollContro
 import * as taxController from '../controllers/taxController';
 import advancedRoutes from './advancedRoutes';
 import extendedRoutes from './extendedRoutes';
+import taxConfigRoutes from './taxConfigRoutes';
+import advanceTaxRoutes from './advanceTaxRoutes';
+import auditorRoutes from './auditorRoutes';
+import { requireEnterprisePlan, requireTaxationFeature } from '../middleware/planGuard';
+import { requireTenantAdminOrAuditor } from '../middleware/auditorGuard';
 
 const router = Router();
 
@@ -14,6 +19,15 @@ router.use('/advanced', advancedRoutes);
 
 // Mount extended features routes (Overtime, F&F, Arrears, Policies, Compliance, ESS)
 router.use('/extended', extendedRoutes);
+
+// Mount tax configuration routes (PT, LWF, Tax Limits) - Enterprise only
+router.use('/config', requireEnterprisePlan(), taxConfigRoutes);
+
+// Mount advance tax routes - Enterprise only
+router.use('/advance-tax', requireEnterprisePlan(), advanceTaxRoutes);
+
+// Mount auditor/CA routes - Enterprise only
+router.use('/auditor', auditorRoutes);
 
 // ==================== DEBUG ROUTE ====================
 // Debug endpoint to check employee salary configurations
@@ -47,6 +61,12 @@ router.get(
 
 // Get payroll summary
 router.get('/summary', payrollController.getPayrollSummary);
+
+// Get payrolls on hold (for tenant admin/HR to review)
+router.get('/on-hold', payrollController.getPayrollsOnHold);
+
+// Release payroll from hold (after overtime is approved)
+router.post('/:id/release', payrollController.releasePayrollFromHold);
 
 // ==================== SALARY STRUCTURE ROUTES ====================
 // Note: These must come BEFORE /:id route to avoid matching
@@ -135,48 +155,48 @@ router.post('/:payrollId/payslip', advancedPayrollController.generatePayslip);
 // Get payroll by ID - MUST BE LAST among simple /:id routes
 router.get('/:id', payrollController.getPayrollById);
 
-// ==================== TAX DECLARATION ROUTES ====================
+// ==================== TAX DECLARATION ROUTES (Enterprise Only) ====================
 
 // Create tax declaration
-router.post('/:tenantId/employees/:employeeId/tax-declaration', taxController.createTaxDeclaration);
+router.post('/:tenantId/employees/:employeeId/tax-declaration', requireTaxationFeature, taxController.createTaxDeclaration);
 
 // Get tax declaration
-router.get('/:tenantId/employees/:employeeId/tax-declaration/:financialYear', taxController.getTaxDeclaration);
+router.get('/:tenantId/employees/:employeeId/tax-declaration/:financialYear', requireTaxationFeature, taxController.getTaxDeclaration);
 
 // Update tax declaration
-router.put('/tax-declaration/:declarationId', taxController.updateTaxDeclaration);
+router.put('/tax-declaration/:declarationId', requireTaxationFeature, taxController.updateTaxDeclaration);
 
 // Submit tax declaration
-router.post('/tax-declaration/:declarationId/submit', taxController.submitTaxDeclaration);
+router.post('/tax-declaration/:declarationId/submit', requireTaxationFeature, taxController.submitTaxDeclaration);
 
-// Approve tax declaration
-router.post('/tax-declaration/:declarationId/approve', taxController.approveTaxDeclaration);
+// Approve tax declaration (tenant admin or auditor/CA)
+router.post('/tax-declaration/:declarationId/approve', requireTaxationFeature, requireTenantAdminOrAuditor(), taxController.approveTaxDeclaration);
 
 // Compute tax
-router.post('/tax-declaration/:declarationId/compute', taxController.computeTax);
+router.post('/tax-declaration/:declarationId/compute', requireTaxationFeature, taxController.computeTax);
 
 // Calculate HRA exemption
-router.post('/tax-calculation/hra-exemption', taxController.calculateHRAExemption);
+router.post('/tax-calculation/hra-exemption', requireTaxationFeature, taxController.calculateHRAExemption);
 
 // Compare tax regimes
-router.post('/tax-calculation/compare-regimes', taxController.compareRegimes);
+router.post('/tax-calculation/compare-regimes', requireTaxationFeature, taxController.compareRegimes);
 
-// ==================== FORM 16 ROUTES ====================
+// ==================== FORM 16 ROUTES (Enterprise Only) ====================
 
 // Generate Form 16
-router.post('/:tenantId/employees/:employeeId/form16/:financialYear/generate', taxController.generateForm16Endpoint);
+router.post('/:tenantId/employees/:employeeId/form16/:financialYear/generate', requireTaxationFeature, taxController.generateForm16Endpoint);
 
 // Get Form 16
-router.get('/:tenantId/employees/:employeeId/form16/:financialYear', taxController.getForm16);
+router.get('/:tenantId/employees/:employeeId/form16/:financialYear', requireTaxationFeature, taxController.getForm16);
 
 // Download Form 16 PDF
-router.get('/form16/:form16Id/download', taxController.downloadForm16PDF);
+router.get('/form16/:form16Id/download', requireTaxationFeature, taxController.downloadForm16PDF);
 
-// Issue Form 16
-router.post('/form16/:form16Id/issue', taxController.issueForm16Endpoint);
+// Issue Form 16 (tenant admin or auditor/CA can issue)
+router.post('/form16/:form16Id/issue', requireTaxationFeature, requireTenantAdminOrAuditor(), taxController.issueForm16Endpoint);
 
 // Get all Form 16s for tenant
-router.get('/:tenantId/form16', taxController.getAllForm16s);
+router.get('/:tenantId/form16', requireTaxationFeature, taxController.getAllForm16s);
 
 // ==================== PAYSTUB ROUTES ====================
 

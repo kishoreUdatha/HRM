@@ -33,13 +33,16 @@ interface QuickAction {
 }
 
 // Helper function to calculate working days in a month
-const getWorkingDaysInMonth = (year: number, month: number): number => {
+// weekOffDays: array of day indices (0=Sunday, 1=Monday, ..., 6=Saturday)
+// Defaults to [0, 6] (Sunday and Saturday) if not specified
+const getWorkingDaysInMonth = (year: number, month: number, weekOffDays: number[] = [0, 6]): number => {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   let workingDays = 0;
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(year, month, day);
     const dayOfWeek = date.getDay();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+    // Check if this day is NOT a week off day
+    if (!weekOffDays.includes(dayOfWeek)) {
       workingDays++;
     }
   }
@@ -138,71 +141,136 @@ export default function DashboardScreen() {
 
   const isRefreshing = isLoadingAttendance || isLoadingLeave;
 
-  // Calculate current earnings
+  // Calculate current earnings based on shift hours and actual hours worked
   const calculateEarnings = () => {
-    // Get salary data from employee details - handle nested response structure
+    // Get employee data from API response
     const empData = employeeDetails?.data?.data || employeeDetails?.data;
     const salaryData = empData?.salary || employee?.salary;
+    const shiftData = empData?.shiftId || employee?.shiftId;  // Populated shift object
 
-    // Handle API response: attendanceApi returns response.data directly
-    // So attendanceSummary = {success: true, data: {summary: {...}, records: [...]}}
+    // Get attendance summary
     const summaryData = attendanceSummary?.data?.data?.summary || attendanceSummary?.data?.summary;
 
-    // Debug logging
+    // Get employee's week off configuration
+    const weekOffConfig = empData?.weekOffConfig;
+
     console.log('[Dashboard] salaryData:', JSON.stringify(salaryData));
+    console.log('[Dashboard] shiftData:', JSON.stringify(shiftData));
     console.log('[Dashboard] summaryData:', JSON.stringify(summaryData));
+    console.log('[Dashboard] weekOffConfig:', JSON.stringify(weekOffConfig));
 
     if (!salaryData || !salaryData.basic) {
       console.log('[Dashboard] No salary data found');
       return null;
     }
 
+    // Calculate monthly salary (gross)
     const monthlySalary = salaryData.basic + (salaryData.hra || 0) + (salaryData.allowances || 0);
-    const workingDaysInMonth = getWorkingDaysInMonth(currentYear, currentMonth - 1);
-    const dailyRate = monthlySalary / workingDaysInMonth;
-    const hourlyRate = dailyRate / 8;
 
-    // Get days worked from summary
+    // Get shift hours from employee's assigned shift (default: 8 hours)
+    const shiftHours = shiftData?.workingHours || 8;
+
+    // Determine which week off days to use
+    // Priority: 1. Employee's weekOffConfig 2. Shift's weeklyOffDays 3. Default [0, 6] (Sat, Sun)
+    let weekOffDays: number[] = [0, 6]; // Default: Sunday and Saturday
+
+    if (weekOffConfig?.weekOffDays && weekOffConfig.weekOffDays.length > 0) {
+      // Use employee's custom week off configuration
+      weekOffDays = weekOffConfig.weekOffDays;
+      console.log('[Dashboard] Using employee weekOffDays:', weekOffDays);
+    } else if (weekOffConfig?.useShiftWeekOffs && shiftData?.weeklyOffDays && shiftData.weeklyOffDays.length > 0) {
+      // Use shift's weekly off days
+      weekOffDays = shiftData.weeklyOffDays;
+      console.log('[Dashboard] Using shift weeklyOffDays:', weekOffDays);
+    } else if (shiftData?.weeklyOffDays && shiftData.weeklyOffDays.length > 0) {
+      // Fallback to shift's weekly off days if no employee config
+      weekOffDays = shiftData.weeklyOffDays;
+      console.log('[Dashboard] Using shift weeklyOffDays (fallback):', weekOffDays);
+    } else {
+      console.log('[Dashboard] Using default weekOffDays (Sat, Sun):', weekOffDays);
+    }
+
+    // Calculate working days in current month (excluding week off days)
+    const workingDaysInMonth = getWorkingDaysInMonth(currentYear, currentMonth - 1, weekOffDays);
+
+    // Calculate rates based on shift hours
+    // Hourly rate = Monthly salary / (Working days × Shift hours)
+    const totalMonthlyHours = workingDaysInMonth * shiftHours;
+    const hourlyRate = monthlySalary / totalMonthlyHours;
+    const dailyRate = hourlyRate * shiftHours;  // Full shift rate
+
+    // Get actual hours worked from attendance summary
+    const summaryWorkHours = summaryData?.totalWorkHours || 0;
     const presentDays = summaryData?.present || 0;
     const halfDays = summaryData?.halfDay || 0;
-    const effectiveDaysWorked = presentDays + (halfDays * 0.5);
 
-    // Calculate work hours from today's attendance
+    // Calculate today's hours
     let todayHours = 0;
-    // todayAttendance = {success: true, data: {attendance: {...}, isCheckedIn, isCheckedOut}}
     const todayData = todayAttendance?.data?.data?.attendance || todayAttendance?.data?.attendance || todayAttendance?.data;
     if (todayData?.checkIn) {
       const checkInTime = new Date(todayData.checkIn);
       const checkOutTime = todayData.checkOut ? new Date(todayData.checkOut) : new Date();
       todayHours = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
-      todayHours = Math.max(0, Math.min(todayHours, 12)); // Cap at 12 hours
+      todayHours = Math.max(0, Math.min(todayHours, 16)); // Cap at 16 hours
     }
-
-    // Use workHours from today's record if available (already calculated by backend)
     const todayRecordHours = todayData?.workHours || todayHours;
-    const summaryWorkHours = summaryData?.totalWorkHours || 0;
-    // Total hours: summary already includes today if checked out, otherwise add today's hours
-    const totalWorkHours = todayData?.checkOut ? summaryWorkHours : summaryWorkHours + todayRecordHours;
-    const overtimeHours = summaryData?.totalOvertimeHours || 0;
 
-    // Calculate earnings based on days worked (consistent with payroll calculation)
-    const daysBasedEarnings = effectiveDaysWorked * dailyRate;
-    const overtimeEarnings = overtimeHours * hourlyRate * 0.5; // Extra 0.5x for overtime
-    const currentEarnings = daysBasedEarnings + overtimeEarnings;
+    // Total hours worked (including today if not checked out)
+    const totalWorkHours = todayData?.checkOut ? summaryWorkHours : summaryWorkHours + todayRecordHours;
+
+    // Calculate expected hours for days present
+    const daysWorked = presentDays + (halfDays * 0.5);
+    const expectedHours = daysWorked * shiftHours;
+
+    // Calculate regular earnings (based on actual hours, capped at shift hours per day)
+    // If worked < shift hours: earnings = actual hours × hourly rate (short hours = deduction)
+    // If worked >= shift hours: regular earnings = shift hours × hourly rate × days
+    const regularHours = Math.min(totalWorkHours, expectedHours);
+    const regularEarnings = regularHours * hourlyRate;
+
+    // Calculate overtime hours (hours beyond shift hours per day)
+    // Overtime needs HR/Admin approval - showing as pending
+    const rawOvertimeHours = Math.max(0, totalWorkHours - expectedHours);
+    const approvedOvertimeHours = summaryData?.approvedOvertimeHours || 0;
+    const pendingOvertimeHours = rawOvertimeHours - approvedOvertimeHours;
+
+    // Overtime rate = 1.5x hourly rate
+    const overtimeRate = hourlyRate * 1.5;
+    const approvedOvertimeEarnings = approvedOvertimeHours * overtimeRate;
+    const pendingOvertimeEarnings = pendingOvertimeHours * overtimeRate;
+
+    // Current earnings = Regular + Approved Overtime
+    const currentEarnings = regularEarnings + approvedOvertimeEarnings;
+
+    // Calculate shortfall (if worked less than expected shift hours)
+    const shortfallHours = Math.max(0, expectedHours - totalWorkHours);
+    const shortfallDeduction = shortfallHours * hourlyRate;
 
     // Projected monthly earnings (assuming full attendance for remaining days)
-    const daysRemaining = Math.max(0, workingDaysInMonth - effectiveDaysWorked);
-    const projectedEarnings = currentEarnings + (daysRemaining * dailyRate);
+    const daysRemaining = Math.max(0, workingDaysInMonth - daysWorked);
+    const remainingEarnings = daysRemaining * dailyRate;
+    const projectedEarnings = currentEarnings + remainingEarnings;
 
-    console.log('[Dashboard] Calculation:', {
+    console.log('[Dashboard] Shift-Based Calculation:', {
       monthlySalary,
+      shiftHours,
+      weekOffDays,
       workingDaysInMonth,
-      dailyRate,
+      totalMonthlyHours,
       hourlyRate,
-      presentDays,
-      halfDays,
-      effectiveDaysWorked,
+      dailyRate,
+      daysWorked,
+      expectedHours,
       totalWorkHours,
+      regularHours,
+      regularEarnings,
+      rawOvertimeHours,
+      approvedOvertimeHours,
+      pendingOvertimeHours,
+      approvedOvertimeEarnings,
+      pendingOvertimeEarnings,
+      shortfallHours,
+      shortfallDeduction,
       currentEarnings,
       projectedEarnings,
     });
@@ -211,14 +279,32 @@ export default function DashboardScreen() {
       currentEarnings,
       projectedEarnings,
       monthlySalary,
-      daysWorked: effectiveDaysWorked,
+      daysWorked,
       workingDaysInMonth,
       totalWorkHours,
-      overtimeHours,
+      shiftHours,
+      expectedHours,
+      regularHours,
+      regularEarnings,
+      // Overtime breakdown
+      rawOvertimeHours,
+      approvedOvertimeHours,
+      pendingOvertimeHours,
+      approvedOvertimeEarnings,
+      pendingOvertimeEarnings,
+      overtimeRate,
+      // Shortfall
+      shortfallHours,
+      shortfallDeduction,
+      // Rates
       dailyRate,
       hourlyRate,
       currency: salaryData.currency || 'INR',
       todayHours: todayRecordHours,
+      // Shift info
+      shiftName: shiftData?.name || 'General',
+      // Week off info
+      weekOffDays,
     };
   };
 
@@ -447,23 +533,23 @@ export default function DashboardScreen() {
 
               <View style={styles.earningsStats}>
                 <View style={styles.earningsStat}>
-                  <Icon name="calendar-check" size={14} color="rgba(255,255,255,0.8)" />
-                  <Text style={styles.earningsStatValue}>{earnings.daysWorked}</Text>
-                  <Text style={styles.earningsStatLabel}>Days Worked</Text>
+                  <Icon name="clock-outline" size={14} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.earningsStatValue}>{(earnings.totalWorkHours || 0).toFixed(1)}h</Text>
+                  <Text style={styles.earningsStatLabel}>Worked</Text>
                 </View>
                 <View style={styles.earningsStatDivider} />
                 <View style={styles.earningsStat}>
-                  <Icon name="clock-outline" size={14} color="rgba(255,255,255,0.8)" />
-                  <Text style={styles.earningsStatValue}>{(earnings.totalWorkHours || 0).toFixed(1)}h</Text>
-                  <Text style={styles.earningsStatLabel}>Work Hours</Text>
+                  <Icon name="clock-check" size={14} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.earningsStatValue}>{earnings.shiftHours}h</Text>
+                  <Text style={styles.earningsStatLabel}>Shift/Day</Text>
                 </View>
                 <View style={styles.earningsStatDivider} />
                 <View style={styles.earningsStat}>
                   <Icon name="cash" size={14} color="rgba(255,255,255,0.8)" />
                   <Text style={styles.earningsStatValue}>
-                    {formatCurrency(earnings.dailyRate, earnings.currency).replace(/\.\d+$/, '')}
+                    {formatCurrency(earnings.hourlyRate, earnings.currency).replace(/\.\d+$/, '')}
                   </Text>
-                  <Text style={styles.earningsStatLabel}>Per Day</Text>
+                  <Text style={styles.earningsStatLabel}>Per Hour</Text>
                 </View>
               </View>
             </LinearGradient>
@@ -479,6 +565,51 @@ export default function DashboardScreen() {
                 </View>
                 <Text style={[styles.todayEarningsAmount, {color: colors.success}]}>
                   +{formatCurrency((earnings.todayHours || 0) * (earnings.hourlyRate || 0), earnings.currency)}
+                </Text>
+              </View>
+            )}
+
+            {/* Overtime Pending Approval */}
+            {(earnings.pendingOvertimeHours || 0) > 0 && (
+              <View style={[styles.todayEarnings, {backgroundColor: colors.background}]}>
+                <View style={styles.todayEarningsLeft}>
+                  <Icon name="clock-alert-outline" size={16} color={colors.warning || '#F59E0B'} />
+                  <Text style={[styles.todayEarningsText, {color: colors.text}]}>
+                    OT Pending: {(earnings.pendingOvertimeHours || 0).toFixed(1)} hrs
+                  </Text>
+                </View>
+                <Text style={[styles.todayEarningsAmount, {color: colors.warning || '#F59E0B'}]}>
+                  +{formatCurrency(earnings.pendingOvertimeEarnings || 0, earnings.currency)} (pending)
+                </Text>
+              </View>
+            )}
+
+            {/* Approved Overtime */}
+            {(earnings.approvedOvertimeHours || 0) > 0 && (
+              <View style={[styles.todayEarnings, {backgroundColor: colors.background}]}>
+                <View style={styles.todayEarningsLeft}>
+                  <Icon name="check-circle-outline" size={16} color={colors.success} />
+                  <Text style={[styles.todayEarningsText, {color: colors.text}]}>
+                    OT Approved: {(earnings.approvedOvertimeHours || 0).toFixed(1)} hrs
+                  </Text>
+                </View>
+                <Text style={[styles.todayEarningsAmount, {color: colors.success}]}>
+                  +{formatCurrency(earnings.approvedOvertimeEarnings || 0, earnings.currency)}
+                </Text>
+              </View>
+            )}
+
+            {/* Shortfall/Deduction */}
+            {(earnings.shortfallHours || 0) > 0 && (
+              <View style={[styles.todayEarnings, {backgroundColor: colors.background}]}>
+                <View style={styles.todayEarningsLeft}>
+                  <Icon name="alert-circle-outline" size={16} color={colors.error} />
+                  <Text style={[styles.todayEarningsText, {color: colors.text}]}>
+                    Short: {(earnings.shortfallHours || 0).toFixed(1)} hrs
+                  </Text>
+                </View>
+                <Text style={[styles.todayEarningsAmount, {color: colors.error}]}>
+                  -{formatCurrency(earnings.shortfallDeduction || 0, earnings.currency)}
                 </Text>
               </View>
             )}

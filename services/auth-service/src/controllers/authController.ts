@@ -98,7 +98,13 @@ export const register = async (
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
     });
-  } catch (error) {
+  } catch (error: any) {
+    console.error('[Auth] Register error:', {
+      message: error.message,
+      code: error.code,
+      name: error.name,
+      stack: error.stack?.split('\n').slice(0, 5).join('\n'),
+    });
     next(error);
   }
 };

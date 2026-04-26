@@ -529,6 +529,60 @@ export const services: ServiceConfig[] = [
     timeout: 30000,
     requiresAuth: false,  // Public routes (plans, webhooks)
   },
+
+  // ===========================================
+  // PAYOUT SERVICE (Salary Disbursement)
+  // ===========================================
+  // Payout webhooks (no auth - signature verified internally)
+  {
+    name: 'payout-webhooks-service',
+    url: process.env.PAYOUT_SERVICE_URL || 'http://localhost:3028',
+    pathPrefix: '/api/payouts/webhooks',
+    targetPath: '/api/payouts/webhooks',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: false,  // Webhooks verify signature internally
+  },
+  // Payout config routes (admin only)
+  {
+    name: 'payout-config-service',
+    url: process.env.PAYOUT_SERVICE_URL || 'http://localhost:3028',
+    pathPrefix: '/api/payouts/config',
+    targetPath: '/api/payouts/config',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  // Payout fund accounts
+  {
+    name: 'payout-fund-accounts-service',
+    url: process.env.PAYOUT_SERVICE_URL || 'http://localhost:3028',
+    pathPrefix: '/api/payouts/fund-accounts',
+    targetPath: '/api/payouts/fund-accounts',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
+  // Payout batches
+  {
+    name: 'payout-batches-service',
+    url: process.env.PAYOUT_SERVICE_URL || 'http://localhost:3028',
+    pathPrefix: '/api/payouts/batches',
+    targetPath: '/api/payouts/batches',
+    healthCheck: '/health',
+    timeout: 60000,  // Batch processing may take longer
+    requiresAuth: true,
+  },
+  // Individual payouts
+  {
+    name: 'payout-service',
+    url: process.env.PAYOUT_SERVICE_URL || 'http://localhost:3028',
+    pathPrefix: '/api/payouts',
+    targetPath: '/api/payouts',
+    healthCheck: '/health',
+    timeout: 30000,
+    requiresAuth: true,
+  },
 ];
 
 export const getServiceByPath = (path: string): ServiceConfig | undefined => {

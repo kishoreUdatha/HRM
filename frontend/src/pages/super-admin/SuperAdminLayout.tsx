@@ -75,8 +75,12 @@ const SuperAdminLayout: React.FC = () => {
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-4 bg-gray-800">
           <div className="flex items-center gap-2">
-            <HiShieldCheck className="w-8 h-8 text-purple-500" />
-            <span className="text-white font-bold text-lg">Super Admin</span>
+            <img
+              src="/hrzio-logo.png"
+              alt="HRZio Logo"
+              className="h-8 w-auto object-contain brightness-0 invert"
+            />
+            <span className="text-white font-bold text-lg">Admin</span>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}

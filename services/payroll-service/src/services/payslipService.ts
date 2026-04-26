@@ -32,8 +32,19 @@ interface PayslipData {
   employerContributions?: { name: string; amount: number }[];
   ytdEarnings?: number;
   ytdDeductions?: number;
+  // Shift-hours based fields
+  shiftName?: string;
+  shiftHours?: number;
+  expectedHours?: number;
+  actualWorkedHours?: number;
+  regularHours?: number;
+  shortfallHours?: number;
+  hourlyRate?: number;
   overtimeHours?: number;
   overtimePay?: number;
+  pendingOvertimeHours?: number;
+  // Calculation mode
+  calculationMode?: 'hourly' | 'daily';
   paymentReference?: string;
 }
 
@@ -280,6 +291,60 @@ export async function generatePayslipPDF(data: PayslipData): Promise<Buffer> {
   });
 
   y = boxY - 20;
+
+  // ============================================
+  // SHIFT & HOURS SUMMARY (only for hourly calculation mode)
+  // ============================================
+  const isHourlyMode = data.calculationMode === 'hourly';
+  if (isHourlyMode && (data.shiftName || data.expectedHours)) {
+    drawText(page, 'SHIFT & HOURS BREAKDOWN (Hourly Mode)', leftMargin, y, fontBold, 11, colors.primary);
+    y -= 5;
+    drawLine(page, leftMargin, y, rightMargin, y, 2, colors.primary);
+    y -= 18;
+
+    // Hours boxes
+    const hoursBoxWidth = (contentWidth - 40) / 5;
+    const hoursBoxHeight = 45;
+    const hoursBoxY = y - hoursBoxHeight + 10;
+
+    const hoursData = [
+      { label: 'Shift', value: data.shiftName || 'General', subLabel: `${data.shiftHours || 8}h/day` },
+      { label: 'Expected Hrs', value: (data.expectedHours || 0).toString() },
+      { label: 'Worked Hrs', value: (data.actualWorkedHours || 0).toFixed(1) },
+      { label: 'Shortfall', value: (data.shortfallHours || 0).toFixed(1), isNegative: (data.shortfallHours || 0) > 0 },
+      { label: 'Overtime', value: `${(data.overtimeHours || 0).toFixed(1)}${(data.pendingOvertimeHours || 0) > 0 ? '*' : ''}` },
+    ];
+
+    hoursData.forEach((item, index) => {
+      const boxX = leftMargin + (index * (hoursBoxWidth + 10));
+      const bgColor = item.isNegative ? colors.dangerLight : colors.bgLight;
+      drawRect(page, boxX, hoursBoxY, hoursBoxWidth, hoursBoxHeight, bgColor);
+      drawLine(page, boxX, hoursBoxY, boxX + hoursBoxWidth, hoursBoxY, 1, colors.border);
+      drawLine(page, boxX, hoursBoxY + hoursBoxHeight, boxX + hoursBoxWidth, hoursBoxY + hoursBoxHeight, 1, colors.border);
+      drawLine(page, boxX, hoursBoxY, boxX, hoursBoxY + hoursBoxHeight, 1, colors.border);
+      drawLine(page, boxX + hoursBoxWidth, hoursBoxY, boxX + hoursBoxWidth, hoursBoxY + hoursBoxHeight, 1, colors.border);
+
+      drawText(page, item.label, boxX + 5, hoursBoxY + hoursBoxHeight - 15, font, 7, colors.textMuted);
+      const valueColor = item.isNegative ? colors.danger : colors.textPrimary;
+      drawText(page, item.value, boxX + 5, hoursBoxY + 10, fontBold, 12, valueColor);
+      if (item.subLabel) {
+        drawText(page, item.subLabel, boxX + 5, hoursBoxY + 22, font, 7, colors.textMuted);
+      }
+    });
+
+    y = hoursBoxY - 8;
+
+    // Hourly rate info
+    if (data.hourlyRate) {
+      drawText(page, `Hourly Rate: Rs. ${data.hourlyRate.toFixed(2)}`, leftMargin, y, font, 8, colors.textMuted);
+      if ((data.pendingOvertimeHours || 0) > 0) {
+        drawText(page, `* ${data.pendingOvertimeHours?.toFixed(1)} hrs overtime pending approval`, leftMargin + 150, y, font, 8, colors.textMuted);
+      }
+      y -= 15;
+    }
+
+    y -= 5;
+  }
 
   // ============================================
   // EARNINGS AND DEDUCTIONS - Two Column Layout

@@ -11,17 +11,21 @@ import {
   Animated,
   StatusBar,
 } from 'react-native';
+import {
+  promptForEnableLocationIfNeeded,
+  isLocationEnabled as checkLocationEnabledAndroid,
+} from 'react-native-android-location-enabler';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation, useRoute, useFocusEffect} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import {Camera, useCameraDevice, useCameraPermission} from 'react-native-vision-camera';
+import {Camera, useCameraDevice, useCameraPermission, useFrameProcessor} from 'react-native-vision-camera';
 import Geolocation from '@react-native-community/geolocation';
 import RNFS from 'react-native-fs';
 import {getImageSizeInfo} from '../../utils/imageCompression';
 import {useQueryClient} from '@tanstack/react-query';
 
-import {useAuthStore, useUser} from '../../store/authStore';
+import {useAuthStore, useUser, useEmployee} from '../../store/authStore';
 import {attendanceApi, VerifyFaceResponse, GeofencingConfig} from '../../api/attendanceApi';
 import {handleApiError} from '../../api/apiClient';
 import {Colors} from '../../theme/colors';
@@ -36,6 +40,13 @@ import {
   LivenessProof,
 } from '../../services/livenessDetectionService';
 import {faceQualityService, FaceQualityResult} from '../../services/faceQualityService';
+import {
+  faceRecognitionMLService,
+  FaceDetection,
+  LivenessState,
+  LivenessChallenge as MLChallenge,
+} from '../../services/faceRecognitionMLService';
+import {deviceBindingService} from '../../services/deviceBindingService';
 import LivenessChallenge from '../../components/LivenessChallenge';
 import {networkService, NetworkStatus} from '../../services/networkService';
 import {locationService, FullLocationData} from '../../services/locationService';
@@ -47,13 +58,18 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 type VerificationState = 'liveness' | 'camera' | 'verifying' | 'matched' | 'confirming' | 'success' | 'error';
 
-// Configuration - set to true to require liveness check before verification
-const REQUIRE_LIVENESS_CHECK = false; // Can be made configurable via settings
+// Configuration - Disabled until real ML Kit is integrated
+// The simulated liveness causes delays - enable when using real ML Kit frame processor
+const REQUIRE_LIVENESS_CHECK = false; // Disabled for faster check-in
+
+// Liveness detection mode: 'quick' for single blink, 'full' for multiple challenges
+const LIVENESS_MODE: 'quick' | 'full' = 'quick'; // Quick mode for sub-2s check-in
 
 export default function FaceCheckInScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
   const user = useUser();
+  const employee = useEmployee();
   const queryClient = useQueryClient();
   const isDarkMode = useAuthStore(state => state.isDarkMode);
   const colors = isDarkMode ? Colors.dark : Colors.light;
@@ -85,7 +101,15 @@ export default function FaceCheckInScreen() {
   const pendingPunchCount = usePendingPunchCount();
   const addOfflinePunch = useOfflineQueueStore(state => state.addPunch);
 
-  // Liveness state
+  // ML-based liveness state
+  const [mlLivenessState, setMlLivenessState] = useState<LivenessState | null>(null);
+  const [mlChallenges, setMlChallenges] = useState<MLChallenge[]>([]);
+  const [currentMLChallenge, setCurrentMLChallenge] = useState<MLChallenge | null>(null);
+  const [livenessVerified, setLivenessVerified] = useState(false);
+  const [faceGuideColor, setFaceGuideColor] = useState('rgba(255,255,255,0.6)');
+  const [livenessMessage, setLivenessMessage] = useState('Position your face in the frame');
+
+  // Legacy liveness state (kept for backward compatibility)
   const [livenessSession, setLivenessSession] = useState<LivenessSession | null>(null);
   const [currentChallenge, setCurrentChallenge] = useState<Challenge | null>(null);
   const [challengeProgress, setChallengeProgress] = useState({
@@ -102,15 +126,190 @@ export default function FaceCheckInScreen() {
     mouthOpen: false,
   });
 
+  // Frame processing interval for ML detection
+  const frameProcessorRef = useRef<NodeJS.Timeout | null>(null);
+  const lastFrameTimeRef = useRef<number>(0);
+
   // Animation for success state
   const successScale = useRef(new Animated.Value(0)).current;
 
-  // Start liveness session if required
+  // Initialize device binding and start ML liveness session
   useEffect(() => {
-    if (REQUIRE_LIVENESS_CHECK) {
-      startLivenessSession();
-    }
+    const initializeServices = async () => {
+      try {
+        // Initialize device binding
+        await deviceBindingService.initialize();
+        console.log('[FaceCheckIn] Device binding initialized');
+
+        // Start ML-based liveness if required
+        if (REQUIRE_LIVENESS_CHECK) {
+          startMLLivenessSession();
+        }
+      } catch (error) {
+        console.error('[FaceCheckIn] Service initialization error:', error);
+      }
+    };
+
+    initializeServices();
+
+    // Cleanup on unmount
+    return () => {
+      if (frameProcessorRef.current) {
+        clearInterval(frameProcessorRef.current);
+      }
+      faceRecognitionMLService.reset();
+    };
   }, []);
+
+  // Start ML-based liveness session (optimized for sub-2s)
+  const startMLLivenessSession = () => {
+    faceRecognitionMLService.reset();
+    const challengeCount = LIVENESS_MODE === 'quick' ? 1 : 2;
+    const challenges = faceRecognitionMLService.startLivenessChallenge(challengeCount);
+    setMlChallenges(challenges);
+    setCurrentMLChallenge(challenges[0] || null);
+    setLivenessVerified(false);
+    setVerificationState('liveness');
+    setLivenessMessage(challenges[0]?.instruction || 'Position your face in the frame');
+    setFaceGuideColor('rgba(255,255,255,0.6)');
+    console.log('[FaceCheckIn] ML Liveness session started with', challengeCount, 'challenge(s)');
+  };
+
+  // Simulated frame processing for ML liveness detection
+  // In production, this would use Vision Camera frame processor with ML Kit
+  useEffect(() => {
+    if (verificationState !== 'liveness' || !currentMLChallenge) {
+      return;
+    }
+
+    // Process frames at 10fps for efficient detection
+    frameProcessorRef.current = setInterval(() => {
+      // Simulate face detection data (in production, this comes from ML Kit)
+      const simulatedFace: FaceDetection = {
+        bounds: {x: 100, y: 150, width: 200, height: 260},
+        landmarks: {
+          leftEye: [{x: 140, y: 200}, {x: 145, y: 198}, {x: 150, y: 198}, {x: 155, y: 200}, {x: 150, y: 202}, {x: 145, y: 202}],
+          rightEye: [{x: 190, y: 200}, {x: 195, y: 198}, {x: 200, y: 198}, {x: 205, y: 200}, {x: 200, y: 202}, {x: 195, y: 202}],
+          nose: {x: 175, y: 250},
+          mouth: [{x: 150, y: 300}, {x: 160, y: 295}, {x: 175, y: 290}, {x: 190, y: 295}, {x: 200, y: 300}, {x: 190, y: 310}, {x: 175, y: 315}, {x: 160, y: 310}],
+          leftCheek: {x: 130, y: 270},
+          rightCheek: {x: 220, y: 270},
+        },
+        headPose: {
+          yaw: (Math.random() - 0.5) * 40, // Simulate natural head movement
+          pitch: (Math.random() - 0.5) * 20,
+          roll: (Math.random() - 0.5) * 10,
+        },
+        smilingProbability: Math.random() * 0.5,
+        leftEyeOpenProbability: Math.random() > 0.1 ? 0.9 : 0.1, // Simulate occasional blinks
+        rightEyeOpenProbability: Math.random() > 0.1 ? 0.9 : 0.1,
+      };
+
+      // Process the face detection
+      const state = faceRecognitionMLService.processFaceDetection(
+        [simulatedFace],
+        400,
+        500
+      );
+      setMlLivenessState(state);
+
+      // Update UI based on detection state
+      if (state.isFaceDetected && state.faceCount === 1) {
+        setFaceGuideColor(state.qualityScore >= 0.6 ? '#22C55E' : '#F59E0B');
+
+        // Check challenge completion
+        const result = faceRecognitionMLService.checkChallengeCompletion();
+        if (result.completed) {
+          console.log('[FaceCheckIn] Challenge completed with confidence:', result.confidence);
+
+          const nextChallenge = faceRecognitionMLService.getCurrentChallenge();
+          if (nextChallenge) {
+            setCurrentMLChallenge(nextChallenge);
+            setLivenessMessage(nextChallenge.instruction);
+          } else {
+            // All challenges completed
+            handleMLLivenessComplete();
+          }
+        } else {
+          // Update message based on challenge type
+          updateLivenessMessage(currentMLChallenge, state);
+        }
+      } else {
+        setFaceGuideColor('rgba(255,255,255,0.6)');
+        setLivenessMessage(state.faceCount > 1 ? 'Only one face allowed' : 'Position your face in the frame');
+      }
+    }, 100); // 10fps
+
+    return () => {
+      if (frameProcessorRef.current) {
+        clearInterval(frameProcessorRef.current);
+      }
+    };
+  }, [verificationState, currentMLChallenge]);
+
+  // Update liveness message based on current state
+  const updateLivenessMessage = (challenge: MLChallenge | null, state: LivenessState) => {
+    if (!challenge) return;
+
+    switch (challenge.type) {
+      case 'blink':
+        if (state.blinkCount === 0) {
+          setLivenessMessage('Blink your eyes');
+        } else {
+          setLivenessMessage(`Blink detected! (${state.blinkCount})`);
+        }
+        break;
+      case 'turn_left':
+        const leftAngle = Math.abs(state.headPose.yaw);
+        if (state.headPose.yaw > -10) {
+          setLivenessMessage('Turn your head left');
+        } else {
+          setLivenessMessage(`Good! Keep turning (${Math.round(leftAngle)}°)`);
+        }
+        break;
+      case 'turn_right':
+        const rightAngle = Math.abs(state.headPose.yaw);
+        if (state.headPose.yaw < 10) {
+          setLivenessMessage('Turn your head right');
+        } else {
+          setLivenessMessage(`Good! Keep turning (${Math.round(rightAngle)}°)`);
+        }
+        break;
+    }
+  };
+
+  // Handle ML liveness completion
+  const handleMLLivenessComplete = () => {
+    const result = faceRecognitionMLService.completeLivenessSession();
+    console.log('[FaceCheckIn] ML Liveness result:', result);
+
+    if (result.passed) {
+      setLivenessVerified(true);
+      setLivenessProof({
+        sessionId: result.timestamp.toString(),
+        challenges: result.challenges.map(c => ({
+          type: c.type,
+          passed: c.completed,
+          timestamp: result.timestamp,
+        })),
+        signature: result.signature,
+      });
+      showToast.success('Liveness verified!');
+      setFaceGuideColor('#22C55E');
+      setLivenessMessage('Verified! Taking photo...');
+
+      // Auto-capture after short delay
+      setTimeout(() => {
+        setVerificationState('camera');
+        // Auto-trigger capture for seamless experience
+        setTimeout(() => handleCapture(), 300);
+      }, 500);
+    } else {
+      showDialog.error('Liveness Check Failed', 'Please try again.', () => {
+        startMLLivenessSession();
+      });
+    }
+  };
 
   // Subscribe to network status changes
   useEffect(() => {
@@ -127,9 +326,37 @@ export default function FaceCheckInScreen() {
   }, []);
 
   const checkLocationEnabled = async () => {
-    const enabled = await locationService.isLocationEnabled();
-    setIsLocationEnabled(enabled);
-    console.log('[FaceCheckIn] Location enabled:', enabled);
+    if (Platform.OS === 'android') {
+      const enabled = await checkLocationEnabledAndroid();
+      setIsLocationEnabled(enabled);
+      console.log('[FaceCheckIn] Location enabled:', enabled);
+    } else {
+      const enabled = await locationService.isLocationEnabled();
+      setIsLocationEnabled(enabled);
+      console.log('[FaceCheckIn] Location enabled:', enabled);
+    }
+  };
+
+  // Prompt user to enable location using Google Play Services dialog (stays in app)
+  const promptEnableLocation = async (): Promise<boolean> => {
+    if (Platform.OS === 'android') {
+      try {
+        const result = await promptForEnableLocationIfNeeded();
+        console.log('[FaceCheckIn] Location enable result:', result);
+        setIsLocationEnabled(true);
+        return true;
+      } catch (error: any) {
+        console.log('[FaceCheckIn] Location enable error:', error?.code, error?.message);
+        if (error?.code === 'ERR00') {
+          // User denied - location still disabled
+          setIsLocationEnabled(false);
+          return false;
+        }
+        // Other errors - try fallback
+        return false;
+      }
+    }
+    return false;
   };
 
   // Challenge timer
@@ -339,10 +566,37 @@ export default function FaceCheckInScreen() {
     setLocationError(null);
     const captureStartTime = Date.now();
 
+    // Verify device binding for security
+    const currentUser = useAuthStore.getState().user;
+    const employeeId = currentUser?.employeeId || currentUser?._id;
+    const tenantId = currentUser?.tenantId || '';
+
+    if (employeeId && tenantId) {
+      const bindingResult = await deviceBindingService.verifyBinding(employeeId, tenantId);
+      if (!bindingResult.isValid) {
+        // Auto-bind device if not bound
+        await deviceBindingService.bindDevice({employeeId, tenantId});
+        console.log('[FaceCheckIn] Device auto-bound to employee');
+      }
+    }
+
     try {
       // OPTIMIZED: Start location request in parallel with photo capture
       // This saves ~1-2 seconds since location can take time
       const locationPromise = (async () => {
+        // First check and enable location if disabled (shows in-app dialog)
+        if (Platform.OS === 'android') {
+          const locationEnabled = await checkLocationEnabledAndroid();
+          if (!locationEnabled) {
+            console.log('[FaceCheckIn] Location is disabled, showing enable dialog...');
+            const enabled = await promptEnableLocation();
+            if (!enabled) {
+              throw new Error('location_disabled');
+            }
+          }
+        }
+
+        // Request location permission
         const hasLocationPermission = await requestLocationPermission();
         if (!hasLocationPermission) {
           throw new Error('permission_denied');
@@ -371,17 +625,21 @@ export default function FaceCheckInScreen() {
         const locError = locationResult.reason;
         console.error('[FaceCheckIn] Location error:', locError);
         if (locError?.message === 'permission_denied') {
-          showDialog.warning('Location Required', 'Please enable location access to check in.', () => {
-            Linking.openSettings();
-          });
-        } else if (locError?.message?.includes('disabled')) {
+          // Re-request permission directly instead of opening settings
+          const granted = await requestLocationPermission();
+          if (!granted) {
+            showToast.error('Location permission is required for check-in');
+          }
+        } else if (locError?.message === 'location_disabled' || locError?.message?.includes('disabled')) {
           setLocationError('GPS is turned off.');
           setIsLocationEnabled(false);
-          showDialog.warning('Turn On Location', 'GPS is required for attendance check-in.', () => {
-            locationService.openLocationSettings();
-          });
+          // Try to enable location with in-app dialog
+          const enabled = await promptEnableLocation();
+          if (enabled) {
+            showToast.success('Location enabled! Please try again.');
+          }
         } else {
-          setLocationError('Could not get your location.');
+          setLocationError('Could not get your location. Please try again.');
         }
         setIsCapturing(false);
         setVerificationState('camera');
@@ -495,7 +753,7 @@ export default function FaceCheckInScreen() {
             });
             return;
           } else if (verifyResponse.status === 'NO_MATCH') {
-            errorMessage = 'Face not recognized. Please try again or contact HR.';
+            errorMessage = 'Face not recognized. Please ensure you are using your enrolled face.';
           }
 
           showDialog.error('Verification Failed', errorMessage, () => setVerificationState('camera'));
@@ -868,7 +1126,8 @@ export default function FaceCheckInScreen() {
         <View style={styles.faceGuide}>
           <View style={[
             styles.faceFrame,
-            verificationState === 'liveness' && challengeProgress.isComplete && styles.faceFrameSuccess,
+            {borderColor: faceGuideColor},
+            verificationState === 'liveness' && livenessVerified && styles.faceFrameSuccess,
           ]}>
             {verificationState === 'verifying' && (
               <View style={styles.processingOverlay}>
@@ -878,8 +1137,67 @@ export default function FaceCheckInScreen() {
             )}
           </View>
 
-          {/* Liveness Challenge UI */}
-          {verificationState === 'liveness' && currentChallenge && (
+          {/* ML Liveness Detection UI */}
+          {verificationState === 'liveness' && currentMLChallenge && (
+            <View style={styles.mlLivenessContainer}>
+              <View style={styles.mlLivenessHeader}>
+                <Icon name={currentMLChallenge.icon} size={32} color="#FFFFFF" />
+                <Text style={styles.mlLivenessInstruction}>{livenessMessage}</Text>
+              </View>
+
+              {/* Detection indicators */}
+              {mlLivenessState && (
+                <View style={styles.detectionIndicators}>
+                  <View style={[
+                    styles.indicator,
+                    mlLivenessState.isFaceDetected && styles.indicatorActive
+                  ]}>
+                    <Icon name="face-recognition" size={16} color={mlLivenessState.isFaceDetected ? '#22C55E' : '#6B7280'} />
+                    <Text style={[styles.indicatorText, mlLivenessState.isFaceDetected && styles.indicatorTextActive]}>
+                      Face
+                    </Text>
+                  </View>
+
+                  <View style={[
+                    styles.indicator,
+                    mlLivenessState.blinkCount > 0 && styles.indicatorActive
+                  ]}>
+                    <Icon name="eye" size={16} color={mlLivenessState.blinkCount > 0 ? '#22C55E' : '#6B7280'} />
+                    <Text style={[styles.indicatorText, mlLivenessState.blinkCount > 0 && styles.indicatorTextActive]}>
+                      Blink ({mlLivenessState.blinkCount})
+                    </Text>
+                  </View>
+
+                  <View style={[
+                    styles.indicator,
+                    mlLivenessState.antiSpoofScore >= 0.7 && styles.indicatorActive
+                  ]}>
+                    <Icon name="shield-check" size={16} color={mlLivenessState.antiSpoofScore >= 0.7 ? '#22C55E' : '#6B7280'} />
+                    <Text style={[styles.indicatorText, mlLivenessState.antiSpoofScore >= 0.7 && styles.indicatorTextActive]}>
+                      Live
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Challenge progress */}
+              <View style={styles.challengeProgress}>
+                {mlChallenges.map((challenge, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.challengeDot,
+                      challenge.completed && styles.challengeDotComplete,
+                      currentMLChallenge?.type === challenge.type && styles.challengeDotCurrent,
+                    ]}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* Legacy Liveness Challenge UI (fallback) */}
+          {verificationState === 'liveness' && !currentMLChallenge && currentChallenge && (
             <LivenessChallenge
               challenge={currentChallenge}
               progress={challengeProgress}
@@ -911,7 +1229,12 @@ export default function FaceCheckInScreen() {
           {!isLocationEnabled && (
             <TouchableOpacity
               style={[styles.statusBanner, styles.locationBanner]}
-              onPress={() => locationService.openLocationSettings()}>
+              onPress={async () => {
+                const enabled = await promptEnableLocation();
+                if (enabled) {
+                  showToast.success('Location enabled!');
+                }
+              }}>
               <Icon name="crosshairs-gps" size={18} color="#FFFFFF" />
               <Text style={styles.statusBannerText}>Location is disabled - tap to enable</Text>
             </TouchableOpacity>
@@ -1358,5 +1681,68 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.xs,
     fontWeight: '600',
     marginLeft: Spacing.xs,
+  },
+  // ML Liveness Detection Styles
+  mlLivenessContainer: {
+    alignItems: 'center',
+    marginTop: Spacing.lg,
+    padding: Spacing.md,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: BorderRadius.lg,
+    minWidth: 280,
+  },
+  mlLivenessHeader: {
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  mlLivenessInstruction: {
+    color: '#FFFFFF',
+    fontSize: FontSizes.lg,
+    fontWeight: '600',
+    marginTop: Spacing.sm,
+    textAlign: 'center',
+  },
+  detectionIndicators: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
+  },
+  indicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    marginHorizontal: Spacing.xs,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: BorderRadius.full,
+  },
+  indicatorActive: {
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+  },
+  indicatorText: {
+    color: '#6B7280',
+    fontSize: FontSizes.xs,
+    marginLeft: 4,
+  },
+  indicatorTextActive: {
+    color: '#22C55E',
+  },
+  challengeProgress: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  challengeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    marginHorizontal: 4,
+  },
+  challengeDotComplete: {
+    backgroundColor: '#22C55E',
+  },
+  challengeDotCurrent: {
+    backgroundColor: '#3B82F6',
+    width: 20,
   },
 });

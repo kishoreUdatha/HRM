@@ -861,6 +861,7 @@ export const downloadInvoicePdf = async (req: Request, res: Response): Promise<v
           body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
           .header { display: flex; justify-content: space-between; margin-bottom: 40px; }
           .logo { font-size: 24px; font-weight: bold; color: #8B5CF6; }
+          .logo img { height: 40px; width: auto; }
           .invoice-details { text-align: right; }
           .invoice-number { font-size: 20px; font-weight: bold; }
           .status { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase; }
@@ -882,7 +883,7 @@ export const downloadInvoicePdf = async (req: Request, res: Response): Promise<v
       </head>
       <body>
         <div class="header">
-          <div class="logo">HRM Platform</div>
+          <div class="logo">HRZio</div>
           <div class="invoice-details">
             <div class="invoice-number">${invoice.invoiceNumber}</div>
             <div style="margin-top: 8px;">

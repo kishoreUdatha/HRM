@@ -7,6 +7,8 @@ import {
   Image,
   Dimensions,
 } from 'react-native';
+
+const HRZioLogo = require('../../assets/hrzio-logo.png');
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -35,14 +37,16 @@ export default function WelcomeScreen() {
     <SafeAreaView style={[styles.container, {backgroundColor: colors.background}]}>
       <View style={styles.content}>
         <View style={styles.logoContainer}>
-          <View style={[styles.logoPlaceholder, {backgroundColor: colors.primary}]}>
-            <Text style={styles.logoText}>HRM</Text>
-          </View>
+          <Image
+            source={HRZioLogo}
+            style={styles.logo}
+            resizeMode="contain"
+          />
         </View>
 
         <View style={styles.textContainer}>
           <Text style={[styles.title, {color: colors.text}]}>
-            Welcome to HRM Mobile
+            Welcome to HRZio
           </Text>
           <Text style={[styles.subtitle, {color: colors.textSecondary}]}>
             Manage your attendance, leave, timesheets, and payroll all in one place.
@@ -119,17 +123,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xl,
   },
-  logoPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: BorderRadius.xl,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: FontSizes.xxl,
-    fontWeight: '700',
+  logo: {
+    width: 150,
+    height: 150,
   },
   textContainer: {
     alignItems: 'center',

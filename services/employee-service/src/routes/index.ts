@@ -13,6 +13,8 @@ import {
   verifyMobileCredentials,
   toggleSelfyPunch,
   resetPin,
+  updateRosterConfig,
+  updateWeekOffConfig,
 } from '../controllers/employeeController';
 import {
   getAllDepartments,
@@ -157,6 +159,10 @@ router.delete('/employees/:id', deleteEmployee);
 // Selfie Punch / Mobile App Access routes
 router.patch('/employees/:id/selfy-punch', toggleSelfyPunch);
 router.post('/employees/:id/reset-pin', resetPin);
+// Roster configuration route (tenant admin can configure per employee)
+router.patch('/employees/:id/roster-config', updateRosterConfig);
+// Week off configuration route (tenant admin can configure per employee)
+router.patch('/employees/:id/week-off-config', updateWeekOffConfig);
 
 // Department routes
 router.get('/departments', getAllDepartments);

@@ -37,6 +37,7 @@ import Profile from './pages/Profile';
 import Shifts from './pages/Shifts';
 import NotFound from './pages/NotFound';
 import Payroll from './pages/Payroll';
+import Payouts from './pages/Payouts';
 import SalaryStructures from './pages/SalaryStructures';
 import OvertimeConfig from './pages/OvertimeConfig';
 import OvertimeManagement from './pages/OvertimeManagement';
@@ -213,6 +214,11 @@ const AppRoutes: React.FC = () => {
         <Route path="/payroll/overtime" element={
           <ProtectedRoute requiredPermissions={['payroll:read']}>
             <OvertimeManagement />
+          </ProtectedRoute>
+        } />
+        <Route path="/payroll/payouts" element={
+          <ProtectedRoute requiredPermissions={['payroll:write']}>
+            <Payouts />
           </ProtectedRoute>
         } />
         <Route path="/benefits" element={

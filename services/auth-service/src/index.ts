@@ -38,12 +38,35 @@ app.use((_req: Request, res: Response) => {
 });
 
 // Error handler
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error('[Auth Service] Error:', err);
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('[Auth Service] Error:', {
+    message: err.message,
+    code: err.code,
+    name: err.name,
+    stack: err.stack?.split('\n').slice(0, 5).join('\n'),
+  });
+
+  // Handle mongoose validation errors
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation error',
+      errors: Object.values(err.errors || {}).map((e: any) => e.message),
+    });
+  }
+
+  // Handle duplicate key errors
+  if (err.code === 11000) {
+    return res.status(400).json({
+      success: false,
+      message: 'Email already registered',
+    });
+  }
+
   res.status(500).json({
     success: false,
     message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    error: err.message, // Always return error message for debugging
   });
 });
 

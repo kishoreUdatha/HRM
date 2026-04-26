@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { HiCog, HiOfficeBuilding, HiUsers, HiShieldCheck, HiBell, HiColorSwatch, HiPhotograph, HiUpload, HiTrash, HiLocationMarker, HiCreditCard } from 'react-icons/hi';
+import { HiCog, HiOfficeBuilding, HiUsers, HiShieldCheck, HiBell, HiColorSwatch, HiPhotograph, HiUpload, HiTrash, HiLocationMarker, HiCreditCard, HiCurrencyRupee, HiCalendar } from 'react-icons/hi';
 import { useAppSelector, useAppDispatch } from '../hooks/useAppDispatch';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import { setTenant } from '../features/auth/authSlice';
 import GeofencingSettings from '../components/settings/GeofencingSettings';
+import PayrollSettings from '../components/settings/PayrollSettings';
+import WeekOffSettings from '../components/settings/WeekOffSettings';
 
 const Settings: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -163,6 +165,8 @@ const Settings: React.FC = () => {
   const tabs = [
     { id: 'general', name: 'General', icon: HiCog },
     { id: 'billing-info', name: 'Billing Info', icon: HiCreditCard },
+    { id: 'payroll', name: 'Payroll', icon: HiCurrencyRupee },
+    { id: 'week-off', name: 'Week Off', icon: HiCalendar },
     { id: 'branding', name: 'Branding', icon: HiPhotograph },
     { id: 'geofencing', name: 'Geo-Fencing', icon: HiLocationMarker },
     { id: 'organization', name: 'Organization', icon: HiOfficeBuilding },
@@ -479,6 +483,10 @@ const Settings: React.FC = () => {
               </div>
             </div>
           )}
+
+          {activeTab === 'payroll' && <PayrollSettings />}
+
+          {activeTab === 'week-off' && <WeekOffSettings />}
 
           {activeTab === 'geofencing' && <GeofencingSettings />}
 

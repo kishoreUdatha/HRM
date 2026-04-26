@@ -195,6 +195,30 @@ export async function getPendingOvertimeApprovals(tenantId: string): Promise<IOv
   return OvertimeEntry.find({ tenantId, status: 'pending' }).sort({ date: 1 }).lean() as any;
 }
 
+// Get pending overtime entries for a specific employee in a specific month
+export async function getEmployeePendingOvertimeForMonth(
+  tenantId: string,
+  employeeId: string,
+  month: number,
+  year: number
+): Promise<{ count: number; totalHours: number; entries: IOvertimeEntry[] }> {
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0);
+
+  const entries = await OvertimeEntry.find({
+    tenantId,
+    employeeId,
+    status: 'pending',
+    date: { $gte: startDate, $lte: endDate }
+  }).lean() as any[];
+
+  return {
+    count: entries.length,
+    totalHours: entries.reduce((sum, e) => sum + e.overtimeHours, 0),
+    entries: entries as IOvertimeEntry[]
+  };
+}
+
 export async function getApprovedOvertimeForPayroll(
   tenantId: string,
   employeeId: string,

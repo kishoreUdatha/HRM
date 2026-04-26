@@ -6,6 +6,10 @@ import mongoose, { ConnectOptions } from 'mongoose';
 const getMongooseOptions = (): ConnectOptions => {
   const isProduction = process.env.NODE_ENV === 'production';
   const isLoadTesting = process.env.LOAD_TESTING === 'true';
+  const mongoUri = process.env.MONGODB_URI || '';
+
+  // Detect if using Azure Cosmos DB (doesn't support retryable writes)
+  const isCosmosDB = mongoUri.includes('cosmos.azure.com');
 
   // Connection pool settings
   const maxPoolSize = parseInt(process.env.MONGODB_MAX_POOL_SIZE || (isLoadTesting ? '200' : isProduction ? '100' : '50'), 10);
@@ -26,11 +30,11 @@ const getMongooseOptions = (): ConnectOptions => {
     // Keep-alive
     maxIdleTimeMS: isLoadTesting ? 300000 : 120000,
 
-    // Write concern
-    w: isProduction ? 'majority' : 1,
+    // Write concern - Cosmos DB requires numeric write concern
+    w: isCosmosDB ? 1 : (isProduction ? 'majority' : 1),
 
-    // Retry settings
-    retryWrites: true,
+    // Retry settings - Cosmos DB doesn't support retryable writes
+    retryWrites: !isCosmosDB,
     retryReads: true,
 
     // Heartbeat

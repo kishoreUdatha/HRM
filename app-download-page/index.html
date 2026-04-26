@@ -32,17 +32,15 @@
         }
 
         .logo {
-            width: 100px;
-            height: 100px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 20px;
+            width: 120px;
+            height: 120px;
             margin: 0 auto 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
-            color: white;
-            font-weight: bold;
+        }
+
+        .logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         h1 {
@@ -179,8 +177,10 @@
 </head>
 <body>
     <div class="container">
-        <div class="logo">HR</div>
-        <h1>HRM Mobile App</h1>
+        <div class="logo">
+            <img src="hrzio-logo.png" alt="HRZio Logo">
+        </div>
+        <h1>HRZio Mobile App</h1>
         <p class="subtitle">Human Resource Management System</p>
 
         <div class="version-info">

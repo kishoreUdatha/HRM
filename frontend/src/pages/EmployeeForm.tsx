@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { HiArrowLeft, HiSave, HiClock, HiDeviceMobile, HiRefresh, HiPlus } from 'react-icons/hi';
+import { HiArrowLeft, HiSave, HiClock, HiDeviceMobile, HiRefresh, HiPlus, HiCalendar } from 'react-icons/hi';
 import QuickAddDepartmentModal from '../components/QuickAddDepartmentModal';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
@@ -64,6 +64,11 @@ const EmployeeForm: React.FC = () => {
       accountType: 'savings',
     },
     selfyPunch: false,
+    weekOffConfig: {
+      maxWeekOffsPerWeek: 1,
+      weekOffDays: [0], // Default Sunday off
+      useShiftWeekOffs: false,
+    },
   });
   const [isResettingPin, setIsResettingPin] = useState(false);
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
@@ -138,6 +143,12 @@ const EmployeeForm: React.FC = () => {
           branchName: employee.bankDetails?.branchName || '',
           accountType: employee.bankDetails?.accountType || 'savings',
         },
+        // Week off configuration
+        weekOffConfig: {
+          maxWeekOffsPerWeek: employee.weekOffConfig?.maxWeekOffsPerWeek ?? 1,
+          weekOffDays: employee.weekOffConfig?.weekOffDays ?? [0],
+          useShiftWeekOffs: employee.weekOffConfig?.useShiftWeekOffs ?? false,
+        },
       });
     } catch (error) {
       console.error('Failed to fetch employee:', error);
@@ -172,6 +183,39 @@ const EmployeeForm: React.FC = () => {
     const { name, checked } = e.target;
     setFormData((prev) => ({ ...prev, [name]: checked }));
   };
+
+  const handleWeekOffDayToggle = (dayIndex: number) => {
+    setFormData((prev) => {
+      const currentDays = prev.weekOffConfig?.weekOffDays || [];
+      const newDays = currentDays.includes(dayIndex)
+        ? currentDays.filter(d => d !== dayIndex)
+        : [...currentDays, dayIndex].sort((a, b) => a - b);
+      return {
+        ...prev,
+        weekOffConfig: {
+          ...prev.weekOffConfig,
+          weekOffDays: newDays,
+          maxWeekOffsPerWeek: prev.weekOffConfig?.maxWeekOffsPerWeek ?? 1,
+          useShiftWeekOffs: prev.weekOffConfig?.useShiftWeekOffs ?? false,
+        },
+      };
+    });
+  };
+
+  const handleWeekOffConfigChange = (field: string, value: number | boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      weekOffConfig: {
+        ...prev.weekOffConfig,
+        [field]: value,
+        weekOffDays: prev.weekOffConfig?.weekOffDays ?? [0],
+        maxWeekOffsPerWeek: prev.weekOffConfig?.maxWeekOffsPerWeek ?? 1,
+        useShiftWeekOffs: prev.weekOffConfig?.useShiftWeekOffs ?? false,
+      },
+    }));
+  };
+
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   const handleResetPin = async () => {
     if (!id) return;
@@ -641,6 +685,100 @@ const EmployeeForm: React.FC = () => {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Week Off Configuration */}
+        <div className="bg-white rounded-xl shadow-sm border border-secondary-200 p-6">
+          <h2 className="text-lg font-semibold text-secondary-900 mb-4 flex items-center gap-2">
+            <HiCalendar className="w-5 h-5 text-primary-600" />
+            Week Off Configuration
+          </h2>
+          <p className="text-sm text-secondary-500 mb-4">
+            Configure weekly off days for this employee. This affects salary calculation (hourly/daily rates).
+          </p>
+
+          <div className="space-y-6">
+            {/* Week Off Days Selection */}
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-3">
+                Week Off Days
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {dayNames.map((day, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => handleWeekOffDayToggle(index)}
+                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                      formData.weekOffConfig?.weekOffDays?.includes(index)
+                        ? 'bg-primary-600 text-white shadow-md'
+                        : 'bg-secondary-100 text-secondary-600 hover:bg-secondary-200'
+                    }`}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-secondary-500 mt-2">
+                Selected: {formData.weekOffConfig?.weekOffDays?.length || 0} day(s) off per week
+              </p>
+            </div>
+
+            {/* Max Week Offs Per Week */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Max Week Offs Per Week
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="7"
+                  value={formData.weekOffConfig?.maxWeekOffsPerWeek ?? 1}
+                  onChange={(e) => handleWeekOffConfigChange('maxWeekOffsPerWeek', parseInt(e.target.value) || 0)}
+                  className="w-full px-4 py-2 border border-secondary-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                <p className="text-xs text-secondary-500 mt-1">
+                  Maximum number of week offs allowed per week (0-7)
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-1">
+                  Working Days Per Month
+                </label>
+                <div className="px-4 py-2 border border-secondary-200 rounded-lg bg-secondary-50 text-secondary-700">
+                  {(() => {
+                    const weekOffs = formData.weekOffConfig?.weekOffDays?.length || 0;
+                    const workingDaysPerWeek = 7 - weekOffs;
+                    const approxMonthlyDays = Math.round(workingDaysPerWeek * 4.33);
+                    return `~${approxMonthlyDays} days (${workingDaysPerWeek} days/week)`;
+                  })()}
+                </div>
+                <p className="text-xs text-secondary-500 mt-1">
+                  Approximate working days based on selected week offs
+                </p>
+              </div>
+            </div>
+
+            {/* Info Box */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm text-blue-800 font-medium">Salary Calculation Impact</p>
+                  <p className="text-sm text-blue-600 mt-1">
+                    Week off days are used to calculate accurate hourly/daily rates. For example, with 4 Sundays off
+                    in a month of 28 days, working days = 24. Hourly rate = Monthly Salary / (24 days × shift hours).
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

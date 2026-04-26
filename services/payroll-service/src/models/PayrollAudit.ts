@@ -2,9 +2,9 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 export interface IPayrollAudit extends Document {
   tenantId: string;
-  entityType: 'payroll' | 'paystub' | 'salary' | 'loan' | 'reimbursement' | 'bonus' | 'tax_declaration' | 'form16' | 'salary_revision' | 'batch' | 'statutory_compliance' | 'investment_declaration' | 'leave_encashment';
+  entityType: 'payroll' | 'paystub' | 'salary' | 'loan' | 'reimbursement' | 'bonus' | 'tax_declaration' | 'form16' | 'salary_revision' | 'batch' | 'statutory_compliance' | 'investment_declaration' | 'leave_encashment' | 'advance_tax' | 'advance_tax_payment';
   entityId: string;
-  action: 'create' | 'update' | 'delete' | 'approve' | 'reject' | 'process' | 'pay' | 'cancel' | 'generate' | 'submit' | 'disburse' | 'close' | 'lock' | 'verify';
+  action: 'create' | 'update' | 'delete' | 'approve' | 'reject' | 'process' | 'pay' | 'cancel' | 'generate' | 'submit' | 'disburse' | 'close' | 'lock' | 'verify' | 'reconcile' | 'revise';
   performedBy: string;
   performedByName?: string;
   performedByRole?: string;
@@ -32,6 +32,13 @@ export interface IPayrollAudit extends Document {
     count?: number;
     totalDeclared?: number;
     totalVerified?: number;
+    financialYear?: string;
+    estimatedTax?: number;
+    netTaxPayable?: number;
+    actualTaxLiability?: number;
+    balanceTax?: number;
+    paymentId?: string;
+    razorpayOrderId?: string;
   };
   sessionId?: string;
   requestId?: string;
@@ -42,13 +49,13 @@ const PayrollAuditSchema = new Schema({
   tenantId: { type: String, required: true, index: true },
   entityType: {
     type: String,
-    enum: ['payroll', 'paystub', 'salary', 'loan', 'reimbursement', 'bonus', 'tax_declaration', 'form16', 'salary_revision', 'batch', 'statutory_compliance', 'investment_declaration', 'leave_encashment'],
+    enum: ['payroll', 'paystub', 'salary', 'loan', 'reimbursement', 'bonus', 'tax_declaration', 'form16', 'salary_revision', 'batch', 'statutory_compliance', 'investment_declaration', 'leave_encashment', 'advance_tax', 'advance_tax_payment'],
     required: true
   },
   entityId: { type: String, required: true, index: true },
   action: {
     type: String,
-    enum: ['create', 'update', 'delete', 'approve', 'reject', 'process', 'pay', 'cancel', 'generate', 'submit', 'disburse', 'close', 'lock', 'verify'],
+    enum: ['create', 'update', 'delete', 'approve', 'reject', 'process', 'pay', 'cancel', 'generate', 'submit', 'disburse', 'close', 'lock', 'verify', 'reconcile', 'revise'],
     required: true
   },
   performedBy: { type: String, required: true, index: true },

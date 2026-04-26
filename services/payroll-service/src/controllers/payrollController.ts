@@ -4,7 +4,7 @@ import Payroll from '../models/Payroll';
 import EmployeeSalary from '../models/EmployeeSalary';
 import SalaryStructure from '../models/SalaryStructure';
 import { generatePayslipPDF } from '../services/payslipService';
-import { getApprovedOvertimeForPayroll, markOvertimeAsPaid, calculateShiftAllowance } from '../services/overtimeService';
+import { getApprovedOvertimeForPayroll, markOvertimeAsPaid, calculateShiftAllowance, getEmployeePendingOvertimeForMonth } from '../services/overtimeService';
 
 const EMPLOYEE_SERVICE_URL = process.env.EMPLOYEE_SERVICE_URL || 'http://localhost:3003';
 const TENANT_SERVICE_URL = process.env.TENANT_SERVICE_URL || 'http://localhost:3002';
@@ -112,6 +112,85 @@ async function fetchTenantData(tenantId: string): Promise<{
   }
 }
 
+// Interface for payroll settings
+interface PayrollSettings {
+  calculationMode: 'hourly' | 'daily';
+  hourlyModeSettings: {
+    trackOvertimeAutomatically: boolean;
+    overtimeMultiplier: number;
+    requireOvertimeApproval: boolean;
+    holdPayrollForPendingOvertime: boolean;
+    calculateShortfall: boolean;
+  };
+  dailyModeSettings: {
+    countHalfDays: boolean;
+    halfDayThresholdHours: number;
+    fullDayThresholdHours: number;
+    deductForAbsence: boolean;
+    deductForHalfDay: boolean;
+  };
+}
+
+// Default payroll settings
+const DEFAULT_PAYROLL_SETTINGS: PayrollSettings = {
+  calculationMode: 'daily',
+  hourlyModeSettings: {
+    trackOvertimeAutomatically: true,
+    overtimeMultiplier: 1.5,
+    requireOvertimeApproval: true,
+    holdPayrollForPendingOvertime: true,
+    calculateShortfall: true,
+  },
+  dailyModeSettings: {
+    countHalfDays: true,
+    halfDayThresholdHours: 4,
+    fullDayThresholdHours: 8,
+    deductForAbsence: true,
+    deductForHalfDay: true,
+  },
+};
+
+// Helper to fetch tenant's payroll settings
+async function fetchTenantPayrollSettings(tenantId: string): Promise<PayrollSettings> {
+  try {
+    const response = await fetch(`${TENANT_SERVICE_URL}/${tenantId}`, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) return DEFAULT_PAYROLL_SETTINGS;
+
+    const data = await response.json() as Record<string, unknown>;
+    const tenant = (data.data || data.tenant || data) as Record<string, unknown>;
+    const settings = tenant.settings as Record<string, unknown> | undefined;
+    const payrollSettings = settings?.payrollSettings as Record<string, unknown> | undefined;
+
+    if (!payrollSettings) return DEFAULT_PAYROLL_SETTINGS;
+
+    const hourlySettings = payrollSettings.hourlyModeSettings as Record<string, unknown> | undefined;
+    const dailySettings = payrollSettings.dailyModeSettings as Record<string, unknown> | undefined;
+
+    return {
+      calculationMode: (payrollSettings.calculationMode as 'hourly' | 'daily') || 'daily',
+      hourlyModeSettings: {
+        trackOvertimeAutomatically: hourlySettings?.trackOvertimeAutomatically !== false,
+        overtimeMultiplier: Number(hourlySettings?.overtimeMultiplier) || 1.5,
+        requireOvertimeApproval: hourlySettings?.requireOvertimeApproval !== false,
+        holdPayrollForPendingOvertime: hourlySettings?.holdPayrollForPendingOvertime !== false,
+        calculateShortfall: hourlySettings?.calculateShortfall !== false,
+      },
+      dailyModeSettings: {
+        countHalfDays: dailySettings?.countHalfDays !== false,
+        halfDayThresholdHours: Number(dailySettings?.halfDayThresholdHours) || 4,
+        fullDayThresholdHours: Number(dailySettings?.fullDayThresholdHours) || 8,
+        deductForAbsence: dailySettings?.deductForAbsence !== false,
+        deductForHalfDay: dailySettings?.deductForHalfDay !== false,
+      },
+    };
+  } catch (error) {
+    console.error('[Payroll] Error fetching tenant payroll settings:', error);
+    return DEFAULT_PAYROLL_SETTINGS;
+  }
+}
+
 // Helper to fetch full employee details from employee service
 async function fetchFullEmployeeData(tenantId: string, employeeId: string): Promise<{
   firstName: string;
@@ -198,6 +277,69 @@ async function fetchEmployeeData(tenantId: string, employeeId: string): Promise<
   }
 }
 
+// Helper to fetch employee shift and week off data for shift-based payroll calculation
+async function fetchEmployeeShiftData(tenantId: string, employeeId: string): Promise<{
+  shiftHours: number;
+  weekOffDays: number[];
+  shiftName: string;
+} | null> {
+  try {
+    const response = await fetch(`${EMPLOYEE_SERVICE_URL}/employees/${employeeId}`, {
+      headers: {
+        'x-tenant-id': tenantId,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as Record<string, unknown>;
+    const emp = (data.data || data.employee || data) as Record<string, unknown>;
+
+    // Get shift data (populated)
+    const shift = emp.shiftId as Record<string, unknown> | undefined;
+    const weekOffConfig = emp.weekOffConfig as Record<string, unknown> | undefined;
+
+    // Determine working hours from shift (default 8)
+    const shiftHours = Number(shift?.workingHours || 8);
+
+    // Determine week off days
+    // Priority: 1) Employee-specific weekOffDays (if useShiftWeekOffs is false)
+    //          2) Shift's weeklyOffDays
+    //          3) Default (Sunday)
+    let weekOffDays: number[] = [0]; // Default Sunday
+
+    if (weekOffConfig?.useShiftWeekOffs === false && Array.isArray(weekOffConfig?.weekOffDays)) {
+      weekOffDays = weekOffConfig.weekOffDays as number[];
+    } else if (shift && Array.isArray(shift.weeklyOffDays)) {
+      weekOffDays = shift.weeklyOffDays as number[];
+    }
+
+    return {
+      shiftHours,
+      weekOffDays,
+      shiftName: String(shift?.name || 'General Shift'),
+    };
+  } catch (error) {
+    console.error('[Payroll] Error fetching employee shift data:', error);
+    return null;
+  }
+}
+
+// Calculate working days considering employee-specific week offs
+function getWorkingDaysWithWeekOffs(startDate: Date, endDate: Date, weekOffDays: number[]): number {
+  let workingDays = 0;
+  const current = new Date(startDate);
+
+  while (current <= endDate) {
+    const dayOfWeek = current.getDay(); // 0 = Sunday, 6 = Saturday
+    if (!weekOffDays.includes(dayOfWeek)) {
+      workingDays++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return workingDays;
+}
+
 // Generate payroll for an employee
 export const generatePayroll = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -220,6 +362,12 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
       });
       return;
     }
+
+    // Fetch tenant's payroll calculation settings
+    const payrollSettings = await fetchTenantPayrollSettings(tenantId);
+    const isHourlyMode = payrollSettings.calculationMode === 'hourly';
+
+    console.log(`[Payroll] Calculation mode for tenant ${tenantId}: ${payrollSettings.calculationMode}`);
 
     // Get employee salary configuration
     const employeeSalary = await EmployeeSalary.findOne({
@@ -248,33 +396,73 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
     // Calculate pay period
     const payPeriodStart = new Date(year, month - 1, 1);
     const payPeriodEnd = new Date(year, month, 0);
-    const workingDays = getWorkingDays(payPeriodStart, payPeriodEnd);
+
+    // Fetch employee's shift data
+    const shiftData = await fetchEmployeeShiftData(tenantId, employeeId);
+    const shiftHours = shiftData?.shiftHours || 8;
+    const weekOffDays = shiftData?.weekOffDays || [0];
+    const shiftName = shiftData?.shiftName || 'General Shift';
+
+    // Calculate working days using employee-specific week offs
+    const workingDays = getWorkingDaysWithWeekOffs(payPeriodStart, payPeriodEnd, weekOffDays);
 
     // Fetch actual attendance data for the employee
     const attendance = await fetchAttendanceSummary(tenantId, employeeId, month, year);
 
-    // Calculate actual present days, leave days, and LOP days
-    let presentDays = workingDays; // Default to full attendance
+    // Common attendance metrics
+    const fullMonthlySalary = employeeSalary.baseSalary;
+    let presentDays = workingDays;
     let leaveDays = 0;
     let lopDays = 0;
 
     if (attendance) {
-      // Present days = full present + half days counted as 0.5
-      presentDays = attendance.present + (attendance.halfDay * 0.5);
-      // Approved leave days (paid leaves)
+      presentDays = attendance.present + (attendance.halfDay * (payrollSettings.dailyModeSettings.countHalfDays ? 0.5 : 0));
       leaveDays = attendance.leaves;
-      // LOP days = working days - present days - approved leaves
       lopDays = Math.max(0, workingDays - presentDays - leaveDays);
-
-      console.log(`[Payroll] Attendance for ${employeeId}: present=${presentDays}, leaves=${leaveDays}, lop=${lopDays}, workingDays=${workingDays}`);
     }
 
-    // Calculate proration ratio based on actual attendance
-    // Paid days = present days + approved leave days
-    const paidDays = presentDays + leaveDays;
-    const prorationRatio = workingDays > 0 ? paidDays / workingDays : 1;
+    // Variables that differ by mode
+    let totalExpectedHours = 0;
+    let actualWorkedHours = 0;
+    let hourlyRate = 0;
+    let regularHours = 0;
+    let shortfallHours = 0;
+    let regularEarnings = 0;
+    let prorationRatio = 1;
+    let expectedHoursForPresentDays = 0;
 
-    console.log(`[Payroll] Proration for ${employeeId}: paidDays=${paidDays}, ratio=${prorationRatio.toFixed(4)}`);
+    if (isHourlyMode) {
+      // ==================== HOURLY MODE CALCULATION ====================
+      totalExpectedHours = workingDays * shiftHours;
+      actualWorkedHours = attendance?.totalWorkHours || (presentDays * shiftHours);
+      hourlyRate = totalExpectedHours > 0 ? fullMonthlySalary / totalExpectedHours : 0;
+
+      expectedHoursForPresentDays = (presentDays + leaveDays) * shiftHours;
+      regularHours = Math.min(actualWorkedHours, expectedHoursForPresentDays);
+      shortfallHours = payrollSettings.hourlyModeSettings.calculateShortfall
+        ? Math.max(0, expectedHoursForPresentDays - actualWorkedHours)
+        : 0;
+      regularEarnings = regularHours * hourlyRate;
+      prorationRatio = totalExpectedHours > 0 ? regularHours / totalExpectedHours : 1;
+
+      console.log(`[Payroll] HOURLY mode for ${employeeId}: shift=${shiftName}, expectedHours=${totalExpectedHours}, actualHours=${actualWorkedHours}, regularHours=${regularHours}, shortfall=${shortfallHours}`);
+    } else {
+      // ==================== DAILY MODE CALCULATION ====================
+      // Simple day-based proration: (present days + leave days) / working days
+      const paidDays = presentDays + leaveDays;
+      prorationRatio = workingDays > 0 ? paidDays / workingDays : 1;
+      regularEarnings = fullMonthlySalary * prorationRatio;
+
+      // For daily mode, hours are informational only (not used for calculation)
+      totalExpectedHours = workingDays * shiftHours;
+      actualWorkedHours = attendance?.totalWorkHours || (presentDays * shiftHours);
+      expectedHoursForPresentDays = (presentDays + leaveDays) * shiftHours;
+      hourlyRate = 0; // Not used in daily mode
+      regularHours = 0; // Not used in daily mode
+      shortfallHours = 0; // Not used in daily mode
+
+      console.log(`[Payroll] DAILY mode for ${employeeId}: workingDays=${workingDays}, presentDays=${presentDays}, leaveDays=${leaveDays}, lopDays=${lopDays}, prorationRatio=${prorationRatio.toFixed(4)}`);
+    }
 
     // Calculate components
     const earnings: Array<{name: string; code: string; type: 'earning'; amount: number; isTaxable: boolean}> = [];
@@ -330,12 +518,42 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
     // So we don't add a separate LOP deduction (that would be double-counting)
     // The prorated salary already reflects the reduced pay for unpaid days
 
-    // Fetch approved overtime entries for this employee and period
-    const overtimeData = await getApprovedOvertimeForPayroll(tenantId, employeeId, month, year);
-    const overtimeHours = overtimeData.totalHours;
-    const overtimePay = overtimeData.totalAmount;
+    // Overtime handling differs by calculation mode
+    let pendingOvertimeData = { count: 0, totalHours: 0, entries: [] as any[] };
+    let hasPendingOvertime = false;
+    let rawOvertimeHours = 0;
+    let approvedOvertimeHours = 0;
+    let overtimePay = 0;
+    let pendingOvertimeHours = 0;
+    let overtimeData = { totalHours: 0, totalAmount: 0, entries: [] as any[] };
 
-    // Add overtime pay as an earning if applicable
+    if (isHourlyMode) {
+      // HOURLY MODE: Track overtime automatically and check for pending approvals
+      pendingOvertimeData = await getEmployeePendingOvertimeForMonth(tenantId, employeeId, month, year);
+      hasPendingOvertime = payrollSettings.hourlyModeSettings.holdPayrollForPendingOvertime && pendingOvertimeData.count > 0;
+
+      // Calculate raw overtime hours (hours worked beyond expected for present days)
+      rawOvertimeHours = Math.max(0, actualWorkedHours - expectedHoursForPresentDays);
+
+      // Fetch approved overtime entries for this employee and period
+      overtimeData = await getApprovedOvertimeForPayroll(tenantId, employeeId, month, year);
+      approvedOvertimeHours = overtimeData.totalHours;
+      overtimePay = overtimeData.totalAmount;
+
+      // Pending overtime = raw overtime that hasn't been approved yet
+      pendingOvertimeHours = Math.max(0, rawOvertimeHours - approvedOvertimeHours);
+
+      console.log(`[Payroll] HOURLY mode overtime for ${employeeId}: raw=${rawOvertimeHours}, approved=${approvedOvertimeHours}, pending=${pendingOvertimeHours}, pay=${overtimePay}, hasPendingEntries=${hasPendingOvertime}`);
+    } else {
+      // DAILY MODE: Only fetch approved overtime entries (no automatic tracking)
+      overtimeData = await getApprovedOvertimeForPayroll(tenantId, employeeId, month, year);
+      approvedOvertimeHours = overtimeData.totalHours;
+      overtimePay = overtimeData.totalAmount;
+
+      console.log(`[Payroll] DAILY mode overtime for ${employeeId}: approved=${approvedOvertimeHours}, pay=${overtimePay}`);
+    }
+
+    // Add overtime pay as an earning if applicable (only approved overtime)
     if (overtimePay > 0) {
       earnings.push({
         name: 'Overtime Pay',
@@ -366,10 +584,28 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
       });
     }
 
+    // Add shortfall deduction if hours worked less than expected (HOURLY MODE ONLY)
+    let shortfallDeduction = 0;
+    if (isHourlyMode && shortfallHours > 0) {
+      shortfallDeduction = shortfallHours * hourlyRate;
+      if (shortfallDeduction > 0) {
+        deductions.push({
+          name: 'Shortfall Deduction',
+          code: 'SHORTFALL',
+          type: 'deduction',
+          amount: Math.round(shortfallDeduction),
+          isTaxable: false,
+        });
+      }
+    }
+
     // Fetch employee data for snapshot
     const employeeData = await fetchEmployeeData(tenantId, employeeId);
 
-    // Create payroll record
+    // Determine status - on_hold if pending overtime exists
+    const payrollStatus = hasPendingOvertime ? 'on_hold' : 'draft';
+
+    // Create payroll record with shift-based calculation fields
     const payroll = new Payroll({
       tenantId,
       employeeId,
@@ -389,24 +625,56 @@ export const generatePayroll = async (req: Request, res: Response): Promise<void
       presentDays,
       leaveDays,
       lopDays,
-      overtimeHours,
+      // Shift-based calculation fields
+      shiftName,
+      shiftHours,
+      expectedHours: totalExpectedHours,
+      actualWorkedHours,
+      regularHours,
+      shortfallHours,
+      hourlyRate: Math.round(hourlyRate * 100) / 100, // Round to 2 decimal places
+      regularEarnings: Math.round(regularEarnings),
+      shortfallDeduction: Math.round(shortfallDeduction),
+      // Overtime fields
+      overtimeHours: approvedOvertimeHours,
       overtimePay: Math.round(overtimePay),
+      pendingOvertimeHours,
+      // Calculation mode
+      calculationMode: payrollSettings.calculationMode,
       processedBy: userId,
-      status: 'draft',
+      status: payrollStatus,
+      // Hold reason if on hold
+      ...(hasPendingOvertime && {
+        holdReason: 'pending_overtime',
+        holdRemarks: `${pendingOvertimeData.count} overtime entries (${pendingOvertimeData.totalHours.toFixed(1)} hrs) pending approval`,
+      }),
     });
 
     await payroll.save();
 
-    // Mark overtime entries as paid
-    if (overtimeData.entries.length > 0) {
+    // Mark overtime entries as paid (only if not on hold)
+    if (!hasPendingOvertime && overtimeData.entries.length > 0) {
       const entryIds = overtimeData.entries.map(e => (e as any)._id.toString());
       await markOvertimeAsPaid(entryIds, payroll._id.toString());
     }
 
+    // Build response message
+    let message = 'Payroll generated successfully';
+    if (hasPendingOvertime) {
+      message = `Payroll generated but ON HOLD - ${pendingOvertimeData.count} overtime entries pending approval`;
+    }
+
     res.status(201).json({
       success: true,
-      message: 'Payroll generated successfully',
-      data: { payroll },
+      message,
+      data: {
+        payroll,
+        isOnHold: hasPendingOvertime,
+        pendingOvertime: hasPendingOvertime ? {
+          count: pendingOvertimeData.count,
+          totalHours: pendingOvertimeData.totalHours,
+        } : null,
+      },
     });
   } catch (error) {
     console.error('[Payroll Service] Generate payroll error:', error);
@@ -593,6 +861,12 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
     const userId = req.headers['x-user-id'] as string;
     const { month, year, employeeIds: providedEmployeeIds } = req.body;
 
+    // Fetch tenant's payroll calculation settings ONCE for all employees
+    const payrollSettings = await fetchTenantPayrollSettings(tenantId);
+    const isHourlyMode = payrollSettings.calculationMode === 'hourly';
+
+    console.log(`[Payroll] Bulk generation - Calculation mode for tenant ${tenantId}: ${payrollSettings.calculationMode}`);
+
     // If no employeeIds provided, get all employees with active salary configurations
     let employeeIds = providedEmployeeIds;
     if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
@@ -608,7 +882,21 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
       }
     }
 
-    const results = { success: 0, failed: 0, errors: [] as string[] };
+    const results = {
+      success: 0,
+      failed: 0,
+      onHoldCount: 0,
+      calculationMode: payrollSettings.calculationMode,
+      errors: [] as string[],
+      onHold: [] as Array<{
+        employeeId: string;
+        employeeName: string;
+        employeeCode: string;
+        pendingOvertimeCount: number;
+        pendingOvertimeHours: number;
+        payrollId: string;
+      }>,
+    };
 
     for (const employeeId of employeeIds) {
       try {
@@ -640,51 +928,81 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
 
         const payPeriodStart = new Date(year, month - 1, 1);
         const payPeriodEnd = new Date(year, month, 0);
-        const workingDays = getWorkingDays(payPeriodStart, payPeriodEnd);
+
+        // Fetch employee's shift data
+        const shiftData = await fetchEmployeeShiftData(tenantId, employeeId);
+        const shiftHours = shiftData?.shiftHours || 8;
+        const weekOffDays = shiftData?.weekOffDays || [0];
+        const shiftName = shiftData?.shiftName || 'General Shift';
+
+        // Calculate working days using employee-specific week offs
+        const workingDays = getWorkingDaysWithWeekOffs(payPeriodStart, payPeriodEnd, weekOffDays);
 
         // Fetch actual attendance data for the employee
         const attendance = await fetchAttendanceSummary(tenantId, employeeId, month, year);
 
-        // Calculate actual present days, leave days, and LOP days
-        let presentDays = workingDays; // Default to full attendance
+        // Common attendance metrics
+        const fullMonthlySalary = employeeSalary.baseSalary;
+        let presentDays = workingDays;
         let leaveDays = 0;
         let lopDays = 0;
 
         if (attendance) {
-          // Present days = full present + half days counted as 0.5
-          presentDays = attendance.present + (attendance.halfDay * 0.5);
-          // Approved leave days (paid leaves)
+          presentDays = attendance.present + (attendance.halfDay * (payrollSettings.dailyModeSettings.countHalfDays ? 0.5 : 0));
           leaveDays = attendance.leaves;
-          // LOP days = working days - present days - approved leaves - holidays
-          // (holidays are already excluded from workingDays calculation if they fall on weekdays)
           lopDays = Math.max(0, workingDays - presentDays - leaveDays);
-
-          console.log(`[Payroll] Attendance for ${employeeId}: present=${presentDays}, leaves=${leaveDays}, lop=${lopDays}, workingDays=${workingDays}`);
         }
 
-        // Calculate proration ratio based on actual attendance
-        // Paid days = present days + approved leave days
-        const paidDays = presentDays + leaveDays;
-        const prorationRatio = workingDays > 0 ? paidDays / workingDays : 1;
+        // Variables that differ by mode
+        let totalExpectedHours = 0;
+        let actualWorkedHours = 0;
+        let hourlyRate = 0;
+        let regularHours = 0;
+        let shortfallHours = 0;
+        let regularEarnings = 0;
+        let prorationRatio = 1;
+        let expectedHoursForPresentDays = 0;
 
-        console.log(`[Payroll] Proration for ${employeeId}: paidDays=${paidDays}, ratio=${prorationRatio.toFixed(4)}`);
+        if (isHourlyMode) {
+          // ==================== HOURLY MODE CALCULATION ====================
+          totalExpectedHours = workingDays * shiftHours;
+          actualWorkedHours = attendance?.totalWorkHours || (presentDays * shiftHours);
+          hourlyRate = totalExpectedHours > 0 ? fullMonthlySalary / totalExpectedHours : 0;
+
+          expectedHoursForPresentDays = (presentDays + leaveDays) * shiftHours;
+          regularHours = Math.min(actualWorkedHours, expectedHoursForPresentDays);
+          shortfallHours = payrollSettings.hourlyModeSettings.calculateShortfall
+            ? Math.max(0, expectedHoursForPresentDays - actualWorkedHours)
+            : 0;
+          regularEarnings = regularHours * hourlyRate;
+          prorationRatio = totalExpectedHours > 0 ? regularHours / totalExpectedHours : 1;
+        } else {
+          // ==================== DAILY MODE CALCULATION ====================
+          const paidDays = presentDays + leaveDays;
+          prorationRatio = workingDays > 0 ? paidDays / workingDays : 1;
+          regularEarnings = fullMonthlySalary * prorationRatio;
+
+          // For daily mode, hours are informational only
+          totalExpectedHours = workingDays * shiftHours;
+          actualWorkedHours = attendance?.totalWorkHours || (presentDays * shiftHours);
+          expectedHoursForPresentDays = (presentDays + leaveDays) * shiftHours;
+          hourlyRate = 0;
+          regularHours = 0;
+          shortfallHours = 0;
+        }
 
         const earnings: Array<{name: string; code: string; type: 'earning'; amount: number; isTaxable: boolean}> = [];
         const deductions: Array<{name: string; code: string; type: 'deduction'; amount: number; isTaxable: boolean}> = [];
-        const fullBaseSalary = employeeSalary.baseSalary;
-        // Prorate base salary based on attendance
-        const baseSalary = Math.round(fullBaseSalary * prorationRatio);
+        const baseSalary = Math.round(fullMonthlySalary * prorationRatio);
 
         for (const component of salaryStructure.components) {
           if (!component.isActive) continue;
-          let fullAmount = component.calculationType === 'fixed' ? component.value : (fullBaseSalary * component.value) / 100;
-          // Prorate earnings based on attendance, deductions remain as-is (they're calculated on prorated amounts)
+          let fullAmount = component.calculationType === 'fixed' ? component.value : (fullMonthlySalary * component.value) / 100;
           let amount = component.type === 'earning' ? Math.round(fullAmount * prorationRatio) : fullAmount;
 
           if (component.type === 'earning') {
             earnings.push({ name: component.name, code: component.code, type: 'earning', amount, isTaxable: component.isTaxable });
           } else {
-            // Recalculate deduction based on prorated salary if it's percentage based
             if (component.calculationType === 'percentage') {
               amount = Math.round((baseSalary * component.value) / 100);
             }
@@ -692,16 +1010,32 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
           }
         }
 
-        // Note: We already prorated baseSalary and earnings based on attendance ratio
-        // So we don't add a separate LOP deduction (that would be double-counting)
-        // The prorated salary already reflects the reduced pay for unpaid days
+        // Overtime handling differs by calculation mode
+        let pendingOvertimeData = { count: 0, totalHours: 0, entries: [] as any[] };
+        let hasPendingOvertime = false;
+        let rawOvertimeHours = 0;
+        let approvedOvertimeHours = 0;
+        let overtimePay = 0;
+        let pendingOvertimeHours = 0;
+        let overtimeData = { totalHours: 0, totalAmount: 0, entries: [] as any[] };
 
-        // Fetch approved overtime entries for this employee and period
-        const overtimeData = await getApprovedOvertimeForPayroll(tenantId, employeeId, month, year);
-        const overtimeHours = overtimeData.totalHours;
-        const overtimePay = overtimeData.totalAmount;
+        if (isHourlyMode) {
+          // HOURLY MODE: Track overtime automatically and check for pending approvals
+          pendingOvertimeData = await getEmployeePendingOvertimeForMonth(tenantId, employeeId, month, year);
+          hasPendingOvertime = payrollSettings.hourlyModeSettings.holdPayrollForPendingOvertime && pendingOvertimeData.count > 0;
 
-        // Add overtime pay as an earning if applicable
+          rawOvertimeHours = Math.max(0, actualWorkedHours - expectedHoursForPresentDays);
+          overtimeData = await getApprovedOvertimeForPayroll(tenantId, employeeId, month, year);
+          approvedOvertimeHours = overtimeData.totalHours;
+          overtimePay = overtimeData.totalAmount;
+          pendingOvertimeHours = Math.max(0, rawOvertimeHours - approvedOvertimeHours);
+        } else {
+          // DAILY MODE: Only fetch approved overtime entries
+          overtimeData = await getApprovedOvertimeForPayroll(tenantId, employeeId, month, year);
+          approvedOvertimeHours = overtimeData.totalHours;
+          overtimePay = overtimeData.totalAmount;
+        }
+
         if (overtimePay > 0) {
           earnings.push({
             name: 'Overtime Pay',
@@ -712,7 +1046,7 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
           });
         }
 
-        // Calculate shift allowance if employee is assigned to a shift
+        // Calculate shift allowance
         const shiftAllowanceData = await calculateShiftAllowance(
           tenantId,
           employeeId,
@@ -732,8 +1066,26 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
           });
         }
 
+        // Add shortfall deduction if hours worked less than expected (HOURLY MODE ONLY)
+        let shortfallDeduction = 0;
+        if (isHourlyMode && shortfallHours > 0) {
+          shortfallDeduction = shortfallHours * hourlyRate;
+          if (shortfallDeduction > 0) {
+            deductions.push({
+              name: 'Shortfall Deduction',
+              code: 'SHORTFALL',
+              type: 'deduction',
+              amount: Math.round(shortfallDeduction),
+              isTaxable: false,
+            });
+          }
+        }
+
         // Fetch employee data for snapshot
         const employeeData = await fetchEmployeeData(tenantId, employeeId);
+
+        // Determine status - on_hold if pending overtime exists (HOURLY MODE ONLY)
+        const payrollStatus = hasPendingOvertime ? 'on_hold' : 'draft';
 
         const payroll = new Payroll({
           tenantId,
@@ -754,18 +1106,50 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
           presentDays,
           leaveDays,
           lopDays,
-          overtimeHours,
+          // Shift-based calculation fields
+          shiftName,
+          shiftHours,
+          expectedHours: totalExpectedHours,
+          actualWorkedHours,
+          regularHours,
+          shortfallHours,
+          hourlyRate: Math.round(hourlyRate * 100) / 100,
+          regularEarnings: Math.round(regularEarnings),
+          shortfallDeduction: Math.round(shortfallDeduction),
+          // Overtime fields
+          overtimeHours: approvedOvertimeHours,
           overtimePay: Math.round(overtimePay),
+          pendingOvertimeHours,
+          // Calculation mode
+          calculationMode: payrollSettings.calculationMode,
           processedBy: userId,
-          status: 'draft',
+          status: payrollStatus,
+          // Hold reason if on hold
+          ...(hasPendingOvertime && {
+            holdReason: 'pending_overtime',
+            holdRemarks: `${pendingOvertimeData.count} overtime entries (${pendingOvertimeData.totalHours.toFixed(1)} hrs) pending approval`,
+          }),
         });
 
         await payroll.save();
 
-        // Mark overtime entries as paid
-        if (overtimeData.entries.length > 0) {
+        // Mark overtime entries as paid (only if not on hold)
+        if (!hasPendingOvertime && overtimeData.entries.length > 0) {
           const entryIds = overtimeData.entries.map(e => (e as any)._id.toString());
           await markOvertimeAsPaid(entryIds, payroll._id.toString());
+        }
+
+        // Track on-hold payrolls (HOURLY MODE ONLY)
+        if (hasPendingOvertime) {
+          results.onHold.push({
+            employeeId,
+            employeeName: employeeData ? `${employeeData.firstName} ${employeeData.lastName}` : employeeId,
+            employeeCode: employeeData?.employeeCode || employeeId,
+            pendingOvertimeCount: pendingOvertimeData.count,
+            pendingOvertimeHours: pendingOvertimeData.totalHours,
+            payrollId: payroll._id.toString(),
+          });
+          results.onHoldCount++;
         }
 
         results.success++;
@@ -776,9 +1160,18 @@ export const bulkGeneratePayroll = async (req: Request, res: Response): Promise<
       }
     }
 
+    // Build response message
+    let message = `Generated ${results.success} payrolls (${payrollSettings.calculationMode} mode)`;
+    if (results.onHoldCount > 0) {
+      message += `, ${results.onHoldCount} on hold (pending overtime approval)`;
+    }
+    if (results.failed > 0) {
+      message += `, ${results.failed} failed`;
+    }
+
     res.status(200).json({
       success: true,
-      message: `Generated ${results.success} payrolls, ${results.failed} failed`,
+      message,
       data: results,
     });
   } catch (error) {
@@ -815,6 +1208,7 @@ export const getPayrollSummary = async (req: Request, res: Response): Promise<vo
         processing: payrolls.filter(p => p.status === 'processing').length,
         processed: payrolls.filter(p => p.status === 'processed').length,
         paid: payrolls.filter(p => p.status === 'paid').length,
+        on_hold: payrolls.filter(p => p.status === 'on_hold').length,
       },
     };
 
@@ -827,6 +1221,146 @@ export const getPayrollSummary = async (req: Request, res: Response): Promise<vo
     res.status(500).json({
       success: false,
       message: 'Failed to fetch payroll summary',
+    });
+  }
+};
+
+// Get payrolls on hold (for tenant admin/HR to review)
+export const getPayrollsOnHold = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { month, year } = req.query;
+
+    const query: Record<string, unknown> = {
+      tenantId,
+      status: 'on_hold',
+    };
+
+    if (month) query.month = Number(month);
+    if (year) query.year = Number(year);
+
+    const payrolls = await Payroll.find(query)
+      .sort({ 'employee.firstName': 1 })
+      .lean();
+
+    // Transform to include relevant info for HR/Admin
+    const onHoldPayrolls = payrolls.map(payroll => ({
+      payrollId: payroll._id,
+      employeeId: payroll.employeeId,
+      employee: payroll.employee,
+      month: payroll.month,
+      year: payroll.year,
+      holdReason: (payroll as any).holdReason,
+      holdRemarks: (payroll as any).holdRemarks,
+      pendingOvertimeHours: (payroll as any).pendingOvertimeHours || 0,
+      grossSalary: payroll.grossSalary,
+      netSalary: payroll.netSalary,
+      createdAt: payroll.createdAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        total: onHoldPayrolls.length,
+        payrolls: onHoldPayrolls,
+      },
+    });
+  } catch (error) {
+    console.error('[Payroll Service] Get on-hold payrolls error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch on-hold payrolls',
+    });
+  }
+};
+
+// Release payroll from hold (after overtime is approved)
+export const releasePayrollFromHold = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { id } = req.params;
+    const { recalculate } = req.body;
+
+    const payroll = await Payroll.findOne({ _id: id, tenantId, status: 'on_hold' });
+
+    if (!payroll) {
+      res.status(404).json({ success: false, message: 'On-hold payroll not found' });
+      return;
+    }
+
+    // Check if there are still pending overtime entries
+    const pendingOvertime = await getEmployeePendingOvertimeForMonth(
+      tenantId,
+      payroll.employeeId.toString(),
+      payroll.month,
+      payroll.year
+    );
+
+    if (pendingOvertime.count > 0) {
+      res.status(400).json({
+        success: false,
+        message: `Cannot release payroll. ${pendingOvertime.count} overtime entries still pending approval.`,
+        data: { pendingOvertimeCount: pendingOvertime.count, pendingOvertimeHours: pendingOvertime.totalHours },
+      });
+      return;
+    }
+
+    if (recalculate) {
+      // Recalculate overtime with newly approved entries
+      const overtimeData = await getApprovedOvertimeForPayroll(
+        tenantId,
+        payroll.employeeId.toString(),
+        payroll.month,
+        payroll.year
+      );
+
+      // Update overtime pay if new overtime was approved
+      if (overtimeData.totalHours > payroll.overtimeHours) {
+        const additionalOvertimePay = overtimeData.totalAmount - payroll.overtimePay;
+
+        // Add or update overtime earning
+        const otEarningIndex = payroll.earnings.findIndex(e => e.code === 'OT');
+        if (otEarningIndex >= 0) {
+          payroll.earnings[otEarningIndex].amount = Math.round(overtimeData.totalAmount);
+        } else if (overtimeData.totalAmount > 0) {
+          payroll.earnings.push({
+            name: 'Overtime Pay',
+            code: 'OT',
+            type: 'earning',
+            amount: Math.round(overtimeData.totalAmount),
+            isTaxable: true,
+          });
+        }
+
+        payroll.overtimeHours = overtimeData.totalHours;
+        payroll.overtimePay = Math.round(overtimeData.totalAmount);
+        (payroll as any).pendingOvertimeHours = 0;
+
+        // Mark overtime entries as paid
+        if (overtimeData.entries.length > 0) {
+          const entryIds = overtimeData.entries.map(e => (e as any)._id.toString());
+          await markOvertimeAsPaid(entryIds, payroll._id.toString());
+        }
+      }
+    }
+
+    // Release from hold
+    payroll.status = 'draft';
+    (payroll as any).holdReason = undefined;
+    (payroll as any).holdRemarks = undefined;
+
+    await payroll.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Payroll released from hold',
+      data: { payroll },
+    });
+  } catch (error) {
+    console.error('[Payroll Service] Release payroll error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to release payroll from hold',
     });
   }
 };
@@ -887,7 +1421,7 @@ export const getEmployeePayslips = async (req: Request, res: Response): Promise<
       Payroll.countDocuments(query),
     ]);
 
-    // Transform to mobile app expected format
+    // Transform to mobile app expected format with shift-hours details
     const payslips = payrolls.map(payroll => ({
       _id: payroll._id,
       tenantId: payroll.tenantId,
@@ -919,7 +1453,7 @@ export const getEmployeePayslips = async (req: Request, res: Response): Promise<
       grossSalary: payroll.grossSalary,
       totalDeductions: payroll.totalDeductions,
       netSalary: payroll.netSalary,
-      status: payroll.status === 'processed' ? 'approved' : payroll.status, // Map 'processed' to 'approved' for mobile
+      status: payroll.status === 'processed' ? 'approved' : payroll.status,
       paidAt: payroll.paidAt,
       payPeriodStart: payroll.payPeriodStart,
       payPeriodEnd: payroll.payPeriodEnd,
@@ -927,6 +1461,21 @@ export const getEmployeePayslips = async (req: Request, res: Response): Promise<
       presentDays: payroll.presentDays,
       leaveDays: payroll.leaveDays,
       lopDays: payroll.lopDays,
+      // Shift-hours based calculation fields
+      shiftName: (payroll as any).shiftName,
+      shiftHours: (payroll as any).shiftHours || 8,
+      expectedHours: (payroll as any).expectedHours || 0,
+      actualWorkedHours: (payroll as any).actualWorkedHours || 0,
+      regularHours: (payroll as any).regularHours || 0,
+      shortfallHours: (payroll as any).shortfallHours || 0,
+      hourlyRate: (payroll as any).hourlyRate || 0,
+      regularEarnings: (payroll as any).regularEarnings || 0,
+      shortfallDeduction: (payroll as any).shortfallDeduction || 0,
+      overtimeHours: payroll.overtimeHours || 0,
+      overtimePay: payroll.overtimePay || 0,
+      pendingOvertimeHours: (payroll as any).pendingOvertimeHours || 0,
+      // Calculation mode used for this payroll
+      calculationMode: (payroll as any).calculationMode || 'daily',
       createdAt: payroll.createdAt,
       updatedAt: payroll.updatedAt,
     }));
@@ -974,7 +1523,7 @@ export const getEmployeePayslipByPeriod = async (req: Request, res: Response): P
       return;
     }
 
-    // Transform to mobile app expected format
+    // Transform to mobile app expected format with shift-hours details
     const payslip = {
       _id: payroll._id,
       tenantId: payroll.tenantId,
@@ -1016,8 +1565,21 @@ export const getEmployeePayslipByPeriod = async (req: Request, res: Response): P
       lopDays: payroll.lopDays,
       incomeTax: payroll.incomeTax,
       taxableIncome: payroll.taxableIncome,
-      overtimeHours: payroll.overtimeHours,
-      overtimePay: payroll.overtimePay,
+      // Shift-hours based calculation fields
+      shiftName: (payroll as any).shiftName,
+      shiftHours: (payroll as any).shiftHours || 8,
+      expectedHours: (payroll as any).expectedHours || 0,
+      actualWorkedHours: (payroll as any).actualWorkedHours || 0,
+      regularHours: (payroll as any).regularHours || 0,
+      shortfallHours: (payroll as any).shortfallHours || 0,
+      hourlyRate: (payroll as any).hourlyRate || 0,
+      regularEarnings: (payroll as any).regularEarnings || 0,
+      shortfallDeduction: (payroll as any).shortfallDeduction || 0,
+      overtimeHours: payroll.overtimeHours || 0,
+      overtimePay: payroll.overtimePay || 0,
+      pendingOvertimeHours: (payroll as any).pendingOvertimeHours || 0,
+      // Calculation mode used for this payroll
+      calculationMode: (payroll as any).calculationMode || 'daily',
       notes: payroll.notes,
       createdAt: payroll.createdAt,
       updatedAt: payroll.updatedAt,
@@ -1059,7 +1621,7 @@ export const getEmployeePayslipById = async (req: Request, res: Response): Promi
       return;
     }
 
-    // Transform to mobile app expected format
+    // Transform to mobile app expected format with shift-hours details
     const payslip = {
       _id: payroll._id,
       tenantId: payroll.tenantId,
@@ -1101,8 +1663,21 @@ export const getEmployeePayslipById = async (req: Request, res: Response): Promi
       lopDays: payroll.lopDays,
       incomeTax: payroll.incomeTax,
       taxableIncome: payroll.taxableIncome,
-      overtimeHours: payroll.overtimeHours,
-      overtimePay: payroll.overtimePay,
+      // Shift-hours based calculation fields
+      shiftName: (payroll as any).shiftName,
+      shiftHours: (payroll as any).shiftHours || 8,
+      expectedHours: (payroll as any).expectedHours || 0,
+      actualWorkedHours: (payroll as any).actualWorkedHours || 0,
+      regularHours: (payroll as any).regularHours || 0,
+      shortfallHours: (payroll as any).shortfallHours || 0,
+      hourlyRate: (payroll as any).hourlyRate || 0,
+      regularEarnings: (payroll as any).regularEarnings || 0,
+      shortfallDeduction: (payroll as any).shortfallDeduction || 0,
+      overtimeHours: payroll.overtimeHours || 0,
+      overtimePay: payroll.overtimePay || 0,
+      pendingOvertimeHours: (payroll as any).pendingOvertimeHours || 0,
+      // Calculation mode used for this payroll
+      calculationMode: (payroll as any).calculationMode || 'daily',
       notes: payroll.notes,
       createdAt: payroll.createdAt,
       updatedAt: payroll.updatedAt,
@@ -1213,7 +1788,7 @@ export const downloadPayslipPDF = async (req: Request, res: Response): Promise<v
     const payPeriodEnd = new Date(payroll.payPeriodEnd);
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-    // Prepare payslip data for PDF generation
+    // Prepare payslip data for PDF generation with shift-hours details
     const payslipData = {
       companyName: tenantData?.name || 'Company',
       companyAddress: companyAddress,
@@ -1247,8 +1822,18 @@ export const downloadPayslipPDF = async (req: Request, res: Response): Promise<v
       grossSalary: payroll.grossSalary,
       totalDeductions: payroll.totalDeductions,
       netSalary: payroll.netSalary,
+      // Shift-hours based fields
+      shiftName: (payroll as any).shiftName,
+      shiftHours: (payroll as any).shiftHours || 8,
+      expectedHours: (payroll as any).expectedHours || 0,
+      actualWorkedHours: (payroll as any).actualWorkedHours || 0,
+      regularHours: (payroll as any).regularHours || 0,
+      shortfallHours: (payroll as any).shortfallHours || 0,
+      hourlyRate: (payroll as any).hourlyRate || 0,
       overtimeHours: payroll.overtimeHours || 0,
       overtimePay: payroll.overtimePay || 0,
+      pendingOvertimeHours: (payroll as any).pendingOvertimeHours || 0,
+      calculationMode: (payroll as any).calculationMode || 'daily',
       paymentReference: payroll.paymentReference,
     };
 
@@ -1315,7 +1900,7 @@ export const downloadPayslipByPeriodPDF = async (req: Request, res: Response): P
     const payPeriodEnd = new Date(payroll.payPeriodEnd);
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-    // Prepare payslip data for PDF generation
+    // Prepare payslip data for PDF generation with shift-hours details
     const payslipData = {
       companyName: tenantData?.name || 'Company',
       companyAddress: companyAddress,
@@ -1349,8 +1934,18 @@ export const downloadPayslipByPeriodPDF = async (req: Request, res: Response): P
       grossSalary: payroll.grossSalary,
       totalDeductions: payroll.totalDeductions,
       netSalary: payroll.netSalary,
+      // Shift-hours based fields
+      shiftName: (payroll as any).shiftName,
+      shiftHours: (payroll as any).shiftHours || 8,
+      expectedHours: (payroll as any).expectedHours || 0,
+      actualWorkedHours: (payroll as any).actualWorkedHours || 0,
+      regularHours: (payroll as any).regularHours || 0,
+      shortfallHours: (payroll as any).shortfallHours || 0,
+      hourlyRate: (payroll as any).hourlyRate || 0,
       overtimeHours: payroll.overtimeHours || 0,
       overtimePay: payroll.overtimePay || 0,
+      pendingOvertimeHours: (payroll as any).pendingOvertimeHours || 0,
+      calculationMode: (payroll as any).calculationMode || 'daily',
       paymentReference: payroll.paymentReference,
     };
 

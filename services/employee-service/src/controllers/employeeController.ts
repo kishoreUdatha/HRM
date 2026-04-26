@@ -54,7 +54,7 @@ export const getAllEmployees = async (
     const [employees, total] = await Promise.all([
       Employee.find(filter)
         .populate('departmentId', 'name code')
-        .populate('shiftId', 'name startTime endTime')
+        .populate('shiftId', 'name code startTime endTime workingHours breakDuration overtimeThreshold')
         .skip(skip)
         .limit(limitNum)
         .lean(),
@@ -92,7 +92,8 @@ export const getEmployeeById = async (
       tenantId,
     })
       .populate('departmentId', 'name code')
-      .populate('reportingManagerId', 'firstName lastName email');
+      .populate('reportingManagerId', 'firstName lastName email')
+      .populate('shiftId', 'name code startTime endTime workingHours breakDuration overtimeThreshold');
 
     // If not found, try to find by userId (for mobile app compatibility)
     if (!employee) {
@@ -101,7 +102,8 @@ export const getEmployeeById = async (
         tenantId,
       })
         .populate('departmentId', 'name code')
-        .populate('reportingManagerId', 'firstName lastName email');
+        .populate('reportingManagerId', 'firstName lastName email')
+        .populate('shiftId', 'name code startTime endTime workingHours breakDuration overtimeThreshold');
     }
 
     if (!employee) {
@@ -552,6 +554,162 @@ export const resetPin = async (
       success: true,
       data: employee,
       message: `PIN reset to default (${defaultPin}) successfully`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update employee roster configuration (for tenant admin)
+export const updateRosterConfig = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { id } = req.params;
+    const { rosterConfig } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({ success: false, message: 'Tenant ID required' });
+      return;
+    }
+
+    if (!rosterConfig || typeof rosterConfig !== 'object') {
+      res.status(400).json({ success: false, message: 'rosterConfig object is required' });
+      return;
+    }
+
+    // Validate rosterConfig fields
+    const validCalculationTypes = ['hourly', 'per_shift', 'monthly'];
+    if (rosterConfig.calculationType && !validCalculationTypes.includes(rosterConfig.calculationType)) {
+      res.status(400).json({
+        success: false,
+        message: `calculationType must be one of: ${validCalculationTypes.join(', ')}`
+      });
+      return;
+    }
+
+    // Build update object with only provided fields
+    const updateFields: Record<string, unknown> = {};
+    if (typeof rosterConfig.enabled === 'boolean') {
+      updateFields['rosterConfig.enabled'] = rosterConfig.enabled;
+    }
+    if (typeof rosterConfig.maxRostersPerMonth === 'number' && rosterConfig.maxRostersPerMonth > 0) {
+      updateFields['rosterConfig.maxRostersPerMonth'] = rosterConfig.maxRostersPerMonth;
+    }
+    if (typeof rosterConfig.shiftHoursPerRoster === 'number' && rosterConfig.shiftHoursPerRoster > 0) {
+      updateFields['rosterConfig.shiftHoursPerRoster'] = rosterConfig.shiftHoursPerRoster;
+    }
+    if (typeof rosterConfig.ratePerHour === 'number' && rosterConfig.ratePerHour >= 0) {
+      updateFields['rosterConfig.ratePerHour'] = rosterConfig.ratePerHour;
+    }
+    if (typeof rosterConfig.ratePerShift === 'number' && rosterConfig.ratePerShift >= 0) {
+      updateFields['rosterConfig.ratePerShift'] = rosterConfig.ratePerShift;
+    }
+    if (rosterConfig.calculationType) {
+      updateFields['rosterConfig.calculationType'] = rosterConfig.calculationType;
+    }
+
+    const employee = await Employee.findOneAndUpdate(
+      { _id: id, tenantId: new mongoose.Types.ObjectId(tenantId) },
+      { $set: updateFields },
+      { new: true }
+    ).populate('departmentId', 'name code');
+
+    if (!employee) {
+      res.status(404).json({ success: false, message: 'Employee not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: employee,
+      message: 'Roster configuration updated successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update employee week off configuration (for tenant admin)
+export const updateWeekOffConfig = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const tenantId = req.headers['x-tenant-id'] as string;
+    const { id } = req.params;
+    const { weekOffConfig } = req.body;
+
+    if (!tenantId) {
+      res.status(400).json({ success: false, message: 'Tenant ID required' });
+      return;
+    }
+
+    if (!weekOffConfig || typeof weekOffConfig !== 'object') {
+      res.status(400).json({ success: false, message: 'weekOffConfig object is required' });
+      return;
+    }
+
+    // Validate weekOffDays
+    if (weekOffConfig.weekOffDays) {
+      if (!Array.isArray(weekOffConfig.weekOffDays)) {
+        res.status(400).json({ success: false, message: 'weekOffDays must be an array' });
+        return;
+      }
+      const validDays = weekOffConfig.weekOffDays.every((d: number) => d >= 0 && d <= 6);
+      if (!validDays) {
+        res.status(400).json({
+          success: false,
+          message: 'weekOffDays must be between 0 (Sunday) and 6 (Saturday)'
+        });
+        return;
+      }
+    }
+
+    // Validate maxWeekOffsPerWeek
+    if (weekOffConfig.maxWeekOffsPerWeek !== undefined) {
+      if (weekOffConfig.maxWeekOffsPerWeek < 0 || weekOffConfig.maxWeekOffsPerWeek > 7) {
+        res.status(400).json({
+          success: false,
+          message: 'maxWeekOffsPerWeek must be between 0 and 7'
+        });
+        return;
+      }
+    }
+
+    // Build update object with only provided fields
+    const updateFields: Record<string, unknown> = {};
+    if (typeof weekOffConfig.maxWeekOffsPerWeek === 'number') {
+      updateFields['weekOffConfig.maxWeekOffsPerWeek'] = weekOffConfig.maxWeekOffsPerWeek;
+    }
+    if (Array.isArray(weekOffConfig.weekOffDays)) {
+      updateFields['weekOffConfig.weekOffDays'] = weekOffConfig.weekOffDays;
+    }
+    if (typeof weekOffConfig.useShiftWeekOffs === 'boolean') {
+      updateFields['weekOffConfig.useShiftWeekOffs'] = weekOffConfig.useShiftWeekOffs;
+    }
+
+    const employee = await Employee.findOneAndUpdate(
+      { _id: id, tenantId: new mongoose.Types.ObjectId(tenantId) },
+      { $set: updateFields },
+      { new: true }
+    )
+      .populate('departmentId', 'name code')
+      .populate('shiftId', 'name code startTime endTime workingHours weeklyOffDays');
+
+    if (!employee) {
+      res.status(404).json({ success: false, message: 'Employee not found' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: employee,
+      message: 'Week off configuration updated successfully',
     });
   } catch (error) {
     next(error);

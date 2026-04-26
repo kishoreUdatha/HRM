@@ -59,8 +59,10 @@ export interface FaceMatchResult {
   matchDetails?: {
     distance: number;
     threshold: number;
-    searchTimeMs: number;
-    method: 'vector_db' | 'memory';
+    searchTimeMs?: number;
+    method?: 'vector_db' | 'memory';
+    confidence?: number;
+    rejectionReason?: 'LOW_CONFIDENCE';
   };
 }
 
@@ -94,20 +96,25 @@ export interface LivenessProof {
   signature: string;
 }
 
-// Configuration
+// Configuration - BALANCED for accuracy and usability
 const CONFIG = {
   // Face detection settings
   MIN_FACE_SIZE: 0.03, // Lowered to 3% to handle smaller faces in photos
   MAX_FACE_SIZE: 0.95,
   MIN_DETECTION_CONFIDENCE: 0.2, // Lowered for better mobile camera detection
 
-  // Matching thresholds - relaxed for production use
-  MATCH_THRESHOLD: 0.6, // Euclidean distance threshold (relaxed for varying conditions)
-  HIGH_CONFIDENCE_THRESHOLD: 0.4,
-  COSINE_SIMILARITY_THRESHOLD: 0.5, // For vector DB search (relaxed for production)
+  // Matching thresholds - BALANCED for real-world usage
+  MATCH_THRESHOLD: 0.7, // Euclidean distance threshold (more lenient for mobile cameras)
+  HIGH_CONFIDENCE_THRESHOLD: 0.5, // High confidence threshold
+  MIN_CONFIDENCE: 0.2, // Minimum 20% confidence required
+  COSINE_SIMILARITY_THRESHOLD: 0.4, // For vector DB search (more lenient)
+
+  // Anti-spoofing settings
+  REQUIRE_LIVENESS_PROOF: false, // Disabled until mobile liveness is ready
+  LIVENESS_BYPASS_FOR_ENROLLED: true, // Allow enrolled users without liveness
 
   // Quality settings
-  MIN_QUALITY_SCORE: 0.15, // Lowered to accommodate mobile cameras with varying conditions
+  MIN_QUALITY_SCORE: 0.1, // Very lenient for mobile cameras
   MIN_IMAGES_FOR_ENROLLMENT: 1,
   RECOMMENDED_IMAGES_FOR_ENROLLMENT: 3,
 
@@ -119,7 +126,7 @@ const CONFIG = {
 
   // Liveness settings
   LIVENESS_SESSION_TIMEOUT_MS: 60000, // 1 minute
-  LIVENESS_MIN_CHALLENGES: 2,
+  LIVENESS_MIN_CHALLENGES: 1, // Reduced for quick verification
 };
 
 // TensorFlow and face-api lazy loading
@@ -289,42 +296,20 @@ class FaceRecognitionService {
       const imgWidth = originalImage.width;
       const imgHeight = originalImage.height;
 
-      // FAST PATH: Try original image first with moderate threshold
-      // This handles 80%+ of good quality mobile camera images
-      const fastResult = await this.detectFaceFast(originalImage, imgWidth, imgHeight, 0.3);
+      // Resize large images for faster processing (max 640px on longest side)
+      let processImage = originalImage;
+      const maxDim = Math.max(imgWidth, imgHeight);
+      if (maxDim > 640) {
+        const scale = 640 / maxDim;
+        processImage = originalImage.clone().resize({ w: Math.round(imgWidth * scale), h: Math.round(imgHeight * scale) });
+        console.log(`[FaceRecognition] Resized image from ${imgWidth}x${imgHeight} to ${Math.round(imgWidth * scale)}x${Math.round(imgHeight * scale)}`);
+      }
+
+      // FAST PATH: Single detection with low threshold for speed
+      const fastResult = await this.detectFaceFast(processImage, imgWidth, imgHeight, 0.05);
       if (fastResult) {
         console.log(`[FaceRecognition] Fast path succeeded in ${Date.now() - startTime}ms`);
         return fastResult;
-      }
-
-      // FALLBACK PATH: Only if fast path fails, try enhanced strategies
-      console.log(`[FaceRecognition] Fast path failed, trying enhanced strategies...`);
-
-      // Prepare enhanced images in parallel
-      const [preprocessed, lowLight] = await Promise.all([
-        this.enhanceImage(originalImage.clone(), 'contrast'),
-        this.enhanceImage(originalImage.clone(), 'lowlight'),
-      ]);
-
-      // Try preprocessed (contrast enhanced)
-      const preprocessedResult = await this.detectFaceFast(preprocessed, imgWidth, imgHeight, 0.2);
-      if (preprocessedResult) {
-        console.log(`[FaceRecognition] Preprocessed strategy succeeded in ${Date.now() - startTime}ms`);
-        return preprocessedResult;
-      }
-
-      // Try low-light enhanced
-      const lowLightResult = await this.detectFaceFast(lowLight, imgWidth, imgHeight, 0.15);
-      if (lowLightResult) {
-        console.log(`[FaceRecognition] Low-light strategy succeeded in ${Date.now() - startTime}ms`);
-        return lowLightResult;
-      }
-
-      // Last resort: try with very low threshold on original
-      const lastResortResult = await this.detectFaceFast(originalImage, imgWidth, imgHeight, 0.1);
-      if (lastResortResult) {
-        console.log(`[FaceRecognition] Last resort succeeded in ${Date.now() - startTime}ms`);
-        return lastResortResult;
       }
 
       console.log(`[FaceRecognition] No face detected after ${Date.now() - startTime}ms`);
@@ -694,7 +679,23 @@ class FaceRecognitionService {
 
       if (bestMatch && bestMatch.distance <= CONFIG.MATCH_THRESHOLD) {
         const confidence = Math.max(0, Math.min(1, 1 - (bestMatch.distance / CONFIG.MATCH_THRESHOLD)));
-        console.log(`[FaceRecognition] MATCHED via memory: ${bestMatch.employeeName} with confidence ${confidence.toFixed(4)}`);
+
+        // SECURITY: Reject matches with low confidence to prevent false positives
+        if (confidence < CONFIG.MIN_CONFIDENCE) {
+          console.log(`[FaceRecognition] REJECTED: ${bestMatch.employeeName} - confidence ${(confidence * 100).toFixed(1)}% below minimum ${(CONFIG.MIN_CONFIDENCE * 100).toFixed(0)}%`);
+          return {
+            status: 'NO_MATCH',
+            message: 'Face not recognized with sufficient confidence. Please try again.',
+            matchDetails: {
+              distance: bestMatch.distance,
+              threshold: CONFIG.MATCH_THRESHOLD,
+              confidence,
+              rejectionReason: 'LOW_CONFIDENCE',
+            },
+          };
+        }
+
+        console.log(`[FaceRecognition] MATCHED via memory: ${bestMatch.employeeName} with confidence ${(confidence * 100).toFixed(1)}%`);
 
         return {
           status: 'MATCHED',

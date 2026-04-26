@@ -61,6 +61,21 @@ export interface IEmployee extends Document {
   faceEnrollmentDate?: Date;
   selfyPunch: boolean;  // Allow mobile app login with selfie punch
   pin?: string;  // 4-digit PIN for mobile login (default: 4499 for admins, 1122 for employees)
+  // Roster-based salary configuration (tenant configurable per employee)
+  rosterConfig: {
+    enabled: boolean;  // If true, salary is calculated based on roster instead of monthly
+    maxRostersPerMonth: number;  // Max shifts/rosters allowed per month (e.g., 4)
+    shiftHoursPerRoster: number;  // Hours per shift/roster (e.g., 8)
+    ratePerHour: number;  // Hourly rate for calculation
+    ratePerShift: number;  // Fixed rate per shift (alternative to hourly)
+    calculationType: 'hourly' | 'per_shift' | 'monthly';  // How to calculate salary
+  };
+  // Week off configuration (tenant configurable per employee)
+  weekOffConfig: {
+    maxWeekOffsPerWeek: number;  // Max week offs allowed per week (e.g., 1 or 2)
+    weekOffDays: number[];  // Specific week off days [0=Sunday, 1=Monday, etc.]
+    useShiftWeekOffs: boolean;  // If true, use shift's weeklyOffDays instead of employee-specific
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -197,6 +212,32 @@ const employeeSchema = new Schema<IEmployee>(
       // Note: Default PIN is determined at runtime based on role
       // 4499 for admins (CEO, Director, Manager, etc.), 1122 for regular employees
       match: [/^\d{4}$/, 'PIN must be 4 digits'],
+    },
+    // Roster-based salary configuration (tenant configurable per employee)
+    rosterConfig: {
+      enabled: { type: Boolean, default: false },  // Default to monthly salary
+      maxRostersPerMonth: { type: Number, default: 4 },  // Default 4 shifts per month
+      shiftHoursPerRoster: { type: Number, default: 8 },  // Default 8 hours per shift
+      ratePerHour: { type: Number, default: 0 },  // Hourly rate
+      ratePerShift: { type: Number, default: 0 },  // Per shift rate
+      calculationType: {
+        type: String,
+        enum: ['hourly', 'per_shift', 'monthly'],
+        default: 'monthly'
+      },
+    },
+    // Week off configuration (tenant configurable per employee)
+    weekOffConfig: {
+      maxWeekOffsPerWeek: { type: Number, default: 1, min: 0, max: 7 },  // Default 1 week off
+      weekOffDays: {
+        type: [Number],
+        default: [0],  // Sunday by default
+        validate: {
+          validator: (days: number[]) => days.every(d => d >= 0 && d <= 6),
+          message: 'Week off days must be between 0 (Sunday) and 6 (Saturday)',
+        },
+      },
+      useShiftWeekOffs: { type: Boolean, default: true },  // Use shift's week offs by default
     },
   },
   {

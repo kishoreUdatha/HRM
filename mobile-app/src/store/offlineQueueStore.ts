@@ -6,7 +6,14 @@
 import {create} from 'zustand';
 import {persist, createJSONStorage} from 'zustand/middleware';
 import {MMKV} from 'react-native-mmkv';
-import {v4 as uuidv4} from 'uuid';
+
+// Generate UUID without crypto dependency (React Native compatible)
+const uuidv4 = (): string => {
+  const timestamp = Date.now().toString(36);
+  const randomPart = Math.random().toString(36).substring(2, 15);
+  const randomPart2 = Math.random().toString(36).substring(2, 15);
+  return `${timestamp}-${randomPart}-${randomPart2}`;
+};
 
 // Separate MMKV instance for offline queue
 const storage = new MMKV({id: 'offline-queue'});

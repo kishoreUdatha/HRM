@@ -6,6 +6,8 @@ import {
   LWFReturn, ILWFReturn
 } from '../models/StatutoryCompliance';
 import { createAuditLog } from './auditService';
+import { calculatePTFromConfig, getPTConfig } from './professionalTaxConfigService';
+import { calculateLWF as calculateLWFFromConfig, isLWFDeductionMonth } from './lwfConfigService';
 
 function generateFileNumber(prefix: string): string {
   const timestamp = Date.now().toString(36).toUpperCase();
@@ -634,55 +636,72 @@ export async function calculateESIContributions(
   };
 }
 
-export async function getProfessionalTaxSlabs(state: string): Promise<Array<{
+/**
+ * Get Professional Tax slabs from database configuration
+ * @deprecated Use getPTConfig from professionalTaxConfigService instead
+ */
+export async function getProfessionalTaxSlabs(
+  tenantId: string,
+  state: string
+): Promise<Array<{
   fromAmount: number;
   toAmount: number;
   taxAmount: number;
 }>> {
-  // Sample PT slabs for different states
-  const slabs: Record<string, Array<{ fromAmount: number; toAmount: number; taxAmount: number }>> = {
-    'maharashtra': [
+  const config = await getPTConfig(tenantId, state);
+
+  if (config) {
+    return config.slabs;
+  }
+
+  // Fallback to default if no config found
+  const defaultSlabs: Record<string, Array<{ fromAmount: number; toAmount: number; taxAmount: number }>> = {
+    'mh': [
       { fromAmount: 0, toAmount: 7500, taxAmount: 0 },
       { fromAmount: 7501, toAmount: 10000, taxAmount: 175 },
-      { fromAmount: 10001, toAmount: Infinity, taxAmount: 200 }
+      { fromAmount: 10001, toAmount: Number.MAX_SAFE_INTEGER, taxAmount: 200 }
     ],
-    'karnataka': [
+    'ka': [
       { fromAmount: 0, toAmount: 15000, taxAmount: 0 },
-      { fromAmount: 15001, toAmount: Infinity, taxAmount: 200 }
-    ],
-    'telangana': [
-      { fromAmount: 0, toAmount: 15000, taxAmount: 0 },
-      { fromAmount: 15001, toAmount: 20000, taxAmount: 150 },
-      { fromAmount: 20001, toAmount: Infinity, taxAmount: 200 }
-    ],
-    'tamilnadu': [
-      { fromAmount: 0, toAmount: 21000, taxAmount: 0 },
-      { fromAmount: 21001, toAmount: 30000, taxAmount: 135 },
-      { fromAmount: 30001, toAmount: 45000, taxAmount: 315 },
-      { fromAmount: 45001, toAmount: 60000, taxAmount: 690 },
-      { fromAmount: 60001, toAmount: 75000, taxAmount: 1025 },
-      { fromAmount: 75001, toAmount: Infinity, taxAmount: 1250 }
+      { fromAmount: 15001, toAmount: Number.MAX_SAFE_INTEGER, taxAmount: 200 }
     ],
     'default': [
       { fromAmount: 0, toAmount: 10000, taxAmount: 0 },
-      { fromAmount: 10001, toAmount: Infinity, taxAmount: 200 }
+      { fromAmount: 10001, toAmount: Number.MAX_SAFE_INTEGER, taxAmount: 200 }
     ]
   };
 
-  return slabs[state.toLowerCase()] || slabs['default'];
+  return defaultSlabs[state.toLowerCase()] || defaultSlabs['default'];
 }
 
+/**
+ * Calculate Professional Tax using database-driven configuration
+ * Now supports tenantId for multi-tenant PT configurations
+ */
 export async function calculateProfessionalTax(
+  tenantId: string,
   state: string,
-  grossSalary: number
+  grossSalary: number,
+  month?: number
 ): Promise<number> {
-  const slabs = await getProfessionalTaxSlabs(state);
+  // Use the database-driven PT calculation
+  return calculatePTFromConfig(tenantId, state, grossSalary, month);
+}
 
-  for (const slab of slabs) {
-    if (grossSalary >= slab.fromAmount && grossSalary <= slab.toAmount) {
-      return slab.taxAmount;
-    }
-  }
-
-  return 0;
+/**
+ * Calculate LWF using database-driven configuration
+ * Replaces hardcoded LWF calculation
+ */
+export async function calculateLWFContributions(
+  tenantId: string,
+  state: string,
+  salary: number,
+  month: number
+): Promise<{
+  employeeContribution: number;
+  employerContribution: number;
+  totalContribution: number;
+  isDeductionMonth: boolean;
+}> {
+  return calculateLWFFromConfig(tenantId, state, salary, month);
 }

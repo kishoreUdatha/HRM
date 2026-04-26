@@ -126,10 +126,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-secondary-200">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">H</span>
-            </div>
-            <span className="font-bold text-xl text-secondary-900">HRM</span>
+            <img
+              src="/hrzio-logo.png"
+              alt="HRZio Logo"
+              className="h-10 w-auto object-contain"
+            />
           </div>
           <button
             onClick={onClose}

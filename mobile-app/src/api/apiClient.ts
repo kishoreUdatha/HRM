@@ -9,7 +9,7 @@ import type {ApiResponse, AuthTokens} from '../types';
 // - Physical Device: http://10.241.49.192:3000/api (use your computer's IP)
 // - Local Development: http://localhost:3000/api
 // - Production: https://api.hrzio.com/api
-const API_BASE_URL = 'https://api.hrzio.com/api';
+const API_BASE_URL = 'http://localhost:3000/api';
 
 if (__DEV__) {
   console.log('[API] Using base URL:', API_BASE_URL);

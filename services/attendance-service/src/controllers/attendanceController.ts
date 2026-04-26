@@ -196,8 +196,10 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
     const mongoUri = process.env.MONGODB_URI || '';
     const employeesDbUri = constructDbUri(mongoUri, 'hrm_employees');
     console.log('[Attendance Service] Connecting to employees DB for lookup...');
+    console.log('[Attendance Service] Looking for employeeIds:', employeeIds, 'tenantId:', tenantId);
 
     const employeesConn = await mongoose.createConnection(employeesDbUri).asPromise();
+    console.log('[Attendance Service] Connected to employees DB');
 
     // Define a minimal employee schema for querying
     const employeeSchema = new mongoose.Schema({
@@ -217,10 +219,17 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
     const Employee = employeesConn.model('Employee', employeeSchema);
     const Department = employeesConn.model('Department', departmentSchema);
 
+    console.log('[Attendance Service] Querying employees with:', {
+      ids: employeeIds,
+      tenantId: tenantId,
+    });
+
     const employees = await Employee.find({
       _id: { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) },
       tenantId: new mongoose.Types.ObjectId(tenantId),
     }).lean();
+
+    console.log('[Attendance Service] Found employees:', employees.length);
 
     // Get department details
     const deptIds = employees.map(e => e.departmentId).filter(Boolean);
@@ -275,10 +284,12 @@ const getEmployeeByUserIdOrEmail = async (userId: string, tenantId: string) => {
     let employee = null;
     try {
       if (mongoose.Types.ObjectId.isValid(userId)) {
+        console.log('[Attendance Service] Looking for employee by _id:', userId, 'tenantId:', tenantId);
         employee = await Employee.findOne({
           _id: new mongoose.Types.ObjectId(userId),
           tenantId: new mongoose.Types.ObjectId(tenantId),
         }).lean();
+        console.log('[Attendance Service] Employee by _id result:', employee ? 'found' : 'not found');
         if (employee) {
           console.log('[Attendance Service] Found employee directly by _id:', employee._id);
           await employeesConn.close();
@@ -286,6 +297,7 @@ const getEmployeeByUserIdOrEmail = async (userId: string, tenantId: string) => {
         }
       }
     } catch (e) {
+      console.log('[Attendance Service] Error looking up employee by _id:', e);
       // Continue to other lookup methods
     }
 
