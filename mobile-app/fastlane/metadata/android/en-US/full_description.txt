@@ -1,0 +1,48 @@
+HRZio is a comprehensive Human Resource Management System designed for modern businesses.
+
+KEY FEATURES:
+
+FACE RECOGNITION ATTENDANCE
+- Check in and out using facial recognition
+- GPS-based location verification
+- Real-time attendance tracking
+- Offline support with automatic sync
+
+LEAVE MANAGEMENT
+- Apply for leaves with one tap
+- Track leave balances
+- View leave history
+- Get instant approvals notification
+
+PAYROLL & PAYSLIPS
+- View monthly payslips
+- Download payslips as PDF
+- Track salary components
+- Tax deduction details
+
+TIMESHEET MANAGEMENT
+- Log daily work hours
+- Project-based time tracking
+- Submit timesheets for approval
+- View timesheet history
+
+EMPLOYEE SELF-SERVICE
+- Update personal information
+- View company announcements
+- Access HR documents
+- Team directory
+
+ADMIN FEATURES
+- Team attendance overview
+- Approve/reject leave requests
+- Real-time dashboard
+- Employee management
+
+WHY HRZIO?
+- Easy to use interface
+- Secure data handling
+- Works offline
+- Multi-tenant support
+- Real-time sync
+
+Download HRZio now and simplify your HR processes!

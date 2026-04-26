@@ -1,0 +1,17 @@
+appId: com.candycode.hrzio
+---
+# Face Check-in Screen Flow
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate to face check-in from dashboard
+- tapOn:
+    text: "Check In"
+    optional: true
+
+- tapOn:
+    text: "Face Check-in"
+    optional: true
+
+# Wait for camera screen
+- waitForAnimationToEnd

@@ -10,7 +10,16 @@
     "test": "jest",
     "clean": "cd android && ./gradlew clean && cd ..",
     "build:android": "cd android && ./gradlew assembleRelease",
-    "build:ios": "cd ios && xcodebuild -workspace HRMobile.xcworkspace -scheme HRMobile -configuration Release"
+    "build:android:debug": "cd android && ./gradlew assembleDebug",
+    "build:bundle": "cd android && ./gradlew bundleRelease",
+    "build:ios": "cd ios && xcodebuild -workspace HRMobile.xcworkspace -scheme HRMobile -configuration Release",
+    "screenshots": "node scripts/screenshot-automation.js all",
+    "screenshots:phone": "node scripts/screenshot-automation.js phone",
+    "screenshots:tablet7": "node scripts/screenshot-automation.js tablet-7",
+    "screenshots:tablet10": "node scripts/screenshot-automation.js tablet-10",
+    "screenshots:create-avd": "node scripts/screenshot-automation.js --create-avd",
+    "maestro:test": "maestro test .maestro/",
+    "maestro:record": "maestro record"
   },
   "dependencies": {
     "@notifee/react-native": "^7.8.2",

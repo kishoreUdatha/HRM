@@ -1,0 +1,17 @@
+appId: com.candycode.hrzio
+---
+# Payslip Screen Flow
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate to payslip section
+- tapOn:
+    text: "Payslip"
+    optional: true
+
+- tapOn:
+    text: "Salary"
+    optional: true
+
+# Wait for payslip data to load
+- waitForAnimationToEnd

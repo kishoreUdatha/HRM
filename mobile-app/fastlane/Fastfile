@@ -1,0 +1,83 @@
+# HRZio Mobile App - Fastlane Configuration
+# This file contains the fastlane.tools configuration
+
+default_platform(:android)
+
+platform :android do
+  desc "Capture screenshots for Google Play Store"
+  lane :screenshots do
+    # Build the app for screenshots
+    gradle(
+      task: "assembleRelease",
+      project_dir: "android"
+    )
+
+    # Capture screenshots using screengrab
+    capture_android_screenshots(
+      locales: ["en-US"],
+      clear_previous_screenshots: true,
+      app_package_name: "com.candycode.hrzio",
+      app_apk_path: "android/app/build/outputs/apk/release/app-release.apk",
+      tests_apk_path: "android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk",
+      use_timestamp_suffix: false,
+      exit_on_test_failure: false
+    )
+  end
+
+  desc "Build debug APK"
+  lane :build_debug do
+    gradle(
+      task: "assembleDebug",
+      project_dir: "android"
+    )
+  end
+
+  desc "Build release APK"
+  lane :build_release do
+    gradle(
+      task: "assembleRelease",
+      project_dir: "android"
+    )
+  end
+
+  desc "Build release bundle (AAB)"
+  lane :build_bundle do
+    gradle(
+      task: "bundleRelease",
+      project_dir: "android"
+    )
+  end
+
+  desc "Deploy to Google Play Store (internal track)"
+  lane :deploy_internal do
+    build_bundle
+    upload_to_play_store(
+      track: "internal",
+      aab: "android/app/build/outputs/bundle/release/app-release.aab",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Deploy to Google Play Store (production)"
+  lane :deploy_production do
+    build_bundle
+    upload_to_play_store(
+      track: "production",
+      aab: "android/app/build/outputs/bundle/release/app-release.aab"
+    )
+  end
+
+  desc "Upload screenshots to Google Play Store"
+  lane :upload_screenshots do
+    upload_to_play_store(
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+  end
+end

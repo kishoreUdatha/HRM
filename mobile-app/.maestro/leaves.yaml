@@ -1,0 +1,17 @@
+appId: com.candycode.hrzio
+---
+# Leave Management Screen Flow
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate to leaves tab or screen
+- tapOn:
+    text: "Leaves"
+    optional: true
+
+- tapOn:
+    text: "Leave"
+    optional: true
+
+# Wait for leave data to load
+- waitForAnimationToEnd

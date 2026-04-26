@@ -1,0 +1,22 @@
+appId: com.candycode.hrzio
+---
+# Login Screen Flow
+- launchApp
+
+# Navigate to login if on welcome screen
+- tapOn:
+    text: "Get Started"
+    optional: true
+
+# Wait for tenant detection or login screen
+- waitForAnimationToEnd
+
+# If tenant code entry is shown, enter tenant code
+- tapOn:
+    text: "Enter Company Code"
+    optional: true
+
+# Wait for login form
+- assertVisible:
+    text: "Sign In"
+    optional: true

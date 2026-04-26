@@ -1,0 +1,10 @@
+appId: com.candycode.hrzio
+---
+# Welcome Screen Flow
+- launchApp
+
+# Wait for welcome screen to load
+- assertVisible: "Welcome to HRZio"
+
+# Wait for animations to complete
+- waitForAnimationToEnd

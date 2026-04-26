@@ -1,0 +1,13 @@
+appId: com.candycode.hrzio
+---
+# Attendance History Screen Flow
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate to attendance tab
+- tapOn:
+    text: "Attendance"
+    optional: true
+
+# Wait for attendance history to load
+- waitForAnimationToEnd

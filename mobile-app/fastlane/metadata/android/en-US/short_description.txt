@@ -1,0 +1,1 @@
+Complete HR management with face attendance, payroll, and leave tracking.

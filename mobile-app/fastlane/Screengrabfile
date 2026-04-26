@@ -1,0 +1,24 @@
+# HRZio Mobile App - Screengrab Configuration for Android Screenshots
+
+# App configuration
+app_package_name("com.candycode.hrzio")
+app_apk_path("android/app/build/outputs/apk/release/app-release.apk")
+tests_apk_path("android/app/build/outputs/apk/androidTest/release/app-release-androidTest.apk")
+
+# Screenshot output configuration
+output_directory("fastlane/metadata/android/en-US/images")
+locales(["en-US"])
+
+# Device configuration
+use_adb_root(false)
+clear_previous_screenshots(true)
+skip_open_summary(false)
+
+# Timeout settings
+launch_arguments(["--screenshots"])
+
+# Device types for different screen sizes
+# Phone: Pixel 6 (1080x2400)
+# 7" Tablet: Nexus 7 (1200x1920)
+# 10" Tablet: Pixel Tablet (1600x2560)
+specific_device("emulator-5554") # Default device

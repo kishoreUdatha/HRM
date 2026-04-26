@@ -1,0 +1,32 @@
+appId: com.candycode.hrzio
+---
+# Dashboard Screen Flow (requires authentication)
+- launchApp
+
+# Navigate through onboarding if needed
+- tapOn:
+    text: "Get Started"
+    optional: true
+- waitForAnimationToEnd
+
+# Enter demo credentials for screenshots
+- runFlow:
+    when:
+      visible: "Sign In"
+    commands:
+      - tapOn: "Mobile Number"
+      - inputText: "9999999999"
+      - tapOn: "Password"
+      - inputText: "demo123"
+      - tapOn:
+          text: "Sign In"
+          index: 1
+      - waitForAnimationToEnd
+
+# Wait for dashboard to load
+- assertVisible:
+    text: "Dashboard"
+    optional: true
+
+# Wait for data to load
+- waitForAnimationToEnd

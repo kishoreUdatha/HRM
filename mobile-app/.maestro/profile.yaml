@@ -1,0 +1,17 @@
+appId: com.candycode.hrzio
+---
+# Profile Screen Flow
+- launchApp
+- waitForAnimationToEnd
+
+# Navigate to profile/more section
+- tapOn:
+    text: "More"
+    optional: true
+
+- tapOn:
+    text: "Profile"
+    optional: true
+
+# Wait for profile to load
+- waitForAnimationToEnd
