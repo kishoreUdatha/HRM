@@ -1412,14 +1412,17 @@ export const getEmployeePayslips = async (req: Request, res: Response): Promise<
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    const [payrolls, total] = await Promise.all([
-      Payroll.find(query)
-        .sort({ year: -1, month: -1 })
-        .skip(skip)
-        .limit(Number(limit))
-        .lean(),
-      Payroll.countDocuments(query),
-    ]);
+    // Fetch all matching payrolls and sort in memory (Cosmos DB has limited composite index support)
+    const allPayrolls = await Payroll.find(query).lean();
+
+    // Sort in memory by year and month descending
+    allPayrolls.sort((a, b) => {
+      if (a.year !== b.year) return b.year - a.year;
+      return b.month - a.month;
+    });
+
+    const total = allPayrolls.length;
+    const payrolls = allPayrolls.slice(skip, skip + Number(limit));
 
     // Transform to mobile app expected format with shift-hours details
     const payslips = payrolls.map(payroll => ({

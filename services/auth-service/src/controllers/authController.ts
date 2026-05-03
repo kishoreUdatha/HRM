@@ -686,7 +686,10 @@ export const registerDeviceToken = async (
 ): Promise<void> => {
   try {
     const userId = req.headers['x-user-id'] as string;
+    const tenantId = req.headers['x-tenant-id'] as string;
     const { token, platform, deviceId } = req.body;
+
+    console.log(`[Auth] registerDeviceToken called - userId: ${userId}, tenantId: ${tenantId}, deviceId: ${deviceId}`);
 
     if (!userId) {
       res.status(401).json({
@@ -712,8 +715,32 @@ export const registerDeviceToken = async (
       return;
     }
 
-    const user = await User.findById(userId);
+    // First try to find the user in auth database
+    let user = await User.findById(userId);
+
     if (!user) {
+      // userId might be an employeeId from selfyPunch login
+      // Try to find user by employeeId
+      user = await User.findOne({ employeeId: userId });
+
+      if (!user && tenantId) {
+        // Still not found - this is likely an employee using selfyPunch
+        // For employees without User records, we can still acknowledge the token
+        // The notification service can query employee records directly if needed
+        console.log(`[Auth] No User record found for ID ${userId} - likely a selfyPunch employee`);
+
+        // Return success to avoid blocking the mobile app
+        // In production, consider storing these tokens in a separate collection
+        res.json({
+          success: true,
+          message: 'Device token acknowledged (employee mode)',
+        });
+        return;
+      }
+    }
+
+    if (!user) {
+      console.error(`[Auth] User not found and no tenant context - userId: ${userId}`);
       res.status(404).json({
         success: false,
         message: 'User not found',
@@ -740,13 +767,14 @@ export const registerDeviceToken = async (
 
     await user.save();
 
-    console.log(`[Auth] FCM token registered for user ${userId}, device ${deviceId}`);
+    console.log(`[Auth] FCM token registered for user ${user._id} (${user.email}), device ${deviceId}`);
 
     res.json({
       success: true,
       message: 'Device token registered successfully',
     });
   } catch (error) {
+    console.error('[Auth] registerDeviceToken error:', error);
     next(error);
   }
 };

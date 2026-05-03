@@ -26,6 +26,7 @@ import Attendance from './pages/Attendance';
 import Leaves from './pages/Leaves';
 import LeaveTypes from './pages/LeaveTypes';
 import LeaveBalances from './pages/LeaveBalances';
+import HolidayManagement from './pages/HolidayManagement';
 import Recruitment from './pages/Recruitment';
 import Performance from './pages/Performance';
 import Training from './pages/Training';
@@ -192,6 +193,11 @@ const AppRoutes: React.FC = () => {
         <Route path="/leave-balances" element={
           <ProtectedRoute requiredPermissions={['leaves:approve', 'employees:read']}>
             <LeaveBalances />
+          </ProtectedRoute>
+        } />
+        <Route path="/holidays" element={
+          <ProtectedRoute requiredPermissions={['leaves:write']}>
+            <HolidayManagement />
           </ProtectedRoute>
         } />
 

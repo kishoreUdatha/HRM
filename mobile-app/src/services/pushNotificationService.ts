@@ -275,7 +275,10 @@ class PushNotificationService {
   /**
    * Register FCM token with backend after login
    */
-  async registerToken(): Promise<void> {
+  async registerToken(retryCount = 0): Promise<void> {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000; // 2 seconds
+
     try {
       const token = await this.getToken();
       if (!token) {
@@ -286,7 +289,12 @@ class PushNotificationService {
       const deviceId = this.getDeviceId();
       const platform = Platform.OS as 'android' | 'ios';
 
-      console.log('[PushNotification] Registering token with backend...');
+      console.log('[PushNotification] Registering token with backend...', {
+        tokenPrefix: token.substring(0, 20),
+        platform,
+        deviceId,
+        retryCount,
+      });
 
       const response = await apiClient.post('/auth/device-token', {
         token,
@@ -298,8 +306,22 @@ class PushNotificationService {
         storage.set(FCM_TOKEN_KEY, token);
         console.log('[PushNotification] Token registered successfully');
       }
-    } catch (error) {
-      console.error('[PushNotification] Error registering token:', error);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+      const statusCode = error?.response?.status;
+      console.error('[PushNotification] Error registering token:', {
+        message: errorMessage,
+        status: statusCode,
+        retryCount,
+      });
+
+      // Retry on 401 (might be timing issue with auth token)
+      if (statusCode === 401 && retryCount < MAX_RETRIES) {
+        console.log(`[PushNotification] Retrying in ${RETRY_DELAY}ms...`);
+        setTimeout(() => {
+          this.registerToken(retryCount + 1);
+        }, RETRY_DELAY);
+      }
     }
   }
 

@@ -59,6 +59,7 @@ const navigation: NavItem[] = [
   { name: 'Leave Management', path: '/leaves', icon: HiCalendar, permissions: ['leaves:read'] },
   { name: 'Leave Types', path: '/leave-types', icon: HiClipboardList, permissions: ['leaves:write', 'leaves:approve'] },
   { name: 'Leave Balances', path: '/leave-balances', icon: HiCollection, permissions: ['leaves:approve', 'employees:read'] },
+  { name: 'Holiday Calendar', path: '/holidays', icon: HiCalendar, permissions: ['leaves:write'] },
   { name: 'Payroll', path: '/payroll', icon: HiCurrencyDollar, permissions: ['payroll:read'] },
   { name: 'Salary Structures', path: '/payroll/salary-structures', icon: HiCurrencyDollar, permissions: ['payroll:write'] },
   { name: 'Overtime', path: '/payroll/overtime', icon: HiClock, permissions: ['payroll:read'] },

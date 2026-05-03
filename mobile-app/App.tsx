@@ -51,9 +51,15 @@ function App(): React.JSX.Element {
   // Register/unregister FCM token on auth state change
   useEffect(() => {
     if (isAuthenticated && !wasAuthenticated.current) {
-      // User just logged in - register FCM token
-      console.log('[App] User authenticated, registering FCM token...');
-      pushNotificationService.registerToken();
+      // User just logged in - register FCM token after a short delay
+      // to ensure auth tokens are fully synced to storage
+      console.log('[App] User authenticated, will register FCM token shortly...');
+      const timer = setTimeout(() => {
+        console.log('[App] Registering FCM token now...');
+        pushNotificationService.registerToken();
+      }, 1500);
+      wasAuthenticated.current = isAuthenticated;
+      return () => clearTimeout(timer);
     } else if (!isAuthenticated && wasAuthenticated.current) {
       // User just logged out - unregister FCM token
       console.log('[App] User logged out, unregistering FCM token...');

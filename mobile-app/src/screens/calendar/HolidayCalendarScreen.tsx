@@ -21,7 +21,7 @@ export default function HolidayCalendarScreen() {
   });
 
   // API returns {success: true, data: {holidays: [...]}}
-  const holidayList = holidays?.data?.data?.holidays || holidays?.data?.holidays || holidays?.data || [];
+  const holidayList = holidays?.data?.holidays || holidays?.holidays || holidays?.data || [];
 
   const markedDates = useMemo(() => {
     const marks: Record<string, any> = {};
