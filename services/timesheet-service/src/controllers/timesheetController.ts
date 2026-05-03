@@ -17,8 +17,6 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
     console.log('[Timesheet Service] Fetching employee details for IDs:', employeeIds);
 
     const mongoUri = process.env.MONGODB_URI || '';
-    const employeesDbUri = mongoUri.replace('/hrm_timesheets', '/hrm_employees');
-    console.log('[Timesheet Service] Connecting to employees DB:', employeesDbUri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
 
     // Convert string IDs to ObjectIds
     const objectIds = employeeIds.map(id => {
@@ -36,9 +34,10 @@ const getEmployeeDetails = async (employeeIds: string[], tenantId: string) => {
     const tenantObjectId = new mongoose.Types.ObjectId(tenantId);
     const employeeMap = new Map();
 
-    // Connect to employees database
-    employeesConn = mongoose.createConnection(employeesDbUri);
+    // Connect to employees database using dbName option
+    employeesConn = mongoose.createConnection(mongoUri, { dbName: 'hrm_employees' });
     await employeesConn.asPromise();
+    console.log('[Timesheet Service] Connected to hrm_employees database');
 
     const employeesCollection = employeesConn.collection('employees');
 
@@ -309,7 +308,9 @@ export const getTimesheets = async (req: Request, res: Response) => {
     }
     const { employeeId, status, startDate, endDate, weekNumber, month, year, page = 1, limit = 20 } = req.query;
 
-    const query: any = { tenantId };
+    // Convert tenantId to ObjectId for query (database stores as ObjectId)
+    const tenantObjectId = new mongoose.Types.ObjectId(tenantId);
+    const query: any = { tenantId: tenantObjectId };
     if (employeeId) query.employeeId = employeeId;
     if (status) query.status = status;
 
