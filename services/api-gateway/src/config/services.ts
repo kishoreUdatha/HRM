@@ -334,7 +334,7 @@ export const services: ServiceConfig[] = [
     name: 'integration-service',
     url: process.env.INTEGRATION_SERVICE_URL || 'http://localhost:3013',
     pathPrefix: '/api/integrations',
-    targetPath: '',
+    targetPath: '/integrations',
     healthCheck: '/health',
     timeout: 30000,
     requiresAuth: true,

@@ -16,6 +16,8 @@ import {
   HiX,
   HiExclamation,
   HiChartBar,
+  HiCog,
+  HiShieldCheck,
 } from 'react-icons/hi';
 import { toast } from 'react-hot-toast';
 import api from '../../services/api';
@@ -45,6 +47,17 @@ interface Tenant {
   _id: string;
   name: string;
   slug: string;
+}
+
+interface TenantAPIConfig {
+  tenantId: string;
+  tenantName: string;
+  allowedScopes: string[];
+  maxKeys: number;
+  maxRequestsPerDay: number;
+  isAPIAccessEnabled: boolean;
+  enabledEnvironments: string[];
+  notes?: string;
 }
 
 interface PaginationInfo {
@@ -94,6 +107,20 @@ const APIKeyManagement: React.FC = () => {
   const [selectedKeyUsage, setSelectedKeyUsage] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isRevoking, setIsRevoking] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [configuringTenant, setConfiguringTenant] = useState<Tenant | null>(null);
+  const [tenantConfig, setTenantConfig] = useState<TenantAPIConfig>({
+    tenantId: '',
+    tenantName: '',
+    allowedScopes: [],
+    maxKeys: 5,
+    maxRequestsPerDay: 10000,
+    isAPIAccessEnabled: false,
+    enabledEnvironments: ['production'],
+    notes: '',
+  });
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [configuredTenants, setConfiguredTenants] = useState<TenantAPIConfig[]>([]);
 
   const [newKey, setNewKey] = useState({
     tenantId: '',
@@ -108,6 +135,7 @@ const APIKeyManagement: React.FC = () => {
   useEffect(() => {
     fetchAPIKeys();
     fetchTenants();
+    fetchConfiguredTenants();
   }, [pagination.page, tenantFilter, statusFilter, environmentFilter]);
 
   const fetchAPIKeys = async () => {
@@ -154,6 +182,83 @@ const APIKeyManagement: React.FC = () => {
     } catch (error) {
       console.error('Failed to fetch tenants:', error);
     }
+  };
+
+  const fetchConfiguredTenants = async () => {
+    const token = localStorage.getItem('superAdminAccessToken');
+    try {
+      const response = await api.get('/integrations/admin/tenant-configs?limit=100', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.data.success) {
+        setConfiguredTenants(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch tenant configs:', error);
+    }
+  };
+
+  const handleConfigureTenant = async (tenant: Tenant) => {
+    setConfiguringTenant(tenant);
+    const token = localStorage.getItem('superAdminAccessToken');
+
+    try {
+      const response = await api.get(`/integrations/admin/tenant-config/${tenant._id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.data.success) {
+        setTenantConfig({
+          ...response.data.data,
+          tenantName: tenant.name,
+        });
+      }
+    } catch (error) {
+      setTenantConfig({
+        tenantId: tenant._id,
+        tenantName: tenant.name,
+        allowedScopes: [],
+        maxKeys: 5,
+        maxRequestsPerDay: 10000,
+        isAPIAccessEnabled: false,
+        enabledEnvironments: ['production'],
+        notes: '',
+      });
+    }
+    setShowConfigModal(true);
+  };
+
+  const handleSaveConfig = async () => {
+    if (!configuringTenant) return;
+
+    setIsSavingConfig(true);
+    const token = localStorage.getItem('superAdminAccessToken');
+
+    try {
+      const response = await api.put(
+        `/integrations/admin/tenant-config/${configuringTenant._id}`,
+        {
+          ...tenantConfig,
+          tenantName: configuringTenant.name,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        toast.success('Tenant API configuration saved successfully');
+        setShowConfigModal(false);
+        setConfiguringTenant(null);
+        fetchConfiguredTenants();
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to save configuration');
+    } finally {
+      setIsSavingConfig(false);
+    }
+  };
+
+  const isTenantConfigured = (tenantId: string) => {
+    const config = configuredTenants.find(c => c.tenantId === tenantId);
+    return config?.isAPIAccessEnabled ?? false;
   };
 
   const handleCreateKey = async () => {
@@ -321,6 +426,76 @@ const APIKeyManagement: React.FC = () => {
               <p className="text-2xl font-semibold">{apiKeys.reduce((sum, k) => sum + k.usageCount, 0).toLocaleString()}</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Tenant API Configuration Section */}
+      <div className="bg-white rounded-lg shadow mb-6">
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-indigo-100 rounded-lg">
+                <HiShieldCheck className="h-5 w-5 text-indigo-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Tenant API Permissions</h2>
+                <p className="text-sm text-gray-500">Configure API access permissions for each tenant before creating API keys</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tenants.slice(0, 6).map((tenant) => {
+              const isConfigured = isTenantConfigured(tenant._id);
+              const config = configuredTenants.find(c => c.tenantId === tenant._id);
+              return (
+                <div
+                  key={tenant._id}
+                  className={`border rounded-lg p-4 ${isConfigured ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-medium text-gray-900">{tenant.name}</h3>
+                    {isConfigured ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        <HiCheckCircle className="mr-1 h-3 w-3" />
+                        Enabled
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                        Not Configured
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 mb-3">{tenant.slug}</p>
+                  {isConfigured && config && (
+                    <div className="text-xs text-gray-600 mb-3">
+                      <span className="font-medium">{config.allowedScopes?.length || 0}</span> scopes |
+                      <span className="font-medium ml-1">{config.maxKeys || 5}</span> max keys
+                    </div>
+                  )}
+                  <button
+                    onClick={() => handleConfigureTenant(tenant)}
+                    className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${
+                      isConfigured
+                        ? 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
+                  >
+                    <HiCog className="h-4 w-4" />
+                    {isConfigured ? 'Edit Config' : 'Configure'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {tenants.length > 6 && (
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-500">
+                Showing 6 of {tenants.length} tenants. Use the tenant dropdown below to configure others.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -588,14 +763,42 @@ const APIKeyManagement: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tenant *</label>
                 <select
                   value={newKey.tenantId}
-                  onChange={(e) => setNewKey({ ...newKey, tenantId: e.target.value })}
+                  onChange={(e) => setNewKey({ ...newKey, tenantId: e.target.value, permissions: [] })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500"
                 >
                   <option value="">Select a tenant</option>
-                  {tenants.map((tenant) => (
-                    <option key={tenant._id} value={tenant._id}>{tenant.name} ({tenant.slug})</option>
-                  ))}
+                  {tenants.map((tenant) => {
+                    const isConfigured = isTenantConfigured(tenant._id);
+                    return (
+                      <option key={tenant._id} value={tenant._id}>
+                        {tenant.name} ({tenant.slug}) {isConfigured ? '✓' : '- Not Configured'}
+                      </option>
+                    );
+                  })}
                 </select>
+                {newKey.tenantId && !isTenantConfigured(newKey.tenantId) && (
+                  <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-yellow-800">
+                      <HiExclamation className="h-5 w-5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium">API access not configured</p>
+                        <p className="text-xs mt-1">Please configure API permissions for this tenant first.</p>
+                        <button
+                          onClick={() => {
+                            const tenant = tenants.find(t => t._id === newKey.tenantId);
+                            if (tenant) {
+                              setShowCreateModal(false);
+                              handleConfigureTenant(tenant);
+                            }
+                          }}
+                          className="mt-2 text-xs font-medium text-yellow-700 underline hover:no-underline"
+                        >
+                          Configure Now
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Key Name *</label>
@@ -619,31 +822,45 @@ const APIKeyManagement: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Permissions</label>
-                <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
-                  {PERMISSION_SCOPES.map((scope) => (
-                    <label key={scope.value} className="flex items-start gap-3 py-2 hover:bg-gray-50 px-2 rounded cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={newKey.permissions.includes(scope.value)}
-                        onChange={(e) => {
-                          if (scope.value === '*') {
-                            setNewKey({ ...newKey, permissions: e.target.checked ? ['*'] : [] });
-                          } else {
-                            const newPerms = e.target.checked
-                              ? [...newKey.permissions.filter(p => p !== '*'), scope.value]
-                              : newKey.permissions.filter(p => p !== scope.value);
-                            setNewKey({ ...newKey, permissions: newPerms });
-                          }
-                        }}
-                        className="mt-1 h-4 w-4 text-purple-600 rounded"
-                      />
-                      <div>
-                        <div className="font-medium text-gray-900">{scope.label}</div>
-                        <div className="text-xs text-gray-500">{scope.description}</div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
+                {(() => {
+                  const tenantConf = configuredTenants.find(c => c.tenantId === newKey.tenantId);
+                  const allowedScopes = tenantConf?.allowedScopes || [];
+                  const filteredScopes = newKey.tenantId && allowedScopes.length > 0
+                    ? PERMISSION_SCOPES.filter(s => allowedScopes.includes(s.value) || (allowedScopes.includes('*') && s.value === '*'))
+                    : PERMISSION_SCOPES;
+
+                  return (
+                    <div className="border border-gray-300 rounded-lg p-3 max-h-48 overflow-y-auto">
+                      {filteredScopes.length === 0 ? (
+                        <p className="text-sm text-gray-500 py-2">No scopes configured for this tenant.</p>
+                      ) : (
+                        filteredScopes.map((scope) => (
+                          <label key={scope.value} className="flex items-start gap-3 py-2 hover:bg-gray-50 px-2 rounded cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={newKey.permissions.includes(scope.value)}
+                              onChange={(e) => {
+                                if (scope.value === '*') {
+                                  setNewKey({ ...newKey, permissions: e.target.checked ? ['*'] : [] });
+                                } else {
+                                  const newPerms = e.target.checked
+                                    ? [...newKey.permissions.filter(p => p !== '*'), scope.value]
+                                    : newKey.permissions.filter(p => p !== scope.value);
+                                  setNewKey({ ...newKey, permissions: newPerms });
+                                }
+                              }}
+                              className="mt-1 h-4 w-4 text-purple-600 rounded"
+                            />
+                            <div>
+                              <div className="font-medium text-gray-900">{scope.label}</div>
+                              <div className="text-xs text-gray-500">{scope.description}</div>
+                            </div>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -830,6 +1047,150 @@ const APIKeyManagement: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tenant Configuration Modal */}
+      {showConfigModal && configuringTenant && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Configure API Access</h2>
+                <p className="text-sm text-gray-500 mt-1">{configuringTenant.name} ({configuringTenant.slug})</p>
+              </div>
+              <button onClick={() => setShowConfigModal(false)} className="text-gray-400 hover:text-gray-600">
+                <HiX className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              {/* Enable API Access Toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h3 className="font-medium text-gray-900">Enable API Access</h3>
+                  <p className="text-sm text-gray-500">Allow this tenant to use B2B API keys</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={tenantConfig.isAPIAccessEnabled}
+                    onChange={(e) => setTenantConfig({ ...tenantConfig, isAPIAccessEnabled: e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+              </div>
+
+              {/* Allowed Permission Scopes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Allowed Permission Scopes</label>
+                <p className="text-xs text-gray-500 mb-3">Select which data modules this tenant can access via API keys</p>
+                <div className="border border-gray-300 rounded-lg p-3 max-h-64 overflow-y-auto">
+                  {PERMISSION_SCOPES.map((scope) => (
+                    <label key={scope.value} className="flex items-start gap-3 py-2 hover:bg-gray-50 px-2 rounded cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tenantConfig.allowedScopes.includes(scope.value)}
+                        onChange={(e) => {
+                          if (scope.value === '*') {
+                            setTenantConfig({
+                              ...tenantConfig,
+                              allowedScopes: e.target.checked ? ['*'] : []
+                            });
+                          } else {
+                            const newScopes = e.target.checked
+                              ? [...tenantConfig.allowedScopes.filter(s => s !== '*'), scope.value]
+                              : tenantConfig.allowedScopes.filter(s => s !== scope.value);
+                            setTenantConfig({ ...tenantConfig, allowedScopes: newScopes });
+                          }
+                        }}
+                        className="mt-1 h-4 w-4 text-purple-600 rounded"
+                      />
+                      <div>
+                        <div className="font-medium text-gray-900">{scope.label}</div>
+                        <div className="text-xs text-gray-500">{scope.description}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Limits */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Max API Keys</label>
+                  <input
+                    type="number"
+                    value={tenantConfig.maxKeys}
+                    onChange={(e) => setTenantConfig({ ...tenantConfig, maxKeys: parseInt(e.target.value) || 5 })}
+                    min={1}
+                    max={20}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Requests/Day</label>
+                  <input
+                    type="number"
+                    value={tenantConfig.maxRequestsPerDay}
+                    onChange={(e) => setTenantConfig({ ...tenantConfig, maxRequestsPerDay: parseInt(e.target.value) || 10000 })}
+                    min={100}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Enabled Environments */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Enabled Environments</label>
+                <div className="flex gap-4">
+                  {(['production', 'staging', 'development'] as const).map((env) => (
+                    <label key={env} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tenantConfig.enabledEnvironments.includes(env)}
+                        onChange={(e) => {
+                          const newEnvs = e.target.checked
+                            ? [...tenantConfig.enabledEnvironments, env]
+                            : tenantConfig.enabledEnvironments.filter(e => e !== env);
+                          setTenantConfig({ ...tenantConfig, enabledEnvironments: newEnvs });
+                        }}
+                        className="h-4 w-4 text-purple-600 rounded"
+                      />
+                      <span className="capitalize">{env}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={tenantConfig.notes || ''}
+                  onChange={(e) => setTenantConfig({ ...tenantConfig, notes: e.target.value })}
+                  placeholder="Optional notes about this tenant's API access"
+                  rows={2}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowConfigModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveConfig}
+                disabled={isSavingConfig}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+              >
+                {isSavingConfig ? 'Saving...' : 'Save Configuration'}
+              </button>
             </div>
           </div>
         </div>

@@ -12,6 +12,9 @@ dotenv.config();
 const app: Application = express();
 const PORT = process.env.PORT || 3013;
 
+// Disable strict routing to avoid 301 redirects for trailing slashes
+app.set('strict routing', false);
+
 connectDB();
 
 app.use(cors());

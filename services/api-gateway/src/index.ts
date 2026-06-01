@@ -2,15 +2,20 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import http from 'http';
+import path from 'path';
 import express, { Application, Request, Response, NextFunction } from 'express';
 // cors import removed - using manual CORS middleware for better control with proxies
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { createProxyMiddleware, Options, fixRequestBody } from 'http-proxy-middleware';
+import swaggerUi from 'swagger-ui-express';
+import YAML from 'yamljs';
 
 import { services, getServiceByPath } from './config/services';
 import { authenticateToken, extractTenant, AuthRequest } from './middleware/auth';
 import { apiLimiter, authLimiter } from './middleware/rateLimiter';
+import { authenticateAPIKey, authenticateJWTOrAPIKey, APIKeyAuthRequest } from './middleware/apiKeyAuth';
+import { apiKeyRateLimiter } from './middleware/apiKeyRateLimiter';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -119,6 +124,38 @@ app.get('/health/services', async (_req: Request, res: Response) => {
   });
 });
 
+// API Documentation (Swagger UI)
+// Load OpenAPI specification from YAML file
+const swaggerDocument = YAML.load(path.join(__dirname, '../public/docs/swagger.yaml'));
+
+// Swagger UI options
+const swaggerOptions: swaggerUi.SwaggerUiOptions = {
+  customCss: `
+    .swagger-ui .topbar { display: none }
+    .swagger-ui .info .title { color: #1a1a2e; }
+    .swagger-ui .scheme-container { background: #fff; box-shadow: 0 1px 2px 0 rgba(0,0,0,.15); padding: 20px 0; }
+  `,
+  customSiteTitle: 'HRZio API Documentation',
+  customfavIcon: 'https://hrzio.com/favicon.ico',
+  swaggerOptions: {
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    docExpansion: 'list',
+    filter: true,
+    showExtensions: true,
+    showCommonExtensions: true,
+    tryItOutEnabled: true,
+  },
+};
+
+// Serve Swagger UI at /api/docs
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOptions));
+
+// Serve raw OpenAPI spec as JSON
+app.get('/api/docs.json', (_req: Request, res: Response) => {
+  res.json(swaggerDocument);
+});
+
 // Apply rate limiting
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
@@ -216,7 +253,9 @@ services.forEach((service) => {
 
   // Apply authentication middleware for protected services
   if (service.requiresAuth) {
-    app.use(service.pathPrefix, authenticateToken, createProxyMiddleware(proxyOptions));
+    // Use combined JWT or API key authentication
+    const combinedAuth = authenticateJWTOrAPIKey(authenticateToken);
+    app.use(service.pathPrefix, combinedAuth, apiKeyRateLimiter, createProxyMiddleware(proxyOptions));
   } else {
     app.use(service.pathPrefix, createProxyMiddleware(proxyOptions));
   }
