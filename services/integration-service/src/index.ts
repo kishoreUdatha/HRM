@@ -20,6 +20,12 @@ connectDB();
 app.use(cors());
 app.use(express.json());
 
+// Request logging middleware for debugging
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  console.log(`[Integration Service] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openAPISpec));
 app.get('/api-docs.json', (_req, res) => res.json(openAPISpec));

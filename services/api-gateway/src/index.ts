@@ -49,7 +49,7 @@ app.use((req, res, next) => {
   }
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Tenant-ID, X-Request-ID');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Tenant-ID, X-Request-ID, X-API-Key');
   res.setHeader('Access-Control-Expose-Headers', 'X-Request-ID');
 
   // Handle preflight requests immediately
@@ -226,7 +226,7 @@ services.forEach((service) => {
         proxyRes.headers['access-control-allow-origin'] = origin || '*';
         proxyRes.headers['access-control-allow-credentials'] = 'true';
         proxyRes.headers['access-control-allow-methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS';
-        proxyRes.headers['access-control-allow-headers'] = 'Content-Type, Authorization, X-Tenant-ID, X-Request-ID';
+        proxyRes.headers['access-control-allow-headers'] = 'Content-Type, Authorization, X-Tenant-ID, X-Request-ID, X-API-Key';
         proxyRes.headers['access-control-expose-headers'] = 'X-Request-ID';
         // Mark response as proxied
         proxyRes.headers['x-proxied-by'] = 'hrm-api-gateway';
@@ -240,7 +240,7 @@ services.forEach((service) => {
           response.setHeader('Access-Control-Allow-Origin', origin || '*');
           response.setHeader('Access-Control-Allow-Credentials', 'true');
           response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-          response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Tenant-ID, X-Request-ID');
+          response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Tenant-ID, X-Request-ID, X-API-Key');
           response.status(503).json({
             success: false,
             message: `Service ${service.name} is temporarily unavailable`,
