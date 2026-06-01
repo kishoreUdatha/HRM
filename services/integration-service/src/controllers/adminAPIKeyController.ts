@@ -157,8 +157,10 @@ export const createAPIKeyForTenant = async (req: Request, res: Response): Promis
 export const listAllAPIKeys = async (req: Request, res: Response): Promise<void> => {
   try {
     const userRole = req.headers['x-user-role'] as string;
+    console.log('[Admin API Keys] listAllAPIKeys called, role:', userRole);
 
     if (userRole !== 'super_admin') {
+      console.log('[Admin API Keys] Access denied - not super_admin, role was:', userRole);
       res.status(403).json({ success: false, message: 'Only super admins can list all API keys' });
       return;
     }
@@ -170,6 +172,8 @@ export const listAllAPIKeys = async (req: Request, res: Response): Promise<void>
     if (isActive !== undefined) query.isActive = isActive === 'true';
     if (environment) query.environment = environment;
 
+    console.log('[Admin API Keys] Query:', JSON.stringify(query));
+
     const keys = await APIKey.find(query)
       .select('-key -keyHash')
       .sort({ createdAt: -1 })
@@ -178,6 +182,7 @@ export const listAllAPIKeys = async (req: Request, res: Response): Promise<void>
       .lean();
 
     const total = await APIKey.countDocuments(query);
+    console.log('[Admin API Keys] Found', keys.length, 'keys, total:', total);
 
     res.json({
       success: true,
@@ -190,6 +195,7 @@ export const listAllAPIKeys = async (req: Request, res: Response): Promise<void>
       }
     });
   } catch (error: any) {
+    console.error('[Admin API Keys] Error in listAllAPIKeys:', error.message, error.stack);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -554,8 +560,10 @@ export const updateTenantAPIConfig = async (req: Request, res: Response): Promis
 export const listTenantAPIConfigs = async (req: Request, res: Response): Promise<void> => {
   try {
     const userRole = req.headers['x-user-role'] as string;
+    console.log('[Admin API Keys] listTenantAPIConfigs called, role:', userRole);
 
     if (userRole !== 'super_admin') {
+      console.log('[Admin API Keys] Access denied - not super_admin, role was:', userRole);
       res.status(403).json({ success: false, message: 'Only super admins can list tenant configurations' });
       return;
     }
@@ -566,6 +574,8 @@ export const listTenantAPIConfigs = async (req: Request, res: Response): Promise
       query.isAPIAccessEnabled = isEnabled === 'true';
     }
 
+    console.log('[Admin API Keys] Query:', JSON.stringify(query));
+
     const configs = await TenantAPIConfig.find(query)
       .sort({ configuredAt: -1 })
       .skip((Number(page) - 1) * Number(limit))
@@ -573,6 +583,7 @@ export const listTenantAPIConfigs = async (req: Request, res: Response): Promise
       .lean();
 
     const total = await TenantAPIConfig.countDocuments(query);
+    console.log('[Admin API Keys] Found', configs.length, 'configs, total:', total);
 
     res.json({
       success: true,
@@ -585,6 +596,7 @@ export const listTenantAPIConfigs = async (req: Request, res: Response): Promise
       }
     });
   } catch (error: any) {
+    console.error('[Admin API Keys] Error in listTenantAPIConfigs:', error.message, error.stack);
     res.status(500).json({ success: false, message: error.message });
   }
 };
