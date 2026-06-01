@@ -176,7 +176,7 @@ export const listAllAPIKeys = async (req: Request, res: Response): Promise<void>
 
     const keys = await APIKey.find(query)
       .select('-key -keyHash')
-      .sort({ createdAt: -1 })
+      .sort({ _id: -1 })  // Use _id for sorting (always indexed in Cosmos DB)
       .skip((Number(page) - 1) * Number(limit))
       .limit(Number(limit))
       .lean();
@@ -577,7 +577,7 @@ export const listTenantAPIConfigs = async (req: Request, res: Response): Promise
     console.log('[Admin API Keys] Query:', JSON.stringify(query));
 
     const configs = await TenantAPIConfig.find(query)
-      .sort({ configuredAt: -1 })
+      .sort({ _id: -1 })  // Use _id for sorting (always indexed in Cosmos DB)
       .skip((Number(page) - 1) * Number(limit))
       .limit(Number(limit))
       .lean();
