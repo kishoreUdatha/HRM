@@ -32,6 +32,7 @@ export const authenticateAPIKey = async (
   next: NextFunction
 ): Promise<void> => {
   const apiKeyHeader = req.headers['x-api-key'] as string;
+  console.log(`[Gateway API Key Auth] Called for ${req.path}, API Key Header present: ${!!apiKeyHeader}`);
 
   if (!apiKeyHeader) {
     res.status(401).json({
@@ -103,6 +104,9 @@ export const authenticateJWTOrAPIKey = (jwtAuthMiddleware: Function) => {
   return async (req: APIKeyAuthRequest, res: Response, next: NextFunction): Promise<void> => {
     const apiKeyHeader = req.headers['x-api-key'] as string;
     const authHeader = req.headers.authorization;
+
+    // Debug logging
+    console.log(`[Gateway Auth] Path: ${req.path}, Has X-API-Key: ${!!apiKeyHeader}, Has Authorization: ${!!authHeader}`);
 
     // If API key is provided, use API key auth
     if (apiKeyHeader) {
