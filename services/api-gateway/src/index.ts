@@ -125,8 +125,18 @@ app.get('/health/services', async (_req: Request, res: Response) => {
 });
 
 // API Documentation (Swagger UI)
-// Load OpenAPI specification from YAML file
-const swaggerDocument = YAML.load(path.join(__dirname, '../public/docs/swagger.yaml'));
+// Load OpenAPI specification from YAML file (optional - won't crash if file doesn't exist)
+let swaggerDocument: any = null;
+try {
+  const swaggerPath = path.join(__dirname, '../public/docs/swagger.yaml');
+  if (require('fs').existsSync(swaggerPath)) {
+    swaggerDocument = YAML.load(swaggerPath);
+  } else {
+    console.log('[Gateway] Swagger documentation not found, skipping API docs');
+  }
+} catch (err) {
+  console.log('[Gateway] Failed to load swagger documentation:', err);
+}
 
 // Swagger UI options
 const swaggerOptions: swaggerUi.SwaggerUiOptions = {
@@ -148,13 +158,19 @@ const swaggerOptions: swaggerUi.SwaggerUiOptions = {
   },
 };
 
-// Serve Swagger UI at /api/docs
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOptions));
+// Serve Swagger UI at /api/docs (only if swagger document is available)
+if (swaggerDocument) {
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerOptions));
 
-// Serve raw OpenAPI spec as JSON
-app.get('/api/docs.json', (_req: Request, res: Response) => {
-  res.json(swaggerDocument);
-});
+  // Serve raw OpenAPI spec as JSON
+  app.get('/api/docs.json', (_req: Request, res: Response) => {
+    res.json(swaggerDocument);
+  });
+} else {
+  app.get('/api/docs', (_req: Request, res: Response) => {
+    res.status(503).json({ message: 'API documentation not available' });
+  });
+}
 
 // Apply rate limiting
 app.use('/api/auth/login', authLimiter);
