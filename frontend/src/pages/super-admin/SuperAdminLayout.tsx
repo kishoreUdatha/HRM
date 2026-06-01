@@ -14,6 +14,7 @@ import {
   HiShieldCheck,
   HiUsers,
   HiCurrencyRupee,
+  HiKey,
 } from 'react-icons/hi';
 import { toast } from 'react-hot-toast';
 
@@ -26,6 +27,7 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: 'Dashboard', path: '/super-admin/dashboard', icon: HiHome },
   { name: 'Tenants', path: '/super-admin/tenants', icon: HiOfficeBuilding },
+  { name: 'API Keys', path: '/super-admin/api-keys', icon: HiKey },
   { name: 'Analytics', path: '/super-admin/analytics', icon: HiChartBar },
   { name: 'Plans', path: '/super-admin/plans', icon: HiCurrencyRupee },
   { name: 'Billing', path: '/super-admin/billing', icon: HiCreditCard },

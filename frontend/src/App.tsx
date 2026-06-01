@@ -73,6 +73,7 @@ import SystemSettings from './pages/super-admin/SystemSettings';
 import SystemHealth from './pages/super-admin/SystemHealth';
 import BillingDashboard from './pages/super-admin/BillingDashboard';
 import PlanManagement from './pages/super-admin/PlanManagement';
+import APIKeyManagement from './pages/super-admin/APIKeyManagement';
 
 // Tenant Billing
 import BillingSettings from './pages/tenant/BillingSettings';
@@ -385,6 +386,7 @@ const AppRoutes: React.FC = () => {
         <Route path="notifications" element={<PlatformNotifications />} />
         <Route path="settings" element={<SystemSettings />} />
         <Route path="health" element={<SystemHealth />} />
+        <Route path="api-keys" element={<APIKeyManagement />} />
       </Route>
 
       {/* 404 */}
