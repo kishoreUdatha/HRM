@@ -165,6 +165,16 @@ jobs:
             -f services/billing-service/Dockerfile services/billing-service
           docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-billing-service --all-tags
 
+      # ===========================================
+      # Build Integration Service
+      # ===========================================
+      - name: Build Integration Service
+        run: |
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/hrm-integration-service:${{ steps.tags.outputs.sha }} \
+            -t ${{ env.ACR_LOGIN_SERVER }}/hrm-integration-service:latest \
+            -f services/integration-service/Dockerfile services/integration-service
+          docker push ${{ env.ACR_LOGIN_SERVER }}/hrm-integration-service --all-tags
+
   # ===========================================
   # UPDATE CONTAINER APPS (Terraform-managed)
   # ===========================================
@@ -205,6 +215,7 @@ jobs:
           ONBOARDING_URL="http://hrm-onboarding-service.internal.${ENV_DOMAIN}"
           BILLING_URL="http://hrm-billing-service.internal.${ENV_DOMAIN}"
           TIMESHEET_URL="http://hrm-timesheet-service.internal.${ENV_DOMAIN}"
+          INTEGRATION_URL="http://hrm-integration-service.internal.${ENV_DOMAIN}"
 
           echo "Updating API Gateway with internal service URLs..."
           az containerapp update \
@@ -212,7 +223,7 @@ jobs:
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --container-name hrm-production-gateway \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-api-gateway:${{ needs.build-push.outputs.image_tag }} \
-            --set-env-vars "AUTH_SERVICE_URL=$AUTH_URL" "TENANT_SERVICE_URL=$TENANT_URL" "EMPLOYEE_SERVICE_URL=$EMPLOYEE_URL" "ATTENDANCE_SERVICE_URL=$ATTENDANCE_URL" "LEAVE_SERVICE_URL=$LEAVE_URL" "PAYROLL_SERVICE_URL=$PAYROLL_URL" "NOTIFICATION_SERVICE_URL=$NOTIFICATION_URL" "ONBOARDING_SERVICE_URL=$ONBOARDING_URL" "BILLING_SERVICE_URL=$BILLING_URL" "TIMESHEET_SERVICE_URL=$TIMESHEET_URL" "PORT=3000"
+            --set-env-vars "AUTH_SERVICE_URL=$AUTH_URL" "TENANT_SERVICE_URL=$TENANT_URL" "EMPLOYEE_SERVICE_URL=$EMPLOYEE_URL" "ATTENDANCE_SERVICE_URL=$ATTENDANCE_URL" "LEAVE_SERVICE_URL=$LEAVE_URL" "PAYROLL_SERVICE_URL=$PAYROLL_URL" "NOTIFICATION_SERVICE_URL=$NOTIFICATION_URL" "ONBOARDING_SERVICE_URL=$ONBOARDING_URL" "BILLING_SERVICE_URL=$BILLING_URL" "TIMESHEET_SERVICE_URL=$TIMESHEET_URL" "INTEGRATION_SERVICE_URL=$INTEGRATION_URL" "PORT=3000"
 
       - name: Update Core Services
         run: |
@@ -297,6 +308,28 @@ jobs:
             --container-name hrm-billing-service \
             --image ${{ env.ACR_LOGIN_SERVER }}/hrm-billing-service:$IMAGE_TAG \
             --set-env-vars "PORT=3027" &
+
+          echo "Updating integration service..."
+          # Create integration service if it doesn't exist, then update
+          az containerapp show --name hrm-integration-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} 2>/dev/null || \
+            az containerapp create --name hrm-integration-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+              --environment ${{ env.CONTAINER_APP_ENV }} \
+              --image ${{ env.ACR_LOGIN_SERVER }}/hrm-integration-service:$IMAGE_TAG \
+              --registry-server ${{ env.ACR_LOGIN_SERVER }} \
+              --registry-username $(az acr credential show --name ${{ env.ACR_NAME }} --query "username" -o tsv) \
+              --registry-password $(az acr credential show --name ${{ env.ACR_NAME }} --query "passwords[0].value" -o tsv) \
+              --target-port 3013 \
+              --ingress internal \
+              --min-replicas 1 \
+              --max-replicas 3 \
+              --cpu 0.25 \
+              --memory 0.5Gi \
+              --secrets "mongodb-uri=${{ secrets.MONGODB_URI }}" \
+              --env-vars "PORT=3013" "MONGODB_URI=secretref:mongodb-uri" "NODE_ENV=production"
+          az containerapp update --name hrm-integration-service --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --container-name hrm-integration-service \
+            --image ${{ env.ACR_LOGIN_SERVER }}/hrm-integration-service:$IMAGE_TAG \
+            --set-env-vars "PORT=3013" "NODE_ENV=production" &
 
           # Wait for all background updates to complete
           wait
